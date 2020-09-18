@@ -90,18 +90,19 @@ def run_job(job):
     deflection["site_key"] = job["site_key"]
     deflection["particle_key"] = job["particle_key"]
 
-    lfc = light_field_characterization.characterize_cherenkov_pool(
-        site=job["site"],
-        primary_energy=job["primary_energy"],
-        primary_particle_id=job["primary_particle_id"],
-        primary_azimuth_deg=deflection["primary_azimuth_deg"],
-        primary_zenith_deg=deflection["primary_zenith_deg"],
-        corsika_primary_path=job["corsika_primary_path"],
-        total_energy_thrown=1e2,
-        min_num_cherenkov_photons=1e2,
-        outlier_percentile=job["outlier_percentile"],
-    )
-    deflection.update(lfc)
+    if deflection["valid"]:
+        lfc = light_field_characterization.characterize_cherenkov_pool(
+            site=job["site"],
+            primary_energy=job["primary_energy"],
+            primary_particle_id=job["primary_particle_id"],
+            primary_azimuth_deg=deflection["primary_azimuth_deg"],
+            primary_zenith_deg=deflection["primary_zenith_deg"],
+            corsika_primary_path=job["corsika_primary_path"],
+            total_energy_thrown=1e2,
+            min_num_cherenkov_photons=1e2,
+            outlier_percentile=job["outlier_percentile"],
+        )
+        deflection.update(lfc)
 
     return deflection
 
@@ -123,7 +124,12 @@ KEEP_KEYS = [
 def structure_combined_results(
     combined_results, particles, sites,
 ):
-    df = pd.DataFrame(combined_results)
+    valid_results = []
+    for result in combined_results:
+        if result["valid"]:
+            valid_results.append(result)
+
+    df = pd.DataFrame(valid_results)
 
     all_keys_keep = KEEP_KEYS + light_field_characterization.KEYS
 
