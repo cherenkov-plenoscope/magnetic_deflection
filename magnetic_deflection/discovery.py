@@ -32,8 +32,8 @@ def _azimuth_range(azimuth_deg):
             azimuth_deg -= 360
     else:
         azimuth_deg = np.asarray(azimuth_deg)
-        mask = azimuth_deg > 180.
-        azimuth_deg[mask] -= 360.
+        mask = azimuth_deg > 180.0
+        azimuth_deg[mask] -= 360.0
     return azimuth_deg
 
 
@@ -42,21 +42,21 @@ def _az_zd_to_cx_cy(azimuth_deg, zenith_deg):
     # Adopted from CORSIKA
     az = np.deg2rad(azimuth_deg)
     zd = np.deg2rad(zenith_deg)
-    cx = np.cos(az)*np.sin(zd)
-    cy = np.sin(az)*np.sin(zd)
+    cx = np.cos(az) * np.sin(zd)
+    cy = np.sin(az) * np.sin(zd)
     _cz = np.cos(zd)
     return cx, cy
 
 
 def _cx_cy_to_az_zd_deg(cx, cy):
-    inner_sqrt = 1.0 - cx**2 - cy**2
+    inner_sqrt = 1.0 - cx ** 2 - cy ** 2
     if np.isscalar(inner_sqrt):
         if inner_sqrt >= 0:
             cz = np.sqrt(inner_sqrt)
         else:
             cz = float("nan")
     else:
-        cz = np.nan*np.ones(len(inner_sqrt))
+        cz = np.nan * np.ones(len(inner_sqrt))
         fine = inner_sqrt >= 0
         cz[fine] = np.sqrt(inner_sqrt)
     # 1 = sqrt(cx**2 + cy**2 + cz**2)
@@ -70,32 +70,35 @@ def _angle_between_az_zd_deg(az1_deg, zd1_deg, az2_deg, zd2_deg):
     zd1 = np.deg2rad(zd1_deg)
     az2 = np.deg2rad(az2_deg)
     zd2 = np.deg2rad(zd2_deg)
-    return np.rad2deg(_great_circle_distance_long_lat(
-        lam_long1=az1,
-        phi_alt1=np.pi/2 - zd1,
-        lam_long2=az2,
-        phi_alt2=np.pi/2 - zd2))
+    return np.rad2deg(
+        _great_circle_distance_long_lat(
+            lam_long1=az1,
+            phi_alt1=np.pi / 2 - zd1,
+            lam_long2=az2,
+            phi_alt2=np.pi / 2 - zd2,
+        )
+    )
 
 
 def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
     delta_lam = np.abs(lam_long2 - lam_long1)
     delta_sigma = np.arccos(
-        np.sin(phi_alt1) * np.sin(phi_alt2) +
-        np.cos(phi_alt1) * np.cos(phi_alt2) * np.cos(delta_lam))
+        np.sin(phi_alt1) * np.sin(phi_alt2)
+        + np.cos(phi_alt1) * np.cos(phi_alt2) * np.cos(delta_lam)
+    )
     return delta_sigma
 
 
 def estimate_cherenkov_pool(
-    corsika_primary_steering,
-    corsika_primary_path,
-    min_num_cherenkov_photons,
+    corsika_primary_steering, corsika_primary_path, min_num_cherenkov_photons,
 ):
     with tempfile.TemporaryDirectory(prefix="mag_defl_") as tmp:
         corsika_output_path = os.path.join(tmp, "run.tario")
         cpw.corsika_primary(
             corsika_path=corsika_primary_path,
             steering_dict=corsika_primary_steering,
-            output_path=corsika_output_path)
+            output_path=corsika_output_path,
+        )
         cherenkov_pool_summaries = []
         run = cpw.Tario(corsika_output_path)
         for idx, airshower in enumerate(run):
@@ -142,7 +145,7 @@ def _make_steering(
             "zenith_rad": np.deg2rad(zd_deg),
             "azimuth_rad": np.deg2rad(az_deg),
             "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(event_id + run_id*num_events),
+            "random_seed": cpw.simple_seed(event_id + run_id * num_events),
         }
         steering["primaries"].append(prm)
     return steering
@@ -170,7 +173,7 @@ def _info_json(
     s += '"zenith_deg": {:.2f}, '.format(prm_zd_deg)
     s += '"off_deg": {:.2f}, '.format(off_axis_deg)
     s += '"pools": {:d}'.format(num_cherenkov_pools)
-    return '{' + s + '}'
+    return "{" + s + "}"
 
 
 def indirect_discovery(
@@ -180,8 +183,8 @@ def indirect_discovery(
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
-    initial_num_events_per_iteration=2**5,
-    max_total_num_events=2**14,
+    initial_num_events_per_iteration=2 ** 5,
+    max_total_num_events=2 ** 14,
     min_num_valid_Cherenkov_pools=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     iteration_speed=0.5,
@@ -194,31 +197,28 @@ def indirect_discovery(
     assert max_total_num_events > 0
     assert initial_num_events_per_iteration > 0
     assert max_total_num_events > initial_num_events_per_iteration
-    assert max_off_axis_deg > 0.
-    assert primary_energy > 0.
+    assert max_off_axis_deg > 0.0
+    assert primary_energy > 0.0
 
     instrument_cx, instrument_cy = _az_zd_to_cx_cy(
-        azimuth_deg=instrument_azimuth_deg,
-        zenith_deg=instrument_zenith_deg)
+        azimuth_deg=instrument_azimuth_deg, zenith_deg=instrument_zenith_deg
+    )
     best_estimate = {
         "iteration": 0,
-
         "primary_azimuth_deg": float(instrument_azimuth_deg),
         "primary_zenith_deg": float(instrument_zenith_deg),
         "primary_cx": float(instrument_cx),
         "primary_cy": float(instrument_cy),
-
-        "cherenkov_pool_x_m": float('nan'),
-        "cherenkov_pool_y_m": float('nan'),
-        "cherenkov_pool_cx": float('nan'),
-        "cherenkov_pool_cy": float('nan'),
+        "cherenkov_pool_x_m": float("nan"),
+        "cherenkov_pool_y_m": float("nan"),
+        "cherenkov_pool_cx": float("nan"),
+        "cherenkov_pool_cy": float("nan"),
         "num_valid_Cherenkov_pools": 0,
         "num_thrown_Cherenkov_pools": int(initial_num_events_per_iteration),
-
-        "off_axis_deg": 180.,
+        "off_axis_deg": 180.0,
         "valid": False,
         "problem": "",
-        "total_num_events": 0
+        "total_num_events": 0,
     }
     be = best_estimate
 
@@ -227,44 +227,51 @@ def indirect_discovery(
     while True:
         be["iteration"] += 1
 
-        be["total_num_events"] += be['num_thrown_Cherenkov_pools']
+        be["total_num_events"] += be["num_thrown_Cherenkov_pools"]
         if be["total_num_events"] > max_total_num_events:
             be["valid"] = False
             be["problem"] = "Reached total_num_events {:d}".format(
-                max_total_num_events)
+                max_total_num_events
+            )
             print(be["problem"])
             break
 
         steering = _make_steering(
             run_id=be["iteration"],
             site=site,
-            num_events=be['num_thrown_Cherenkov_pools'],
+            num_events=be["num_thrown_Cherenkov_pools"],
             primary_particle_id=primary_particle_id,
             primary_energy=primary_energy,
             primary_cx=be["primary_cx"],
-            primary_cy=be["primary_cy"])
+            primary_cy=be["primary_cy"],
+        )
         cherenkov_pools_list = estimate_cherenkov_pool(
             corsika_primary_steering=steering,
             corsika_primary_path=corsika_primary_path,
-            min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower)
+            min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
+        )
 
         actual_num_valid_pools = len(cherenkov_pools_list)
         expected_num_valid_pools = int(
-            np.ceil(0.1*be['num_thrown_Cherenkov_pools']))
+            np.ceil(0.1 * be["num_thrown_Cherenkov_pools"])
+        )
         if actual_num_valid_pools < expected_num_valid_pools:
             be["valid"] = False
-            be["problem"] = ''.join([
-                "Expected at least {:d} ".format(expected_num_valid_pools),
-                "valid Cherenkov-pools. ",
-                "But actually got {:d}.".format(actual_num_valid_pools)])
+            be["problem"] = "".join(
+                [
+                    "Expected at least {:d} ".format(expected_num_valid_pools),
+                    "valid Cherenkov-pools. ",
+                    "But actually got {:d}.".format(actual_num_valid_pools),
+                ]
+            )
             print(be["problem"])
             break
 
         cherenkov_pools = np.vstack(cherenkov_pools_list)
         cer_cx = np.median(cherenkov_pools[:, CXS_MEDIAN])
         cer_cy = np.median(cherenkov_pools[:, CYS_MEDIAN])
-        cer_x = np.median(cherenkov_pools[:, XS_MEDIAN])*cpw.CM2M
-        cer_y = np.median(cherenkov_pools[:, YS_MEDIAN])*cpw.CM2M
+        cer_x = np.median(cherenkov_pools[:, XS_MEDIAN]) * cpw.CM2M
+        cer_y = np.median(cherenkov_pools[:, YS_MEDIAN]) * cpw.CM2M
 
         be["cherenkov_pool_x_m"] = float(cer_x)
         be["cherenkov_pool_y_m"] = float(cer_y)
@@ -273,42 +280,45 @@ def indirect_discovery(
         be["num_valid_Cherenkov_pools"] = int(len(cherenkov_pools))
         cer_cx_off = cer_cx - instrument_cx
         cer_cy_off = cer_cy - instrument_cy
-        be['off_axis_deg'] = float(np.rad2deg(np.hypot(
-            cer_cx_off,
-            cer_cy_off)))
+        be["off_axis_deg"] = float(
+            np.rad2deg(np.hypot(cer_cx_off, cer_cy_off))
+        )
 
         if verbose:
-            print(_info_json(
-                be["iteration"],
-                site['atmosphere_id'],
-                primary_particle_id,
-                primary_energy,
-                be['off_axis_deg'],
-                be['num_thrown_Cherenkov_pools'],
-                be["primary_cx"],
-                be["primary_cy"],
-                be["num_valid_Cherenkov_pools"]))
+            print(
+                _info_json(
+                    be["iteration"],
+                    site["atmosphere_id"],
+                    primary_particle_id,
+                    primary_energy,
+                    be["off_axis_deg"],
+                    be["num_thrown_Cherenkov_pools"],
+                    be["primary_cx"],
+                    be["primary_cy"],
+                    be["num_valid_Cherenkov_pools"],
+                )
+            )
 
-        if be['off_axis_deg'] >= max_off_axis_deg:
-            be["primary_cx"] = be["primary_cx"] - iteration_speed*cer_cx_off
-            be["primary_cy"] = be["primary_cy"] - iteration_speed*cer_cy_off
+        if be["off_axis_deg"] >= max_off_axis_deg:
+            be["primary_cx"] = be["primary_cx"] - iteration_speed * cer_cx_off
+            be["primary_cy"] = be["primary_cy"] - iteration_speed * cer_cy_off
             primary_azimuth_deg, primary_zenith_deg = _cx_cy_to_az_zd_deg(
-                cx=be["primary_cx"],
-                cy=be["primary_cy"])
+                cx=be["primary_cx"], cy=be["primary_cy"]
+            )
             be["primary_azimuth_deg"] = float(primary_azimuth_deg)
             be["primary_zenith_deg"] = float(primary_zenith_deg)
 
-            if previous_off_axis_deg < be['off_axis_deg']:
-                be['num_thrown_Cherenkov_pools'] *= 2
+            if previous_off_axis_deg < be["off_axis_deg"]:
+                be["num_thrown_Cherenkov_pools"] *= 2
 
-            previous_off_axis_deg = be['off_axis_deg']
+            previous_off_axis_deg = be["off_axis_deg"]
             continue
 
         if be["num_valid_Cherenkov_pools"] < min_num_valid_Cherenkov_pools:
-            be['num_thrown_Cherenkov_pools'] *= 2
+            be["num_thrown_Cherenkov_pools"] *= 2
             continue
 
-        be['valid'] = True
+        be["valid"] = True
         break
 
     return be
@@ -334,21 +344,19 @@ def direct_discovery(
         "primary_azimuth_deg": float("nan"),
         "primary_zenith_deg": float("nan"),
         "off_axis_deg": float("nan"),
-
-        "cherenkov_pool_x_m": float('nan'),
-        "cherenkov_pool_y_m": float('nan'),
-        "cherenkov_pool_cx": float('nan'),
-        "cherenkov_pool_cy": float('nan'),
+        "cherenkov_pool_x_m": float("nan"),
+        "cherenkov_pool_y_m": float("nan"),
+        "cherenkov_pool_cx": float("nan"),
+        "cherenkov_pool_cy": float("nan"),
         "num_valid_Cherenkov_pools": 0,
         "num_thrown_Cherenkov_pools": int(num_events),
-
         "valid": False,
-        "problem": ""
+        "problem": "",
     }
 
     instrument_cx, instrument_cy = _az_zd_to_cx_cy(
-        azimuth_deg=instrument_azimuth_deg,
-        zenith_deg=instrument_zenith_deg)
+        azimuth_deg=instrument_azimuth_deg, zenith_deg=instrument_zenith_deg
+    )
 
     steering = {}
     steering["run"] = {
@@ -366,24 +374,26 @@ def direct_discovery(
             zenith_rad=np.deg2rad(best_primary_zenith_deg),
             min_scatter_opening_angle_rad=np.deg2rad(0.0),
             max_scatter_opening_angle_rad=np.deg2rad(spray_radius_deg),
-            max_zenith_rad=np.deg2rad(90))
+            max_zenith_rad=np.deg2rad(90),
+        )
         prm = {
             "particle_id": int(primary_particle_id),
             "energy_GeV": float(primary_energy),
             "zenith_rad": zd,
             "azimuth_rad": az,
             "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(event_id + run_id*num_events),
+            "random_seed": cpw.simple_seed(event_id + run_id * num_events),
         }
         steering["primaries"].append(prm)
 
     cherenkov_pools_list = estimate_cherenkov_pool(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
-        min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower)
+        min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
+    )
 
     actual_num_valid_pools = len(cherenkov_pools_list)
-    expected_num_valid_pools = int(np.ceil(0.1*num_events))
+    expected_num_valid_pools = int(np.ceil(0.1 * num_events))
     if actual_num_valid_pools < expected_num_valid_pools:
         out["valid"] = False
         out["problem"] = "not_enough_valid_Cherenkov_pools"
@@ -397,15 +407,15 @@ def direct_discovery(
     delta_c = np.hypot(delta_cx, delta_cy)
     delta_c_deg = np.rad2deg(delta_c)
 
-    weights = (max_off_axis_deg)**2/(delta_c_deg)**2
-    weights = weights/np.sum(weights)
+    weights = (max_off_axis_deg) ** 2 / (delta_c_deg) ** 2
+    weights = weights / np.sum(weights)
 
     prm_az = np.average(
-        cherenkov_pools[:, PARTICLE_AZIMUTH_RAD],
-        weights=weights)
+        cherenkov_pools[:, PARTICLE_AZIMUTH_RAD], weights=weights
+    )
     prm_zd = np.average(
-        cherenkov_pools[:, PARTICLE_ZENITH_RAD],
-        weights=weights)
+        cherenkov_pools[:, PARTICLE_ZENITH_RAD], weights=weights
+    )
     average_off_axis_deg = np.average(delta_c_deg, weights=weights)
 
     out["valid"] = True
@@ -413,21 +423,22 @@ def direct_discovery(
     out["primary_zenith_deg"] = float(np.rad2deg(prm_zd))
     out["off_axis_deg"] = float(average_off_axis_deg)
 
-    out["cherenkov_pool_x_m"] = float(np.average(
-        cherenkov_pools[:, XS_MEDIAN]*cpw.CM2M,
-        weights=weights))
-    out["cherenkov_pool_y_m"] = float(np.average(
-        cherenkov_pools[:, YS_MEDIAN]*cpw.CM2M,
-        weights=weights))
-    out["cherenkov_pool_cx"] = float(np.average(
-        cherenkov_pools[:, CXS_MEDIAN]*cpw.CM2M,
-        weights=weights))
-    out["cherenkov_pool_cy"] = float(np.average(
-        cherenkov_pools[:, CYS_MEDIAN]*cpw.CM2M,
-        weights=weights))
+    out["cherenkov_pool_x_m"] = float(
+        np.average(cherenkov_pools[:, XS_MEDIAN] * cpw.CM2M, weights=weights)
+    )
+    out["cherenkov_pool_y_m"] = float(
+        np.average(cherenkov_pools[:, YS_MEDIAN] * cpw.CM2M, weights=weights)
+    )
+    out["cherenkov_pool_cx"] = float(
+        np.average(cherenkov_pools[:, CXS_MEDIAN] * cpw.CM2M, weights=weights)
+    )
+    out["cherenkov_pool_cy"] = float(
+        np.average(cherenkov_pools[:, CYS_MEDIAN] * cpw.CM2M, weights=weights)
+    )
     _prm_cx, _prm_cy = _az_zd_to_cx_cy(
         azimuth_deg=out["primary_azimuth_deg"],
-        zenith_deg=out["primary_zenith_deg"])
+        zenith_deg=out["primary_zenith_deg"],
+    )
     out["primary_cx"] = float(_prm_cx)
     out["primary_cy"] = float(_prm_cy)
 
@@ -444,8 +455,8 @@ def estimate_deflection(
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
-    initial_num_events_per_iteration=2**5,
-    max_total_num_events=2**13,
+    initial_num_events_per_iteration=2 ** 5,
+    max_total_num_events=2 ** 13,
     min_num_valid_Cherenkov_pools=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     iteration_speed=0.9,
@@ -465,7 +476,8 @@ def estimate_deflection(
         corsika_primary_path=corsika_primary_path,
         iteration_speed=iteration_speed,
         min_num_cherenkov_photons_in_airshower=(
-            min_num_cherenkov_photons_in_airshower),
+            min_num_cherenkov_photons_in_airshower
+        ),
         verbose=verbose,
     )
 
@@ -475,12 +487,12 @@ def estimate_deflection(
     print("indirect_discovery failed.")
     print("Try direct_discovery.")
 
-    spray_radius_deg = 70.
+    spray_radius_deg = 70.0
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0
     total_num_events = 0
-    num_events = initial_num_events_per_iteration*8
+    num_events = initial_num_events_per_iteration * 8
     while True:
         run_id += 1
 
@@ -499,17 +511,19 @@ def estimate_deflection(
             site=site,
             corsika_primary_path=corsika_primary_path,
             min_num_cherenkov_photons_in_airshower=(
-                min_num_cherenkov_photons_in_airshower),
+                min_num_cherenkov_photons_in_airshower
+            ),
         )
 
-        print("direct_discovery {:d}, spray {:1.2f}deg, off {:1.2f}deg".format(
-            run_id,
-            spray_radius_deg,
-            direct_guess["off_axis_deg"]))
+        print(
+            "direct_discovery {:d}, spray {:1.2f}deg, off {:1.2f}deg".format(
+                run_id, spray_radius_deg, direct_guess["off_axis_deg"]
+            )
+        )
 
         if (
-            direct_guess["valid"] and
-            direct_guess["off_axis_deg"] <= max_off_axis_deg
+            direct_guess["valid"]
+            and direct_guess["off_axis_deg"] <= max_off_axis_deg
         ):
             direct_guess["total_num_events"] = total_num_events
             return direct_guess
@@ -520,7 +534,7 @@ def estimate_deflection(
 
         if spray_radius_deg < direct_guess["off_axis_deg"]:
             num_events *= 2
-            spray_radius_deg *= np.sqrt(2.)
+            spray_radius_deg *= np.sqrt(2.0)
             print("double num events.")
             continue
 
@@ -528,7 +542,7 @@ def estimate_deflection(
             print("direct_discovery failed. Too many events thrown.")
             break
 
-        spray_radius_deg *= (1./np.sqrt(2.))
+        spray_radius_deg *= 1.0 / np.sqrt(2.0)
         prm_az_deg = direct_guess["primary_azimuth_deg"]
         prm_zd_deg = direct_guess["primary_zenith_deg"]
 
@@ -537,7 +551,7 @@ def estimate_deflection(
             break
 
     # Both methods failed. Return best guess.
-    if indirect_guess['off_axis_deg'] < direct_guess['off_axis_deg']:
+    if indirect_guess["off_axis_deg"] < direct_guess["off_axis_deg"]:
         return indirect_guess
     else:
         return direct_guess
