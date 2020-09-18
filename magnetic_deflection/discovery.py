@@ -550,8 +550,5 @@ def estimate_deflection(
             print("direct_discovery failed. Nan.")
             break
 
-    # Both methods failed. Return best guess.
-    if indirect_guess["off_axis_deg"] < direct_guess["off_axis_deg"]:
-        return indirect_guess
-    else:
-        return direct_guess
+    # Both methods failed.
+    return {"valid": False}
