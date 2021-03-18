@@ -38,6 +38,7 @@ def make_jobs(
             )
             for energy_idx in range(len(energy_supports)):
                 job = {}
+                job["seed"] = len(jobs)
                 job["site"] = site
                 job["primary_energy"] = energy_supports[energy_idx]
                 job["primary_particle_id"] = particle_id
@@ -71,7 +72,10 @@ def sort_jobs_by_key(jobs, key):
 
 
 def run_job(job):
+    prng = np.random.Generator(np.random.MT19937(seed=job["seed"]))
+
     deflection = discovery.estimate_deflection(
+        prng=prng,
         site=job["site"],
         primary_energy=job["primary_energy"],
         primary_particle_id=job["primary_particle_id"],
@@ -199,6 +203,7 @@ def powerspace(start, stop, power_index, num, iterations=10000):
         for iti in range(iterations):
             points = np.sort(
                 cpw.random_distributions.draw_power_law(
+                    prng=np.random.default_rng(),
                     lower_limit=start,
                     upper_limit=stop,
                     power_slope=power_index,

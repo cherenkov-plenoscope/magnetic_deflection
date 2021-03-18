@@ -336,6 +336,7 @@ def direct_discovery(
     instrument_zenith_deg,
     max_off_axis_deg,
     site,
+    prng,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     min_num_cherenkov_photons_in_airshower=100,
 ):
@@ -370,6 +371,7 @@ def direct_discovery(
     steering["primaries"] = []
     for event_id in range(num_events):
         az, zd = cpw.random_distributions.draw_azimuth_zenith_in_viewcone(
+            prng=prng,
             azimuth_rad=np.deg2rad(best_primary_azimuth_deg),
             zenith_rad=np.deg2rad(best_primary_zenith_deg),
             min_scatter_opening_angle_rad=np.deg2rad(0.0),
@@ -449,6 +451,7 @@ def direct_discovery(
 
 
 def estimate_deflection(
+    prng,
     site,
     primary_energy,
     primary_particle_id,
@@ -509,6 +512,7 @@ def estimate_deflection(
             instrument_zenith_deg=instrument_zenith_deg,
             max_off_axis_deg=max_off_axis_deg,
             site=site,
+            prng=prng,
             corsika_primary_path=corsika_primary_path,
             min_num_cherenkov_photons_in_airshower=(
                 min_num_cherenkov_photons_in_airshower
