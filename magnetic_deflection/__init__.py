@@ -14,6 +14,8 @@ import shutil
 import corsika_primary_wrapper as cpw
 import pkg_resources
 import subprocess
+import glob
+import pickle
 
 
 def A_init_work_dir(
@@ -72,6 +74,11 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
     map_and_reduce.write_deflection_table(
         deflection_table=raw_deflection_table, path=raw_deflection_table_path
     )
+
+
+def _read_job_results_from_qsub_work_dir(template_path=".qsub/*.out"):
+    paths = glob.glob(template_path)
+    return [pickle.loads(open(p, "rb").read()) for p in paths]
 
 
 def D_summarize_raw_deflection(
