@@ -28,6 +28,39 @@ KEYS = [
 ]
 
 
+def make_corsika_primary_steering(
+    run_id,
+    site,
+    num_events,
+    primary_particle_id,
+    primary_energy,
+    primary_cx,
+    primary_cy,
+):
+    steering = {}
+    steering["run"] = {
+        "run_id": int(run_id),
+        "event_id_of_first_event": 1,
+        "observation_level_asl_m": site["observation_level_asl_m"],
+        "earth_magnetic_field_x_muT": site["earth_magnetic_field_x_muT"],
+        "earth_magnetic_field_z_muT": site["earth_magnetic_field_z_muT"],
+        "atmosphere_id": site["atmosphere_id"],
+    }
+    steering["primaries"] = []
+    for event_id in range(num_events):
+        az_deg, zd_deg = discovery._cx_cy_to_az_zd_deg(cx=primary_cx, cy=primary_cy)
+        prm = {
+            "particle_id": int(primary_particle_id),
+            "energy_GeV": float(primary_energy),
+            "zenith_rad": np.deg2rad(zd_deg),
+            "azimuth_rad": np.deg2rad(az_deg),
+            "depth_g_per_cm2": 0.0,
+            "random_seed": cpw.simple_seed(event_id + run_id * num_events),
+        }
+        steering["primaries"].append(prm)
+    return steering
+
+
 def characterize_cherenkov_pool(
     site,
     primary_particle_id,
@@ -46,7 +79,7 @@ def characterize_cherenkov_pool(
         azimuth_deg=primary_azimuth_deg, zenith_deg=primary_zenith_deg
     )
 
-    corsika_primary_steering = discovery._make_steering(
+    corsika_primary_steering = make_corsika_primary_steering(
         run_id=1,
         site=site,
         num_events=num_airshower,
