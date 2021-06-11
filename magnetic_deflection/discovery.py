@@ -147,7 +147,6 @@ def direct_discovery(
         "num_valid_Cherenkov_pools": 0,
         "num_thrown_Cherenkov_pools": int(num_events),
         "valid": False,
-        "problem": "",
     }
 
     instrument_cx, instrument_cy = _az_zd_to_cx_cy(
@@ -193,7 +192,6 @@ def direct_discovery(
     expected_num_valid_pools = int(np.ceil(0.1 * num_events))
     if actual_num_valid_pools < expected_num_valid_pools:
         out["valid"] = False
-        out["problem"] = "not_enough_valid_Cherenkov_pools"
         return out
 
     delta_cx = cherenkov_pools["cxs_median"] - instrument_cx
@@ -296,7 +294,7 @@ def estimate_deflection(
             return guess
 
         if spray_radius_deg < max_off_axis_deg:
-            print("direct_discovery failed.")
+            print("spray_radius_deg < max_off_axis_deg")
             break
 
         if spray_radius_deg < guess["off_axis_deg"]:
@@ -306,7 +304,7 @@ def estimate_deflection(
             continue
 
         if total_num_events > max_total_num_events:
-            print("direct_discovery failed. Too many events thrown.")
+            print("Too many events thrown.")
             break
 
         spray_radius_deg *= 1.0 / np.sqrt(2.0)
@@ -314,7 +312,7 @@ def estimate_deflection(
         prm_zd_deg = guess["primary_zenith_deg"]
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
-            print("direct_discovery failed. Nan.")
+            print("directions are Nan")
             break
 
     # failed.
