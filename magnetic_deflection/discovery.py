@@ -257,7 +257,7 @@ def estimate_deflection(
     min_num_cherenkov_photons_in_airshower=100,
     verbose=True,
 ):
-    spray_radius_deg = 70.0
+    spray_radius_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0
