@@ -269,7 +269,7 @@ def estimate_deflection(
         run_id += 1
 
         total_num_events += num_events
-        direct_guess = direct_discovery(
+        guess = direct_discovery(
             run_id=run_id,
             num_events=num_events,
             primary_particle_id=primary_particle_id,
@@ -288,24 +288,18 @@ def estimate_deflection(
             ),
         )
 
-        print(
-            "direct_discovery {:d}, spray {:1.2f}deg, off {:1.2f}deg".format(
-                run_id, spray_radius_deg, direct_guess["off_axis_deg"]
-            )
-        )
-
         if (
-            direct_guess["valid"]
-            and direct_guess["off_axis_deg"] <= max_off_axis_deg
+            guess["valid"]
+            and guess["off_axis_deg"] <= max_off_axis_deg
         ):
-            direct_guess["total_num_events"] = total_num_events
-            return direct_guess
+            guess["total_num_events"] = total_num_events
+            return guess
 
         if spray_radius_deg < max_off_axis_deg:
             print("direct_discovery failed.")
             break
 
-        if spray_radius_deg < direct_guess["off_axis_deg"]:
+        if spray_radius_deg < guess["off_axis_deg"]:
             num_events *= 2
             spray_radius_deg *= np.sqrt(2.0)
             print("double num events.")
@@ -316,8 +310,8 @@ def estimate_deflection(
             break
 
         spray_radius_deg *= 1.0 / np.sqrt(2.0)
-        prm_az_deg = direct_guess["primary_azimuth_deg"]
-        prm_zd_deg = direct_guess["primary_zenith_deg"]
+        prm_az_deg = guess["primary_azimuth_deg"]
+        prm_zd_deg = guess["primary_zenith_deg"]
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
             print("direct_discovery failed. Nan.")
