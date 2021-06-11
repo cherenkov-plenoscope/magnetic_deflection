@@ -48,7 +48,9 @@ def make_corsika_primary_steering(
     }
     steering["primaries"] = []
     for event_id in range(num_events):
-        az_deg, zd_deg = discovery._cx_cy_to_az_zd_deg(cx=primary_cx, cy=primary_cy)
+        az_deg, zd_deg = discovery._cx_cy_to_az_zd_deg(
+            cx=primary_cx, cy=primary_cy
+        )
         prm = {
             "particle_id": int(primary_particle_id),
             "energy_GeV": float(primary_energy),

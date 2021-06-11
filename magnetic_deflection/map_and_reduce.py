@@ -117,9 +117,9 @@ def run_job(job):
     # ------------
     result_filename = "{:06d}.json".format(job["seed"])
     map_path = os.path.join(job["map_dir"], result_filename)
-    with open(map_path+".tmp", "wt") as f:
+    with open(map_path + ".tmp", "wt") as f:
         f.write(json.dumps(deflection, indent=4))
-    shutil.move(src=map_path+".tmp", dst=map_path)
+    shutil.move(src=map_path + ".tmp", dst=map_path)
 
     return 0
 

@@ -94,7 +94,7 @@ def estimate_cherenkov_pool(
             "cys_median": [],
             "particle_zenith_rad": [],
             "particle_azimuth_rad": [],
-            "num_photons": []
+            "num_photons": [],
         }
         run = cpw.Tario(corsika_output_path)
         for idx, airshower in enumerate(run):
@@ -109,7 +109,9 @@ def estimate_cherenkov_pool(
                 pools["cxs_median"].append(np.median(pb[:, cpw.ICX]))
                 pools["cys_median"].append(np.median(pb[:, cpw.ICY]))
                 pools["particle_zenith_rad"].append(ceh[cpw.I_EVTH_ZENITH_RAD])
-                pools["particle_azimuth_rad"].append(ceh[cpw.I_EVTH_AZIMUTH_RAD])
+                pools["particle_azimuth_rad"].append(
+                    ceh[cpw.I_EVTH_AZIMUTH_RAD]
+                )
                 pools["num_photons"].append(np.sum(pb[:, cpw.IBSIZE]))
 
         pools_dataframe = pandas.DataFrame(pools)
