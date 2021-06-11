@@ -53,12 +53,19 @@ def B_make_jobs_from_work_dir(work_dir):
     config = read_json(os.path.join(work_dir, "config.json"))
 
     return map_and_reduce.make_jobs(
+        work_dir=work_dir,
         sites=sites,
         particles=particles,
         plenoscope_pointing=pointing,
         max_energy=config["max_energy_GeV"],
         num_energy_supports=config["num_energy_supports"],
     )
+
+
+def B2_read_job_results_from_work_dir(work_dir):
+    map_dir = os.path.join(work_dir, "map")
+    result_paths = glob.glob(os.path.join(map_dir, "*.json"))
+    return [json.loads(open(p, "rt").read()) for p in result_paths]
 
 
 def C_reduce_job_results_in_work_dir(job_results, work_dir):
@@ -74,11 +81,6 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
     map_and_reduce.write_deflection_table(
         deflection_table=raw_deflection_table, path=raw_deflection_table_path
     )
-
-
-def _read_job_results_from_qsub_work_dir(template_path=".qsub/*.out"):
-    paths = glob.glob(template_path)
-    return [pickle.loads(open(p, "rb").read()) for p in paths]
 
 
 def D_summarize_raw_deflection(

@@ -3,6 +3,7 @@ import shutil
 import os
 import glob
 import numpy as np
+import json
 import corsika_primary_wrapper as cpw
 from . import examples
 from . import discovery
@@ -10,6 +11,7 @@ from . import light_field_characterization
 
 
 def make_jobs(
+    work_dir,
     sites,
     particles,
     plenoscope_pointing,
@@ -22,6 +24,7 @@ def make_jobs(
     outlier_percentile=50.0,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
 ):
+    abs_work_dir = os.path.abspath(work_dir)
     jobs = []
     for site_key in sites:
         for particle_key in particles:
@@ -39,6 +42,7 @@ def make_jobs(
             for energy_idx in range(len(energy_supports)):
                 job = {}
                 job["seed"] = len(jobs)
+                job["map_dir"] = os.path.join(abs_work_dir, "map")
                 job["site"] = site
                 job["primary_energy"] = energy_supports[energy_idx]
                 job["primary_particle_id"] = particle_id
@@ -72,6 +76,7 @@ def sort_jobs_by_key(jobs, key):
 
 
 def run_job(job):
+    os.makedirs(job["map_dir"], exist_ok=True)
     prng = np.random.Generator(np.random.MT19937(seed=job["seed"]))
 
     deflection = discovery.estimate_deflection(
@@ -108,7 +113,15 @@ def run_job(job):
         )
         deflection.update(lfc)
 
-    return deflection
+    # write result
+    # ------------
+    result_filename = "{:06d}.json".format(job["seed"])
+    map_path = os.path.join(job["map_dir"], result_filename)
+    with open(map_path+".tmp", "wt") as f:
+        f.write(json.dumps(deflection, indent=4))
+    shutil.move(src=map_path+".tmp", dst=map_path)
+
+    return 0
 
 
 KEEP_KEYS = [
