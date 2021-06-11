@@ -2,20 +2,10 @@ import json
 import os
 import numpy as np
 import corsika_primary_wrapper as cpw
+import pandas
 import tempfile
 import time
 from . import examples
-
-
-NUM_FLOATS_IN_EVENTSUMMARY = 25
-
-PARTICLE_ZENITH_RAD = 0
-PARTICLE_AZIMUTH_RAD = 1
-NUM_PHOTONS = 2
-XS_MEDIAN = 3
-YS_MEDIAN = 4
-CXS_MEDIAN = 5
-CYS_MEDIAN = 6
 
 
 def _azimuth_range(azimuth_deg):
@@ -97,23 +87,25 @@ def estimate_cherenkov_pool(
             steering_dict=corsika_primary_steering,
             output_path=corsika_output_path,
         )
-        cherenkov_pool_summaries = []
+        cherenkov_pool_records = []
         run = cpw.Tario(corsika_output_path)
         for idx, airshower in enumerate(run):
             corsika_event_header, photon_bunches = airshower
             num_bunches = photon_bunches.shape[0]
             if num_bunches >= min_num_cherenkov_photons:
-                cps = np.zeros(NUM_FLOATS_IN_EVENTSUMMARY, dtype=np.float32)
-                cps[XS_MEDIAN] = np.median(photon_bunches[:, cpw.IX])
-                cps[YS_MEDIAN] = np.median(photon_bunches[:, cpw.IY])
-                cps[CXS_MEDIAN] = np.median(photon_bunches[:, cpw.ICX])
-                cps[CYS_MEDIAN] = np.median(photon_bunches[:, cpw.ICY])
-                ceh = corsika_event_header
-                cps[PARTICLE_ZENITH_RAD] = ceh[cpw.I_EVTH_ZENITH_RAD]
-                cps[PARTICLE_AZIMUTH_RAD] = ceh[cpw.I_EVTH_AZIMUTH_RAD]
-                cps[NUM_PHOTONS] = np.sum(photon_bunches[:, cpw.IBSIZE])
-                cherenkov_pool_summaries.append(cps)
-        return cherenkov_pool_summaries
+                cps = {}
+                cps["xs_median"] = np.median(photon_bunches[:, cpw.IX])
+                cps["ys_median"] = np.median(photon_bunches[:, cpw.IY])
+                cps["cxs_median"] = np.median(photon_bunches[:, cpw.ICX])
+                cps["cys_median"] = np.median(photon_bunches[:, cpw.ICY])
+                cps["particle_zenith_rad"] = corsika_event_header[cpw.I_EVTH_ZENITH_RAD]
+                cps["particle_azimuth_rad"] = corsika_event_header[cpw.I_EVTH_AZIMUTH_RAD]
+                cps["num_photons"] = np.sum(photon_bunches[:, cpw.IBSIZE])
+                cherenkov_pool_records.append(cps)
+
+        cherenkov_pools_df = pandas.DataFrame(cherenkov_pool_records)
+        cherenkov_pools_recarray = cherenkov_pools_df.to_records(index=False)
+        return cherenkov_pools_recarray
 
 
 def direct_discovery(
@@ -180,23 +172,21 @@ def direct_discovery(
         }
         steering["primaries"].append(prm)
 
-    cherenkov_pools_list = estimate_cherenkov_pool(
+    cherenkov_pools = estimate_cherenkov_pool(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
     )
 
-    actual_num_valid_pools = len(cherenkov_pools_list)
+    actual_num_valid_pools = len(cherenkov_pools)
     expected_num_valid_pools = int(np.ceil(0.1 * num_events))
     if actual_num_valid_pools < expected_num_valid_pools:
         out["valid"] = False
         out["problem"] = "not_enough_valid_Cherenkov_pools"
         return out
 
-    cherenkov_pools = np.vstack(cherenkov_pools_list)
-
-    delta_cx = cherenkov_pools[:, CXS_MEDIAN] - instrument_cx
-    delta_cy = cherenkov_pools[:, CYS_MEDIAN] - instrument_cy
+    delta_cx = cherenkov_pools["cxs_median"] - instrument_cx
+    delta_cy = cherenkov_pools["cys_median"] - instrument_cy
 
     delta_c = np.hypot(delta_cx, delta_cy)
     delta_c_deg = np.rad2deg(delta_c)
@@ -205,10 +195,10 @@ def direct_discovery(
     weights = weights / np.sum(weights)
 
     prm_az = np.average(
-        cherenkov_pools[:, PARTICLE_AZIMUTH_RAD], weights=weights
+        cherenkov_pools["particle_azimuth_rad"], weights=weights
     )
     prm_zd = np.average(
-        cherenkov_pools[:, PARTICLE_ZENITH_RAD], weights=weights
+        cherenkov_pools["particle_zenith_rad"], weights=weights
     )
     average_off_axis_deg = np.average(delta_c_deg, weights=weights)
 
@@ -218,16 +208,16 @@ def direct_discovery(
     out["off_axis_deg"] = float(average_off_axis_deg)
 
     out["cherenkov_pool_x_m"] = float(
-        np.average(cherenkov_pools[:, XS_MEDIAN] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["xs_median"] * cpw.CM2M, weights=weights)
     )
     out["cherenkov_pool_y_m"] = float(
-        np.average(cherenkov_pools[:, YS_MEDIAN] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["ys_median"] * cpw.CM2M, weights=weights)
     )
     out["cherenkov_pool_cx"] = float(
-        np.average(cherenkov_pools[:, CXS_MEDIAN] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["cxs_median"] * cpw.CM2M, weights=weights)
     )
     out["cherenkov_pool_cy"] = float(
-        np.average(cherenkov_pools[:, CYS_MEDIAN] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["cys_median"] * cpw.CM2M, weights=weights)
     )
     _prm_cx, _prm_cy = _az_zd_to_cx_cy(
         azimuth_deg=out["primary_azimuth_deg"],
@@ -236,7 +226,7 @@ def direct_discovery(
     out["primary_cx"] = float(_prm_cx)
     out["primary_cy"] = float(_prm_cy)
 
-    out["num_valid_Cherenkov_pools"] = len(cherenkov_pools_list)
+    out["num_valid_Cherenkov_pools"] = len(cherenkov_pools)
     out["num_thrown_Cherenkov_pools"] = int(num_events)
 
     return out
