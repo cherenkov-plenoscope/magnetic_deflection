@@ -190,7 +190,7 @@ def init_light_field_from_corsika(bunches):
     return pd.DataFrame(lf).to_records(index=False)
 
 
-def find_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
+def mask_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
     valid_x = percentile_indices_wrt_median(values=xs, percentile=percentile)
     valid_y = percentile_indices_wrt_median(values=ys, percentile=percentile)
     valid_cx = percentile_indices_wrt_median(values=cxs, percentile=percentile)
@@ -202,7 +202,7 @@ def find_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
 
 def parameterize_light_field(xs, ys, cxs, cys, ts, outlier_percentile=100.0):
     if outlier_percentile != 100.0:
-        valid = find_outlier_in_light_field_geometry(
+        valid = mask_outlier_in_light_field_geometry(
             xs=xs, ys=ys, cxs=cxs, cys=cys, percentile=outlier_percentile
         )
         xs = xs[valid]
