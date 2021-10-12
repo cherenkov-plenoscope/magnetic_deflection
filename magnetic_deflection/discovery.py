@@ -91,9 +91,10 @@ def direct_discovery(
     max_off_axis_deg,
     site,
     prng,
+    outlier_percentile,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     min_num_cherenkov_photons_in_airshower=100,
-    DEBUG_PRINT=True,
+    DEBUG_PRINT=False,
 ):
     out = {
         "iteration": int(run_id),
@@ -126,7 +127,7 @@ def direct_discovery(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
-        outlier_percentile=100.0,
+        outlier_percentile=outlier_percentile,
     )
     cherenkov_pools = pandas.DataFrame(cherenkov_pools)
     cherenkov_pools = cherenkov_pools.to_records(index=False)
@@ -212,6 +213,7 @@ def estimate_deflection(
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
+    outlier_percentile,
     initial_num_events_per_iteration=2 ** 5,
     max_total_num_events=2 ** 13,
     min_num_valid_Cherenkov_pools=100,
@@ -247,6 +249,7 @@ def estimate_deflection(
             min_num_cherenkov_photons_in_airshower=(
                 min_num_cherenkov_photons_in_airshower
             ),
+            outlier_percentile=outlier_percentile,
         )
 
         if (
