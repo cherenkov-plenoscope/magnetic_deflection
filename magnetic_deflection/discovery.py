@@ -80,24 +80,25 @@ def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
 def estimate_cherenkov_pool(
     corsika_primary_steering, corsika_primary_path, min_num_cherenkov_photons,
 ):
-    with tempfile.TemporaryDirectory(prefix="mag_defl_") as tmp:
-        corsika_output_path = os.path.join(tmp, "run.tario")
-        cpw.corsika_primary(
+    pools = {
+        "xs_median": [],
+        "ys_median": [],
+        "cxs_median": [],
+        "cys_median": [],
+        "particle_zenith_rad": [],
+        "particle_azimuth_rad": [],
+        "num_photons": [],
+    }
+
+    with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
+        corsika_run = cpw.CorsikaPrimary(
             corsika_path=corsika_primary_path,
             steering_dict=corsika_primary_steering,
-            output_path=corsika_output_path,
+            stdout_path=os.path.join(tmp_dir + ".stdout"),
+            stderr_path=os.path.join(tmp_dir + ".stderr"),
         )
-        pools = {
-            "xs_median": [],
-            "ys_median": [],
-            "cxs_median": [],
-            "cys_median": [],
-            "particle_zenith_rad": [],
-            "particle_azimuth_rad": [],
-            "num_photons": [],
-        }
-        run = cpw.Tario(corsika_output_path)
-        for idx, airshower in enumerate(run):
+
+        for idx, airshower in enumerate(corsika_run):
             corsika_event_header, photon_bunches = airshower
             num_bunches = photon_bunches.shape[0]
             ceh = corsika_event_header
