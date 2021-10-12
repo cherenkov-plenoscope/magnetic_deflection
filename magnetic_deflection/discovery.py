@@ -93,11 +93,13 @@ def direct_discovery(
     prng,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     min_num_cherenkov_photons_in_airshower=100,
+    DEBUG_PRINT=True,
 ):
     out = {
         "iteration": int(run_id),
         "primary_azimuth_deg": float("nan"),
         "primary_zenith_deg": float("nan"),
+        "primary_cone_opening_angle_deg": float(spray_radius_deg),
         "off_axis_deg": float("nan"),
         "cherenkov_pool_x_m": float("nan"),
         "cherenkov_pool_y_m": float("nan"),
@@ -107,10 +109,6 @@ def direct_discovery(
         "num_thrown_Cherenkov_pools": int(num_events),
         "valid": False,
     }
-
-    instrument_cx, instrument_cy = _az_zd_to_cx_cy(
-        azimuth_deg=instrument_azimuth_deg, zenith_deg=instrument_zenith_deg
-    )
 
     steering = corsika.make_steering(
         run_id=run_id,
@@ -139,14 +137,23 @@ def direct_discovery(
         out["valid"] = False
         return out
 
-    delta_cx = cherenkov_pools["direction_median_cx_rad"] - instrument_cx
-    delta_cy = cherenkov_pools["direction_median_cy_rad"] - instrument_cy
+    (
+        cherenkov_pool_azimuth_deg,
+        cherenkov_pool_zenith_deg
+    ) = _cx_cy_to_az_zd_deg(
+        cx=cherenkov_pools["direction_median_cx_rad"],
+        cy=cherenkov_pools["direction_median_cy_rad"],
+    )
 
-    delta_c = np.hypot(delta_cx, delta_cy)
-    delta_c_deg = np.rad2deg(delta_c)
+    delta_c_deg = _angle_between_az_zd_deg(
+        az1_deg=cherenkov_pool_azimuth_deg,
+        zd1_deg=cherenkov_pool_zenith_deg,
+        az2_deg=instrument_azimuth_deg,
+        zd2_deg=instrument_zenith_deg,
+    )
 
-    weights = (max_off_axis_deg) ** 2 / (delta_c_deg) ** 2
-    weights = weights / np.sum(weights)
+    c_ref_deg = (1/8) * (spray_radius_deg + max_off_axis_deg)
+    weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
 
     prm_az = np.average(
         cherenkov_pools["primary_azimuth_rad"], weights=weights
@@ -182,6 +189,17 @@ def direct_discovery(
 
     out["num_valid_Cherenkov_pools"] = len(cherenkov_pools)
     out["num_thrown_Cherenkov_pools"] = int(num_events)
+
+    if DEBUG_PRINT:
+        print(json.dumps(out, indent=4))
+        asw = np.argsort(weights)
+        for i in range(int(len(asw) / 10)):
+            j = asw[len(asw) - 1 - i]
+            print("weight {:03d}%, delta_c {:.2f}deg".format(
+                    int(100*weights[j]),
+                    delta_c_deg[j],
+                )
+            )
 
     return out
 
