@@ -108,15 +108,23 @@ def characterize_cherenkov_pool(
 
         num_airshowers_found = len(pools)
         bunches = np.vstack(pools)
-        _out = parameterize_light_field(
+        inlier = mask_outlier_in_light_field_geometry(
             xs=bunches[:, cpw.IX] * cpw.CM2M,
             ys=bunches[:, cpw.IY] * cpw.CM2M,
             cxs=bunches[:, cpw.ICX],
             cys=bunches[:, cpw.ICY],
-            ts=bunches[:, cpw.ITIME] * 1e-9,  # ns to s
             outlier_percentile=outlier_percentile,
         )
-        _out["total_num_photons"] = float(np.sum(bunches[:, cpw.IBSIZE]))
+        bunches_inlier = bunches[inlier]
+
+        _out = parameterize_light_field(
+            xs=bunches_inlier[:, cpw.IX] * cpw.CM2M,
+            ys=bunches_inlier[:, cpw.IY] * cpw.CM2M,
+            cxs=bunches_inlier[:, cpw.ICX],
+            cys=bunches_inlier[:, cpw.ICY],
+            ts=bunches_inlier[:, cpw.ITIME] * 1e-9,  # ns to s
+        )
+        _out["total_num_photons"] = float(np.sum(bunches_inlier[:, cpw.IBSIZE]))
         _out["total_num_airshowers"] = int(num_airshowers_found)
         _out["outlier_percentile"] = float(outlier_percentile)
         out = {}
@@ -200,16 +208,7 @@ def mask_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
     )
 
 
-def parameterize_light_field(xs, ys, cxs, cys, ts, outlier_percentile=100.0):
-    if outlier_percentile != 100.0:
-        valid = mask_outlier_in_light_field_geometry(
-            xs=xs, ys=ys, cxs=cxs, cys=cys, percentile=outlier_percentile
-        )
-        xs = xs[valid]
-        ys = ys[valid]
-        cxs = cxs[valid]
-        cys = cys[valid]
-        ts = ts[valid]
+def parameterize_light_field(xs, ys, cxs, cys, ts):
     xy_ellipse = estimate_ellipse(xs, ys, prefix="position_", unit="_m")
     cxcy_ellipse = estimate_ellipse(
         cxs, cys, prefix="direction_", unit="_rad", direction_c="c"
