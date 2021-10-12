@@ -165,10 +165,10 @@ def direct_discovery(
         np.average(cherenkov_pools["ys_median"] * cpw.CM2M, weights=weights)
     )
     out["cherenkov_pool_cx"] = float(
-        np.average(cherenkov_pools["cxs_median"] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["cxs_median"], weights=weights)
     )
     out["cherenkov_pool_cy"] = float(
-        np.average(cherenkov_pools["cys_median"] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["cys_median"], weights=weights)
     )
     _prm_cx, _prm_cy = _az_zd_to_cx_cy(
         azimuth_deg=out["primary_azimuth_deg"],
