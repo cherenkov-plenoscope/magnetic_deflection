@@ -62,7 +62,7 @@ def make_corsika_primary_steering(
         steering["primaries"].append(prm)
     return steering
 
-
+"""
 def characterize_cherenkov_pool(
     site,
     primary_particle_id,
@@ -108,7 +108,8 @@ def characterize_cherenkov_pool(
 
         num_airshowers_found = len(pools)
         bunches = np.vstack(pools)
-        inlier = mask_outlier_in_light_field_geometry(
+        inlier = mask_inlier_in_light_field_geometry(
+            light_field=
             xs=bunches[:, cpw.IX] * cpw.CM2M,
             ys=bunches[:, cpw.IY] * cpw.CM2M,
             cxs=bunches[:, cpw.ICX],
@@ -131,10 +132,10 @@ def characterize_cherenkov_pool(
         for key in _out:
             out[KEYPREFIX + key] = _out[key]
         return out
+"""
 
-
-def estimate_ellipse(cxs, cys, prefix="", direction_c="", unit=""):
-    cov_matrix = np.cov(np.c_[cxs, cys].T)
+def estimate_ellipse(a, b):
+    cov_matrix = np.cov(np.c_[a, b].T)
     eigen_vals, eigen_vecs = np.linalg.eig(cov_matrix)
     major_idx = np.argmax(eigen_vals)
     if major_idx == 0:
@@ -146,13 +147,12 @@ def estimate_ellipse(cxs, cys, prefix="", direction_c="", unit=""):
     major_std = np.sqrt(eigen_vals[major_idx])
     minor_std = np.sqrt(eigen_vals[minor_idx])
 
-    dc = direction_c
     return {
-        prefix + "med_" + dc + "x" + unit: float(np.median(cxs)),
-        prefix + "med_" + dc + "y" + unit: float(np.median(cys)),
-        prefix + "phi_rad": float(phi),
-        prefix + "std_major" + unit: float(major_std),
-        prefix + "std_minor" + unit: float(minor_std),
+        "median_a": np.median(a),
+        "median_b": np.median(b),
+        "phi_rad": phi,
+        "major_std": major_std,
+        "minor_std": minor_std,
     }
 
 
@@ -198,25 +198,39 @@ def init_light_field_from_corsika(bunches):
     return pd.DataFrame(lf).to_records(index=False)
 
 
-def mask_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
-    valid_x = percentile_indices_wrt_median(values=xs, percentile=percentile)
-    valid_y = percentile_indices_wrt_median(values=ys, percentile=percentile)
-    valid_cx = percentile_indices_wrt_median(values=cxs, percentile=percentile)
-    valid_cy = percentile_indices_wrt_median(values=cys, percentile=percentile)
+def mask_inlier_in_light_field_geometry(light_field, percentile):
+    pc = percentile
+    lf = light_field
+    valid_x = percentile_indices_wrt_median(values=lf["x"], percentile=pc)
+    valid_y = percentile_indices_wrt_median(values=lf["y"], percentile=pc)
+    valid_cx = percentile_indices_wrt_median(values=lf["cx"], percentile=pc)
+    valid_cy = percentile_indices_wrt_median(values=lf["cy"], percentile=pc)
     return np.logical_and(
         np.logical_and(valid_cx, valid_cy), np.logical_and(valid_x, valid_y)
     )
 
 
-def parameterize_light_field(xs, ys, cxs, cys, ts):
-    xy_ellipse = estimate_ellipse(xs, ys, prefix="position_", unit="_m")
-    cxcy_ellipse = estimate_ellipse(
-        cxs, cys, prefix="direction_", unit="_rad", direction_c="c"
-    )
+def parameterize_light_field(light_field):
+    lf = light_field
     out = {}
-    out.update(xy_ellipse)
-    out.update(cxcy_ellipse)
-    out["arrival_time_mean_s"] = float(np.mean(ts))
-    out["arrival_time_median_s"] = float(np.median(ts))
-    out["arrival_time_std_s"] = float(np.std(ts))
+
+    xy_ellipse = estimate_ellipse(a=lf["x"], b=lf["y"])
+    out["position_median_x_m"] = xy_ellipse["median_a"]
+    out["position_median_y_m"] = xy_ellipse["median_b"]
+    out["position_phi_rad"] = xy_ellipse["phi_rad"]
+    out["position_std_minor"] = xy_ellipse["minor_std"]
+    out["position_std_major"] = xy_ellipse["major_std"]
+    del xy_ellipse
+
+    cxcy_ellipse = estimate_ellipse(a=lf["cx"], b=lf["cy"])
+    out["direction_median_cx_rad"] = cxcy_ellipse["median_a"]
+    out["direction_median_cy_rad"] = cxcy_ellipse["median_b"]
+    out["direction_phi_rad"] = cxcy_ellipse["phi_rad"]
+    out["direction_std_minor"] = cxcy_ellipse["minor_std"]
+    out["direction_std_major"] = cxcy_ellipse["major_std"]
+    del cxcy_ellipse
+
+    out["arrival_time_mean_s"] = float(np.mean(lf["t"]))
+    out["arrival_time_median_s"] = float(np.median(lf["t"]))
+    out["arrival_time_std_s"] = float(np.std(lf["t"]))
     return out

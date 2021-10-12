@@ -50,17 +50,9 @@ def make_steering(
 
 
 def estimate_cherenkov_pool(
-    corsika_primary_steering, corsika_primary_path, min_num_cherenkov_photons,
+    corsika_primary_steering, corsika_primary_path, min_num_cherenkov_photons, outlier_percentile
 ):
-    pools = {
-        "xs_median": [],
-        "ys_median": [],
-        "cxs_median": [],
-        "cys_median": [],
-        "particle_zenith_rad": [],
-        "particle_azimuth_rad": [],
-        "num_photons": [],
-    }
+    pools = []
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
         corsika_run = cpw.CorsikaPrimary(
@@ -72,24 +64,29 @@ def estimate_cherenkov_pool(
 
         for idx, airshower in enumerate(corsika_run):
             corsika_event_header, photon_bunches = airshower
-            light_field = lfc.init_light_field_from_corsika(
+            all_light_field = lfc.init_light_field_from_corsika(
                 bunches=photon_bunches
             )
+
+            mask_inlier = lfc.mask_inlier_in_light_field_geometry(
+                light_field=all_light_field,
+                percentile=outlier_percentile,
+            )
+
+            light_field = all_light_field[mask_inlier]
 
             num_bunches = light_field.shape[0]
             ceh = corsika_event_header
 
             if num_bunches >= min_num_cherenkov_photons:
-                pools["xs_median"].append(np.median(light_field["x"]))
-                pools["ys_median"].append(np.median(light_field["y"]))
-                pools["cxs_median"].append(np.median(light_field["cx"]))
-                pools["cys_median"].append(np.median(light_field["cx"]))
-                pools["particle_zenith_rad"].append(ceh[cpw.I_EVTH_ZENITH_RAD])
-                pools["particle_azimuth_rad"].append(
-                    ceh[cpw.I_EVTH_AZIMUTH_RAD]
-                )
-                pools["num_photons"].append(np.sum(light_field["size"]))
+                pool = {}
+                pool["primary_azimuth_rad"] = ceh[cpw.I_EVTH_AZIMUTH_RAD]
+                pool["primary_zenith_rad"] = ceh[cpw.I_EVTH_ZENITH_RAD]
+                pool["num_photons"] = np.sum(light_field["size"])
+                pool["num_bunches"] = num_bunches
 
-        pools_dataframe = pandas.DataFrame(pools)
-        pools_recarray = pools_dataframe.to_records(index=False)
-        return pools_recarray
+                c = lfc.parameterize_light_field(light_field=light_field)
+                pool.update(c)
+                pools.append(pool)
+
+        return pools

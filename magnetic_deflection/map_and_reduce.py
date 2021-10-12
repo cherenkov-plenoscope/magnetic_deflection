@@ -99,6 +99,7 @@ def run_job(job):
     deflection["site_key"] = job["site_key"]
     deflection["particle_key"] = job["particle_key"]
 
+    """
     if deflection["valid"]:
         lfc = light_field_characterization.characterize_cherenkov_pool(
             site=job["site"],
@@ -112,6 +113,7 @@ def run_job(job):
             outlier_percentile=job["outlier_percentile"],
         )
         deflection.update(lfc)
+    """
 
     # write result
     # ------------

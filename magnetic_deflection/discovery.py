@@ -128,7 +128,10 @@ def direct_discovery(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
+        outlier_percentile=100.0,
     )
+    cherenkov_pools = pandas.DataFrame(cherenkov_pools)
+    cherenkov_pools = cherenkov_pools.to_records(index=False)
 
     actual_num_valid_pools = len(cherenkov_pools)
     expected_num_valid_pools = int(np.ceil(0.1 * num_events))
@@ -136,8 +139,8 @@ def direct_discovery(
         out["valid"] = False
         return out
 
-    delta_cx = cherenkov_pools["cxs_median"] - instrument_cx
-    delta_cy = cherenkov_pools["cys_median"] - instrument_cy
+    delta_cx = cherenkov_pools["direction_median_cx_rad"] - instrument_cx
+    delta_cy = cherenkov_pools["direction_median_cy_rad"] - instrument_cy
 
     delta_c = np.hypot(delta_cx, delta_cy)
     delta_c_deg = np.rad2deg(delta_c)
@@ -146,10 +149,10 @@ def direct_discovery(
     weights = weights / np.sum(weights)
 
     prm_az = np.average(
-        cherenkov_pools["particle_azimuth_rad"], weights=weights
+        cherenkov_pools["primary_azimuth_rad"], weights=weights
     )
     prm_zd = np.average(
-        cherenkov_pools["particle_zenith_rad"], weights=weights
+        cherenkov_pools["primary_zenith_rad"], weights=weights
     )
     average_off_axis_deg = np.average(delta_c_deg, weights=weights)
 
@@ -159,16 +162,16 @@ def direct_discovery(
     out["off_axis_deg"] = float(average_off_axis_deg)
 
     out["cherenkov_pool_x_m"] = float(
-        np.average(cherenkov_pools["xs_median"], weights=weights)
+        np.average(cherenkov_pools["position_median_x_m"], weights=weights)
     )
     out["cherenkov_pool_y_m"] = float(
-        np.average(cherenkov_pools["ys_median"], weights=weights)
+        np.average(cherenkov_pools["position_median_y_m"], weights=weights)
     )
     out["cherenkov_pool_cx"] = float(
-        np.average(cherenkov_pools["cxs_median"], weights=weights)
+        np.average(cherenkov_pools["direction_median_cx_rad"], weights=weights)
     )
     out["cherenkov_pool_cy"] = float(
-        np.average(cherenkov_pools["cys_median"], weights=weights)
+        np.average(cherenkov_pools["direction_median_cy_rad"], weights=weights)
     )
     _prm_cx, _prm_cy = _az_zd_to_cx_cy(
         azimuth_deg=out["primary_azimuth_deg"],
