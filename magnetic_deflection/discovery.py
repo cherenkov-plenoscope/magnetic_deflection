@@ -159,10 +159,10 @@ def direct_discovery(
     out["off_axis_deg"] = float(average_off_axis_deg)
 
     out["cherenkov_pool_x_m"] = float(
-        np.average(cherenkov_pools["xs_median"] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["xs_median"], weights=weights)
     )
     out["cherenkov_pool_y_m"] = float(
-        np.average(cherenkov_pools["ys_median"] * cpw.CM2M, weights=weights)
+        np.average(cherenkov_pools["ys_median"], weights=weights)
     )
     out["cherenkov_pool_cx"] = float(
         np.average(cherenkov_pools["cxs_median"], weights=weights)

@@ -178,6 +178,18 @@ def percentile_indices_wrt_median(values, percentile):
     )
 
 
+def init_light_field_from_corsika(bunches):
+    lf = {}
+    lf["x"] = bunches[:, cpw.IX] * cpw.CM2M  # cm to m
+    lf["y"] = bunches[:, cpw.IY] * cpw.CM2M  # cm to m
+    lf["cx"] = bunches[:, cpw.ICX]
+    lf["cy"] = bunches[:, cpw.ICY]
+    lf["t"] = bunches[:, cpw.ITIME] * 1e-9  # ns to s
+    lf["size"] = bunches[:, cpw.IBSIZE]
+    lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
+    return pd.DataFrame(lf).to_records(index=False)
+
+
 def find_outlier_in_light_field_geometry(xs, ys, cxs, cys, percentile):
     valid_x = percentile_indices_wrt_median(values=xs, percentile=percentile)
     valid_y = percentile_indices_wrt_median(values=ys, percentile=percentile)

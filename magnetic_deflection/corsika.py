@@ -4,6 +4,8 @@ import pandas
 import numpy as np
 import os
 
+from . import light_field_characterization as lfc
+
 
 def make_steering(
     run_id,
@@ -70,20 +72,23 @@ def estimate_cherenkov_pool(
 
         for idx, airshower in enumerate(corsika_run):
             corsika_event_header, photon_bunches = airshower
-            num_bunches = photon_bunches.shape[0]
+            light_field = lfc.init_light_field_from_corsika(
+                bunches=photon_bunches
+            )
+
+            num_bunches = light_field.shape[0]
             ceh = corsika_event_header
-            pb = photon_bunches
 
             if num_bunches >= min_num_cherenkov_photons:
-                pools["xs_median"].append(np.median(pb[:, cpw.IX]))
-                pools["ys_median"].append(np.median(pb[:, cpw.IY]))
-                pools["cxs_median"].append(np.median(pb[:, cpw.ICX]))
-                pools["cys_median"].append(np.median(pb[:, cpw.ICY]))
+                pools["xs_median"].append(np.median(light_field["x"]))
+                pools["ys_median"].append(np.median(light_field["y"]))
+                pools["cxs_median"].append(np.median(light_field["cx"]))
+                pools["cys_median"].append(np.median(light_field["cx"]))
                 pools["particle_zenith_rad"].append(ceh[cpw.I_EVTH_ZENITH_RAD])
                 pools["particle_azimuth_rad"].append(
                     ceh[cpw.I_EVTH_AZIMUTH_RAD]
                 )
-                pools["num_photons"].append(np.sum(pb[:, cpw.IBSIZE]))
+                pools["num_photons"].append(np.sum(light_field["size"]))
 
         pools_dataframe = pandas.DataFrame(pools)
         pools_recarray = pools_dataframe.to_records(index=False)
