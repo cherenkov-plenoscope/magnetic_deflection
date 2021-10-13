@@ -2,6 +2,7 @@ import numpy as np
 from . import discovery
 import tempfile
 import corsika_primary_wrapper as cpw
+from . import spherical_coordinates as sphcords
 import os
 import pandas as pd
 
@@ -28,111 +29,99 @@ KEYS = [
 ]
 
 
-def make_corsika_primary_steering(
-    run_id,
-    site,
-    num_events,
-    primary_particle_id,
-    primary_energy,
-    primary_cx,
-    primary_cy,
-):
-    steering = {}
-    steering["run"] = {
-        "run_id": int(run_id),
-        "event_id_of_first_event": 1,
-        "observation_level_asl_m": site["observation_level_asl_m"],
-        "earth_magnetic_field_x_muT": site["earth_magnetic_field_x_muT"],
-        "earth_magnetic_field_z_muT": site["earth_magnetic_field_z_muT"],
-        "atmosphere_id": site["atmosphere_id"],
-    }
-    steering["primaries"] = []
-    for event_id in range(num_events):
-        az_deg, zd_deg = discovery._cx_cy_to_az_zd_deg(
-            cx=primary_cx, cy=primary_cy
-        )
-        prm = {
-            "particle_id": int(primary_particle_id),
-            "energy_GeV": float(primary_energy),
-            "zenith_rad": np.deg2rad(zd_deg),
-            "azimuth_rad": np.deg2rad(az_deg),
-            "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(event_id + run_id * num_events),
-        }
-        steering["primaries"].append(prm)
-    return steering
+def avgerage_and_std(values, weights):
+    """
+    Return the weighted average and standard deviation.
 
-"""
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    average = numpy.average(values, weights=weights)
+    variance = numpy.average((values-average)**2, weights=weights)
+    return (average, np.sqrt(variance))
+
+
 def characterize_cherenkov_pool(
     site,
     primary_particle_id,
     primary_energy,
     primary_azimuth_deg,
     primary_zenith_deg,
+    primary_cone_opening_angle_deg,
+    instrument_azimuth_deg,
+    instrument_zenith_deg,
     corsika_primary_path,
-    total_energy_thrown=1e3,
-    min_num_cherenkov_photons=1e2,
-    outlier_percentile=100.0,
+    total_energy_thrown,
+    min_num_cherenkov_photons,
+    outlier_percentile,
+    prng,
 ):
     assert total_energy_thrown > primary_energy
-    num_airshower = int(np.ceil(total_energy_thrown / primary_energy))
+    num_events = int(np.ceil(total_energy_thrown / primary_energy))
 
-    primary_cx, primary_cy = discovery._az_zd_to_cx_cy(
-        azimuth_deg=primary_azimuth_deg, zenith_deg=primary_zenith_deg
-    )
-
-    corsika_primary_steering = make_corsika_primary_steering(
-        run_id=1,
+    steering = corsika.make_steering(
+        run_id=run_id,
         site=site,
-        num_events=num_airshower,
         primary_particle_id=primary_particle_id,
         primary_energy=primary_energy,
-        primary_cx=primary_cx,
-        primary_cy=primary_cy,
+        primary_cone_azimuth_deg=primary_azimuth_deg,
+        primary_cone_zenith_deg=primary_zenith_deg,
+        primary_cone_opening_angle_deg=primary_cone_opening_angle_deg,
+        num_events=num_events,
+        prng=prng,
     )
 
-    pools = []
-    with tempfile.TemporaryDirectory(prefix="mag_defl_") as tmp:
-        corsika_output_path = os.path.join(tmp, "run.tario")
-        cpw.corsika_primary(
-            corsika_path=corsika_primary_path,
-            steering_dict=corsika_primary_steering,
-            output_path=corsika_output_path,
-        )
-        run = cpw.Tario(corsika_output_path)
-        for idx, airshower in enumerate(run):
-            corsika_event_header, bunches = airshower
-            num_bunches = bunches.shape[0]
-            if num_bunches >= min_num_cherenkov_photons:
-                pools.append(bunches)
+    pools = corsika.estimate_cherenkov_pool(
+        corsika_primary_steering=steering,
+        corsika_primary_path=corsika_primary_path,
+        min_num_cherenkov_photons=min_num_cherenkov_photons,
+        outlier_percentile=outlier_percentile,
+    )
 
-        num_airshowers_found = len(pools)
-        bunches = np.vstack(pools)
-        inlier = mask_inlier_in_light_field_geometry(
-            light_field=
-            xs=bunches[:, cpw.IX] * cpw.CM2M,
-            ys=bunches[:, cpw.IY] * cpw.CM2M,
-            cxs=bunches[:, cpw.ICX],
-            cys=bunches[:, cpw.ICY],
-            outlier_percentile=outlier_percentile,
-        )
-        bunches_inlier = bunches[inlier]
+    pools = pandas.DataFrame(pools)
+    pools = pools.to_records(index=False)
 
-        _out = parameterize_light_field(
-            xs=bunches_inlier[:, cpw.IX] * cpw.CM2M,
-            ys=bunches_inlier[:, cpw.IY] * cpw.CM2M,
-            cxs=bunches_inlier[:, cpw.ICX],
-            cys=bunches_inlier[:, cpw.ICY],
-            ts=bunches_inlier[:, cpw.ITIME] * 1e-9,  # ns to s
-        )
-        _out["total_num_photons"] = float(np.sum(bunches_inlier[:, cpw.IBSIZE]))
-        _out["total_num_airshowers"] = int(num_airshowers_found)
-        _out["outlier_percentile"] = float(outlier_percentile)
-        out = {}
-        for key in _out:
-            out[KEYPREFIX + key] = _out[key]
-        return out
-"""
+    (
+        cherenkov_pool_azimuth_deg,
+        cherenkov_pool_zenith_deg
+    ) = sphcords._cx_cy_to_az_zd_deg(
+        cx=pools["direction_median_cx_rad"],
+        cy=pools["direction_median_cy_rad"],
+    )
+
+    delta_c_deg = sphcords._angle_between_az_zd_deg(
+        az1_deg=cherenkov_pool_azimuth_deg,
+        zd1_deg=cherenkov_pool_zenith_deg,
+        az2_deg=instrument_azimuth_deg,
+        zd2_deg=instrument_zenith_deg,
+    )
+
+    c_ref_deg = (1/2) * (primary_cone_opening_angle_deg)
+    weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
+    weights = weights / np.sum(weights)
+
+    out = {
+        "char_position_med_x_m": np.average(pools["position_median_x_m"], weights=weights),
+        "char_position_med_y_m": np.average(pools["position_median_y_m"], weights=weights),
+        "char_position_phi_rad": np.average(pools["position_phi_rad"], weights=weights),
+        "char_position_std_major_m": np.average(pools["position_std_major_m"], weights=weights),
+        "char_position_std_minor_m": np.average(pools["position_std_minor_m"], weights=weights),
+
+        "char_direction_med_cx_rad": np.average(pools["direction_median_cx_rad"], weights=weights),
+        "char_direction_med_cy_rad": np.average(pools["direction_median_cy_rad"], weights=weights),
+        "char_direction_phi_rad": np.average(pools["direction_phi_rad"], weights=weights),
+        "char_direction_std_major_rad": np.average(pools["direction_std_major_rad"], weights=weights),
+        "char_direction_std_minor_rad": np.average(pools["direction_std_minor_rad"], weights=weights),
+
+        "char_arrival_time_mean_s": np.average(pools["arrival_time_mean_s"], weights=weights),
+        "char_arrival_time_median_s": np.average(pools["arrival_time_median_s"], weights=weights),
+        "char_arrival_time_std_s": np.average(pools["arrival_time_std_s"], weights=weights),
+        "char_total_num_photons": np.sum(weights * pools["num_photons"]),
+        "char_total_num_airshowers": num_events,
+        "char_outlier_percentile": outlier_percentile,
+    }
+
+    return out
+
 
 def estimate_ellipse(a, b):
     cov_matrix = np.cov(np.c_[a, b].T)
@@ -218,16 +207,16 @@ def parameterize_light_field(light_field):
     out["position_median_x_m"] = xy_ellipse["median_a"]
     out["position_median_y_m"] = xy_ellipse["median_b"]
     out["position_phi_rad"] = xy_ellipse["phi_rad"]
-    out["position_std_minor"] = xy_ellipse["minor_std"]
-    out["position_std_major"] = xy_ellipse["major_std"]
+    out["position_std_minor_m"] = xy_ellipse["minor_std"]
+    out["position_std_major_m"] = xy_ellipse["major_std"]
     del xy_ellipse
 
     cxcy_ellipse = estimate_ellipse(a=lf["cx"], b=lf["cy"])
     out["direction_median_cx_rad"] = cxcy_ellipse["median_a"]
     out["direction_median_cy_rad"] = cxcy_ellipse["median_b"]
     out["direction_phi_rad"] = cxcy_ellipse["phi_rad"]
-    out["direction_std_minor"] = cxcy_ellipse["minor_std"]
-    out["direction_std_major"] = cxcy_ellipse["major_std"]
+    out["direction_std_minor_rad"] = cxcy_ellipse["minor_std"]
+    out["direction_std_major_rad"] = cxcy_ellipse["major_std"]
     del cxcy_ellipse
 
     out["arrival_time_mean_s"] = float(np.mean(lf["t"]))

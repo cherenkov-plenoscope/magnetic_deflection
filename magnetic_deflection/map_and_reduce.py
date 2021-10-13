@@ -63,7 +63,8 @@ def make_jobs(
                     "initial_num_events_per_iteration"
                 ] = initial_num_events_per_iteration
                 job["max_total_num_events"] = max_total_num_events
-                job["outlier_percentile"] = outlier_percentile
+                job["outlier_percentile_discovery"] = 100.0
+                job["outlier_percentile_statistics"] = outlier_percentile
                 jobs.append(job)
     return sort_jobs_by_key(jobs=jobs, key="primary_energy")
 
@@ -90,6 +91,7 @@ def run_job(job):
         initial_num_events_per_iteration=job[
             "initial_num_events_per_iteration"
         ],
+        outlier_percentile=job["outlier_percentile_discovery"],
         max_total_num_events=job["max_total_num_events"],
         corsika_primary_path=job["corsika_primary_path"],
         iteration_speed=job["iteration_speed"],
@@ -99,7 +101,7 @@ def run_job(job):
     deflection["site_key"] = job["site_key"]
     deflection["particle_key"] = job["particle_key"]
 
-    """
+
     if deflection["valid"]:
         lfc = light_field_characterization.characterize_cherenkov_pool(
             site=job["site"],
@@ -110,10 +112,12 @@ def run_job(job):
             corsika_primary_path=job["corsika_primary_path"],
             total_energy_thrown=1e2,
             min_num_cherenkov_photons=1e2,
-            outlier_percentile=job["outlier_percentile"],
+            outlier_percentile=job["outlier_percentile_statistics"],
+            prng=prng,
         )
+
         deflection.update(lfc)
-    """
+
 
     # write result
     # ------------
