@@ -4,6 +4,7 @@ from . import examples
 from . import analysis
 from . import light_field_characterization
 from . import corsika
+from . import spherical_coordinates
 
 import os
 import json
