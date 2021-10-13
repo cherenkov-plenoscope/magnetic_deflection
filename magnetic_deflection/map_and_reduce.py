@@ -72,7 +72,7 @@ def make_jobs(
                 job["statistics"] = {
                     "num_events": int(np.min([1000, np.ceil(1e3/job["particle"]["energy_GeV"])])),
                     "outlier_percentile": outlier_percentile,
-                    "off_axis_angle_deg": 2.0 * particle[
+                    "off_axis_deg": 2.0 * particle[
                         "magnetic_deflection_max_off_axis_deg"
                     ],
                     "min_num_cherenkov_photons": 1e2,
@@ -100,17 +100,19 @@ def run_job(job):
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
-    discovery_filename = "{:06d}.json".format(job["job"]["id"])
-    statistics_filename = "{:06d}_showers.jsonl".format(job["job"]["id"])
+    discovery_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
+    statistics_filename = "{:06d}_statistics.jsonl".format(job["job"]["id"])
+    result_filename = "{:06d}_result.json".format(job["job"]["id"])
 
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
     discovery_path = os.path.join(job["job"]["map_dir"], discovery_filename)
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
+    result_path = os.path.join(job["job"]["map_dir"], result_filename)
 
     write_json(job_path, job, indent=4)
 
     if not os.path.exists(discovery_path):
-        deflection = discovery.estimate_deflection(
+        guesses = discovery.estimate_deflection(
             prng=prng,
             site=job["site"],
             primary_energy=job["particle"]["energy_GeV"],
@@ -128,10 +130,11 @@ def run_job(job):
             DEBUG_PRINT=True,
         )
 
-        write_json(discovery_path, deflection)
+        write_jsonl(discovery_path, guesses)
     else:
-        deflection = read_json(discovery_path)
+        guesses = read_jsonl(discovery_path)
 
+    deflection = guesses[-1]
 
     if deflection["valid"]:
 
@@ -144,7 +147,7 @@ def run_job(job):
                 primary_energy=job["particle"]["energy_GeV"],
                 primary_cone_azimuth_deg=deflection["primary_azimuth_deg"],
                 primary_cone_zenith_deg=deflection["primary_zenith_deg"],
-                primary_cone_opening_angle_deg=job["statistics"]["off_axis_angle_deg"],
+                primary_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
                 num_events=job["statistics"]["num_events"],
                 prng=prng,
             )
@@ -159,53 +162,53 @@ def run_job(job):
         else:
             pools = read_jsonl(statistics_path)
 
-            assert len(pools) > 0
+        assert len(pools) > 0
 
-            pools = pandas.DataFrame(pools)
-            pools = pools.to_records(index=False)
+        pools = pandas.DataFrame(pools)
+        pools = pools.to_records(index=False)
 
-            (
-                cherenkov_pool_azimuth_deg,
-                cherenkov_pool_zenith_deg
-            ) = sphcords._cx_cy_to_az_zd_deg(
-                cx=pools["direction_median_cx_rad"],
-                cy=pools["direction_median_cy_rad"],
-            )
+        (
+            cherenkov_pool_azimuth_deg,
+            cherenkov_pool_zenith_deg
+        ) = sphcords._cx_cy_to_az_zd_deg(
+            cx=pools["direction_median_cx_rad"],
+            cy=pools["direction_median_cy_rad"],
+        )
 
-            delta_c_deg = sphcords._angle_between_az_zd_deg(
-                az1_deg=cherenkov_pool_azimuth_deg,
-                zd1_deg=cherenkov_pool_zenith_deg,
-                az2_deg=job["instrument"]["azimuth_deg"],
-                zd2_deg=job["instrument"]["zenith_deg"],
-            )
+        delta_c_deg = sphcords._angle_between_az_zd_deg(
+            az1_deg=cherenkov_pool_azimuth_deg,
+            zd1_deg=cherenkov_pool_zenith_deg,
+            az2_deg=job["instrument"]["azimuth_deg"],
+            zd2_deg=job["instrument"]["zenith_deg"],
+        )
 
-            c_ref_deg = (1/2) * (job["statistics"]["off_axis_angle_deg"])
-            weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
-            weights = weights / np.sum(weights)
+        c_ref_deg = (1/2) * (job["statistics"]["off_axis_deg"])
+        weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
+        weights = weights / np.sum(weights)
 
-            out = {
-                "char_position_med_x_m": np.average(pools["position_median_x_m"], weights=weights),
-                "char_position_med_y_m": np.average(pools["position_median_y_m"], weights=weights),
-                "char_position_phi_rad": np.average(pools["position_phi_rad"], weights=weights),
-                "char_position_std_major_m": np.average(pools["position_std_major_m"], weights=weights),
-                "char_position_std_minor_m": np.average(pools["position_std_minor_m"], weights=weights),
+        out = {
+            "char_position_med_x_m": np.average(pools["position_median_x_m"], weights=weights),
+            "char_position_med_y_m": np.average(pools["position_median_y_m"], weights=weights),
+            "char_position_phi_rad": np.average(pools["position_phi_rad"], weights=weights),
+            "char_position_std_major_m": np.average(pools["position_std_major_m"], weights=weights),
+            "char_position_std_minor_m": np.average(pools["position_std_minor_m"], weights=weights),
 
-                "char_direction_med_cx_rad": np.average(pools["direction_median_cx_rad"], weights=weights),
-                "char_direction_med_cy_rad": np.average(pools["direction_median_cy_rad"], weights=weights),
-                "char_direction_phi_rad": np.average(pools["direction_phi_rad"], weights=weights),
-                "char_direction_std_major_rad": np.average(pools["direction_std_major_rad"], weights=weights),
-                "char_direction_std_minor_rad": np.average(pools["direction_std_minor_rad"], weights=weights),
+            "char_direction_med_cx_rad": np.average(pools["direction_median_cx_rad"], weights=weights),
+            "char_direction_med_cy_rad": np.average(pools["direction_median_cy_rad"], weights=weights),
+            "char_direction_phi_rad": np.average(pools["direction_phi_rad"], weights=weights),
+            "char_direction_std_major_rad": np.average(pools["direction_std_major_rad"], weights=weights),
+            "char_direction_std_minor_rad": np.average(pools["direction_std_minor_rad"], weights=weights),
 
-                "char_arrival_time_mean_s": np.average(pools["arrival_time_mean_s"], weights=weights),
-                "char_arrival_time_median_s": np.average(pools["arrival_time_median_s"], weights=weights),
-                "char_arrival_time_std_s": np.average(pools["arrival_time_std_s"], weights=weights),
-                "char_total_num_photons": np.sum(weights * pools["num_photons"]),
-                "char_total_num_airshowers": len(pools),
-                "char_outlier_percentile": job["outlier_percentile_statistics"],
-            }
+            "char_arrival_time_mean_s": np.average(pools["arrival_time_mean_s"], weights=weights),
+            "char_arrival_time_median_s": np.average(pools["arrival_time_median_s"], weights=weights),
+            "char_arrival_time_std_s": np.average(pools["arrival_time_std_s"], weights=weights),
+            "char_total_num_photons": np.sum(weights * pools["num_photons"]),
+            "char_total_num_airshowers": len(pools),
+            "char_outlier_percentile": job["statistics"]["outlier_percentile"],
+        }
 
-            deflection.update(out)
-            write_json(discovery_path, deflection)
+        deflection.update(out)
+        write_json(result_path, deflection)
     return 0
 
 

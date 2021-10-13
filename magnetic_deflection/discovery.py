@@ -158,6 +158,9 @@ def estimate_deflection(
     run_id = 0
     total_num_events = 0
     num_events = initial_num_events_per_iteration * 8
+
+    guesses = []
+
     while True:
         run_id += 1
 
@@ -181,12 +184,14 @@ def estimate_deflection(
             DEBUG_PRINT=DEBUG_PRINT,
         )
 
+        guesses.append(guess)
+
         if (
             guess["valid"]
             and guess["off_axis_deg"] <= max_off_axis_deg
         ):
             guess["total_num_events"] = total_num_events
-            return guess
+            return guesses
 
         if prm_cone_deg < max_off_axis_deg:
             print("prm_cone_deg < max_off_axis_deg")
@@ -211,4 +216,4 @@ def estimate_deflection(
             break
 
     # failed.
-    return {"valid": False}
+    return guesses
