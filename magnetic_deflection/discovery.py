@@ -26,7 +26,7 @@ def direct_discovery(
     outlier_percentile,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    DEBUG_PRINT=False,
+    debug_print=False,
 ):
     out = {
         "iteration": int(run_id),
@@ -123,7 +123,7 @@ def direct_discovery(
     out["num_valid_Cherenkov_pools"] = len(cherenkov_pools)
     out["num_thrown_Cherenkov_pools"] = int(num_events)
 
-    if DEBUG_PRINT:
+    if debug_print:
         print(json.dumps(out, indent=4))
         asw = np.argsort(weights)
         for i in range(int(len(asw) / 10)):
@@ -146,28 +146,27 @@ def estimate_deflection(
     instrument_zenith_deg,
     max_off_axis_deg,
     outlier_percentile,
-    initial_num_events_per_iteration,
-    max_total_num_events,
+    num_events_per_iteration,
+    max_num_events,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    DEBUG_PRINT=False,
+    debug_print=False,
 ):
     prm_cone_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0
     total_num_events = 0
-    num_events = initial_num_events_per_iteration * 8
 
     guesses = []
 
     while True:
         run_id += 1
 
-        total_num_events += num_events
+        total_num_events += num_events_per_iteration
         guess = direct_discovery(
             run_id=run_id,
-            num_events=num_events,
+            num_events=num_events_per_iteration,
             primary_particle_id=primary_particle_id,
             primary_energy=primary_energy,
             primary_cone_azimuth_deg=prm_az_deg,
@@ -181,7 +180,7 @@ def estimate_deflection(
             corsika_primary_path=corsika_primary_path,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
             outlier_percentile=outlier_percentile,
-            DEBUG_PRINT=DEBUG_PRINT,
+            debug_print=debug_print,
         )
 
         guesses.append(guess)
@@ -198,12 +197,12 @@ def estimate_deflection(
             break
 
         if prm_cone_deg < guess["off_axis_deg"]:
-            num_events *= 2
+            num_events_per_iteration *= 2
             prm_cone_deg *= np.sqrt(2.0)
             print("double num events.")
             continue
 
-        if total_num_events > max_total_num_events:
+        if total_num_events > max_num_events:
             print("Too many events thrown.")
             break
 

@@ -18,10 +18,12 @@ def make_jobs(
     max_energy,
     num_energy_supports,
     energy_supports_power_law_slope=-1.7,
-    initial_num_events_per_iteration=2 ** 5,
+    num_events_per_iteration=2 ** 5,
     max_total_num_events=2 ** 12,
     outlier_percentile=50.0,
+    min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
+    debug_print=False,
 ):
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
@@ -44,6 +46,7 @@ def make_jobs(
                 job["job"]["id"] = len(jobs)
                 job["job"]["map_dir"] = os.path.join(abs_work_dir, "map")
                 job["job"]["corsika_primary_path"] = corsika_primary_path
+                job["job"]["debug_print"] = debug_print
 
                 job["site"] = dict(site)
                 assert "key" not in job["site"]
@@ -58,12 +61,12 @@ def make_jobs(
 
                 job["discovery"] = {
                     "outlier_percentile": 100.0,
-                    "initial_num_events_per_iteration": initial_num_events_per_iteration,
+                    "num_events_per_iteration": num_events_per_iteration,
                     "max_num_events": max_total_num_events,
                     "max_off_axis_deg": particle[
                         "magnetic_deflection_max_off_axis_deg"
                     ],
-                    "min_num_cherenkov_photons": 1e2,
+                    "min_num_cherenkov_photons": min_num_cherenkov_photons,
                 }
 
                 num_events = int(np.ceil(1e3 / job["particle"]["energy_GeV"]))
@@ -75,7 +78,7 @@ def make_jobs(
                     "off_axis_deg": 2.0 * particle[
                         "magnetic_deflection_max_off_axis_deg"
                     ],
-                    "min_num_cherenkov_photons": 1e2,
+                    "min_num_cherenkov_photons": min_num_cherenkov_photons,
                 }
 
                 jobs.append(job)
@@ -88,16 +91,17 @@ def run_job(job):
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
-    discovery_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
-    statistics_filename = "{:06d}_statistics.jsonl".format(job["job"]["id"])
-    result_filename = "{:06d}_result.json".format(job["job"]["id"])
-
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
-    discovery_path = os.path.join(job["job"]["map_dir"], discovery_filename)
-    statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
-    result_path = os.path.join(job["job"]["map_dir"], result_filename)
-
     tools.write_json(job_path, job, indent=4)
+
+    discovery_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
+    discovery_path = os.path.join(job["job"]["map_dir"], discovery_filename)
+
+    statistics_filename = "{:06d}_statistics.jsonl".format(job["job"]["id"])
+    statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
+
+    result_filename = "{:06d}_result.json".format(job["job"]["id"])
+    result_path = os.path.join(job["job"]["map_dir"], result_filename)
 
     if not os.path.exists(discovery_path):
         guesses = discovery.estimate_deflection(
@@ -109,13 +113,11 @@ def run_job(job):
             instrument_zenith_deg=job["instrument"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
             outlier_percentile=job["discovery"]["outlier_percentile"],
-            initial_num_events_per_iteration=job["discovery"][
-                "initial_num_events_per_iteration"
-            ],
+            num_events_per_iteration=job["discovery"]["num_events_per_iteration"],
+            max_num_events=job["discovery"]["max_num_events"],
             min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
-            max_total_num_events=job["discovery"]["max_num_events"],
             corsika_primary_path=job["job"]["corsika_primary_path"],
-            DEBUG_PRINT=True,
+            debug_print=job["job"]["debug_print"],
         )
 
         tools.write_jsonl(discovery_path, guesses)
