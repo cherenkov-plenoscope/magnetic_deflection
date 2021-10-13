@@ -31,7 +31,7 @@ def make_jobs(
     for site_key in sites:
         for particle_key in particles:
             site = sites[site_key]
-            particle_id = particles[particle_key]["particle_id"]
+            particle = particles[particle_key]
             min_energy = np.min(
                 particles[particle_key]["energy_bin_edges_GeV"]
             )
@@ -43,77 +43,90 @@ def make_jobs(
             )
             for energy_idx in range(len(energy_supports)):
                 job = {}
-                job["job_id"] = len(jobs)
-                job["map_dir"] = os.path.join(abs_work_dir, "map")
-                job["site"] = site
-                job["primary_energy"] = energy_supports[energy_idx]
-                job["primary_particle_id"] = particle_id
-                job["instrument_azimuth_deg"] = plenoscope_pointing[
-                    "azimuth_deg"
-                ]
-                job["instrument_zenith_deg"] = plenoscope_pointing[
-                    "zenith_deg"
-                ]
-                job["max_off_axis_deg"] = particles[particle_key][
-                    "magnetic_deflection_max_off_axis_deg"
-                ]
-                job["corsika_primary_path"] = corsika_primary_path
-                job["site_key"] = site_key
-                job["particle_key"] = particle_key
-                job[
-                    "initial_num_events_per_iteration"
-                ] = initial_num_events_per_iteration
-                job["max_total_num_events"] = max_total_num_events
-                job["outlier_percentile_discovery"] = 100.0
-                job["outlier_percentile_statistics"] = outlier_percentile
+                job["job"] = {}
+                job["job"]["id"] = len(jobs)
+                job["job"]["map_dir"] = os.path.join(abs_work_dir, "map")
+                job["job"]["corsika_primary_path"] = corsika_primary_path
+
+                job["site"] = dict(site)
+                assert "key" not in job["site"]
+                job["site"]["key"] = site_key
+
+                job["particle"] = {}
+                job["particle"]["key"] = particle_key
+                job["particle"]["energy_GeV"] = energy_supports[energy_idx]
+                job["particle"]["corsika_id"] = particle["particle_id"]
+
+                job["instrument"] = plenoscope_pointing
+
+                job["discovery"] = {
+                    "outlier_percentile": 100.0,
+                    "initial_num_events_per_iteration": initial_num_events_per_iteration,
+                    "max_num_events": max_total_num_events,
+                    "max_off_axis_deg": particle[
+                        "magnetic_deflection_max_off_axis_deg"
+                    ],
+                    "min_num_cherenkov_photons": 1e2,
+                }
+
+                job["statistics"] = {
+                    "num_events": int(np.min([1000, np.ceil(1e3/job["particle"]["energy_GeV"])])),
+                    "outlier_percentile": outlier_percentile,
+                    "off_axis_angle_deg": 2.0 * particle[
+                        "magnetic_deflection_max_off_axis_deg"
+                    ],
+                    "min_num_cherenkov_photons": 1e2,
+                }
+
                 jobs.append(job)
-    return sort_jobs_by_key(jobs=jobs, key="primary_energy")
+
+    return sort_jobs_by_key(jobs=jobs, keys=("particle", "energy_GeV"))
 
 
-def sort_jobs_by_key(jobs, key):
-    _values = [job[key] for job in jobs]
+def sort_jobs_by_key(jobs, keys):
+    _values = []
+    for job in jobs:
+        val = job
+        for key in keys:
+            val = val[key]
+        _values.append(val)
     _values_argsort = np.argsort(_values)
     jobs_sorted = [jobs[_values_argsort[i]] for i in range(len(jobs))]
     return jobs_sorted
 
 
 def run_job(job):
-    os.makedirs(job["map_dir"], exist_ok=True)
-    prng = np.random.Generator(np.random.MT19937(seed=job["job_id"]))
+    os.makedirs(job["job"]["map_dir"], exist_ok=True)
+    prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
-    job_filename = "{:06d}_job.json".format(job["job_id"])
-    discovery_filename = "{:06d}.json".format(job["job_id"])
-    statistics_filename = "{:06d}_showers.jsonl".format(job["job_id"])
+    job_filename = "{:06d}_job.json".format(job["job"]["id"])
+    discovery_filename = "{:06d}.json".format(job["job"]["id"])
+    statistics_filename = "{:06d}_showers.jsonl".format(job["job"]["id"])
 
-    job_path
-    discovery_path = os.path.join(job["map_dir"], discovery_filename)
-    statistics_path = os.path.join(job["map_dir"], statistics_filename)
+    job_path = os.path.join(job["job"]["map_dir"], job_filename)
+    discovery_path = os.path.join(job["job"]["map_dir"], discovery_filename)
+    statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
 
-    write_json(, )
+    write_json(job_path, job, indent=4)
 
     if not os.path.exists(discovery_path):
         deflection = discovery.estimate_deflection(
             prng=prng,
             site=job["site"],
-            primary_energy=job["primary_energy"],
-            primary_particle_id=job["primary_particle_id"],
-            instrument_azimuth_deg=job["instrument_azimuth_deg"],
-            instrument_zenith_deg=job["instrument_zenith_deg"],
-            max_off_axis_deg=job["max_off_axis_deg"],
-            outlier_percentile=job["outlier_percentile_discovery"],
-            initial_num_events_per_iteration=job[
+            primary_energy=job["particle"]["energy_GeV"],
+            primary_particle_id=job["particle"]["corsika_id"],
+            instrument_azimuth_deg=job["instrument"]["azimuth_deg"],
+            instrument_zenith_deg=job["instrument"]["zenith_deg"],
+            max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
+            outlier_percentile=job["discovery"]["outlier_percentile"],
+            initial_num_events_per_iteration=job["discovery"][
                 "initial_num_events_per_iteration"
             ],
-            min_num_valid_Cherenkov_pools=5,
-            min_num_cherenkov_photons=1e2,
-            max_total_num_events=job["max_total_num_events"],
-            corsika_primary_path=job["corsika_primary_path"],
+            min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
+            max_total_num_events=job["discovery"]["max_num_events"],
+            corsika_primary_path=job["job"]["corsika_primary_path"],
             DEBUG_PRINT=True,
         )
-        deflection["particle_id"] = job["primary_particle_id"]
-        deflection["energy_GeV"] = job["primary_energy"]
-        deflection["site_key"] = job["site_key"]
-        deflection["particle_key"] = job["particle_key"]
 
         write_json(discovery_path, deflection)
     else:
@@ -122,28 +135,25 @@ def run_job(job):
 
     if deflection["valid"]:
 
-        total_energy_thrown = 1e2
-        num_events = int(np.ceil(total_energy_thrown / job["primary_energy"]))
-
         if not os.path.exists(statistics_path):
 
             steering = corsika.make_steering(
-                run_id=1 + job["job_id"],
+                run_id=1 + job["job"]["id"],
                 site=job["site"],
-                primary_particle_id=job["primary_particle_id"],
-                primary_energy=job["primary_energy"],
+                primary_particle_id=job["particle"]["corsika_id"],
+                primary_energy=job["particle"]["energy_GeV"],
                 primary_cone_azimuth_deg=deflection["primary_azimuth_deg"],
                 primary_cone_zenith_deg=deflection["primary_zenith_deg"],
-                primary_cone_opening_angle_deg=job["max_off_axis_deg"],
-                num_events=num_events,
+                primary_cone_opening_angle_deg=job["statistics"]["off_axis_angle_deg"],
+                num_events=job["statistics"]["num_events"],
                 prng=prng,
             )
 
             pools = corsika.estimate_cherenkov_pool(
                 corsika_primary_steering=steering,
-                corsika_primary_path=job["corsika_primary_path"],
-                min_num_cherenkov_photons=1e2,
-                outlier_percentile=job["outlier_percentile_statistics"],
+                corsika_primary_path=job["job"]["corsika_primary_path"],
+                min_num_cherenkov_photons=job["statistics"]["min_num_cherenkov_photons"],
+                outlier_percentile=job["statistics"]["outlier_percentile"],
             )
             write_jsonl(statistics_path, pools)
         else:
@@ -165,11 +175,11 @@ def run_job(job):
             delta_c_deg = sphcords._angle_between_az_zd_deg(
                 az1_deg=cherenkov_pool_azimuth_deg,
                 zd1_deg=cherenkov_pool_zenith_deg,
-                az2_deg=job["instrument_azimuth_deg"],
-                zd2_deg=job["instrument_zenith_deg"],
+                az2_deg=job["instrument"]["azimuth_deg"],
+                zd2_deg=job["instrument"]["zenith_deg"],
             )
 
-            c_ref_deg = (1/2) * (job["max_off_axis_deg"])
+            c_ref_deg = (1/2) * (job["statistics"]["off_axis_angle_deg"])
             weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
             weights = weights / np.sum(weights)
 
@@ -310,9 +320,9 @@ def read_csv_to_dict(path):
     return pandas.read_csv(path).to_dict(orient="list")
 
 
-def write_json(path, obj):
+def write_json(path, obj, indent=0):
     with open(path + ".tmp", "wt") as f:
-        f.write(json_numpy.dumps(obj))
+        f.write(json_numpy.dumps(obj, indent=indent))
     shutil.move(path + ".tmp", path)
 
 

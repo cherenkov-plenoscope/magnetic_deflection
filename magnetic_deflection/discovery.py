@@ -148,7 +148,6 @@ def estimate_deflection(
     outlier_percentile,
     initial_num_events_per_iteration,
     max_total_num_events,
-    min_num_valid_Cherenkov_pools,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     DEBUG_PRINT=False,
