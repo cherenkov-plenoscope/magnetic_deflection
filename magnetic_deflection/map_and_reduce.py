@@ -43,7 +43,7 @@ def make_jobs(
             )
             for energy_idx in range(len(energy_supports)):
                 job = {}
-                job["seed"] = len(jobs)
+                job["job_id"] = len(jobs)
                 job["map_dir"] = os.path.join(abs_work_dir, "map")
                 job["site"] = site
                 job["primary_energy"] = energy_supports[energy_idx]
@@ -79,11 +79,11 @@ def sort_jobs_by_key(jobs, key):
 
 def run_job(job):
     os.makedirs(job["map_dir"], exist_ok=True)
-    prng = np.random.Generator(np.random.MT19937(seed=job["seed"]))
+    prng = np.random.Generator(np.random.MT19937(seed=job["job_id"]))
 
-    job_filename = "{:06d}_job.json".format(job["seed"])
-    discovery_filename = "{:06d}.json".format(job["seed"])
-    statistics_filename = "{:06d}_showers.jsonl".format(job["seed"])
+    job_filename = "{:06d}_job.json".format(job["job_id"])
+    discovery_filename = "{:06d}.json".format(job["job_id"])
+    statistics_filename = "{:06d}_showers.jsonl".format(job["job_id"])
 
     job_path
     discovery_path = os.path.join(job["map_dir"], discovery_filename)
@@ -128,7 +128,7 @@ def run_job(job):
         if not os.path.exists(statistics_path):
 
             steering = corsika.make_steering(
-                run_id=job["seed"],
+                run_id=1 + job["job_id"],
                 site=job["site"],
                 primary_particle_id=job["primary_particle_id"],
                 primary_energy=job["primary_energy"],
