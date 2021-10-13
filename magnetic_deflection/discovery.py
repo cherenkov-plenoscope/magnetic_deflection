@@ -8,6 +8,7 @@ import time
 from . import examples
 from . import corsika
 from . import spherical_coordinates as sphcords
+from . import light_field_characterization
 
 
 def direct_discovery(
@@ -28,20 +29,7 @@ def direct_discovery(
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     debug_print=False,
 ):
-    out = {
-        "iteration": int(run_id),
-        "primary_azimuth_deg": float("nan"),
-        "primary_zenith_deg": float("nan"),
-        "primary_cone_opening_angle_deg": float(primary_cone_opening_angle_deg),
-        "off_axis_deg": float("nan"),
-        "cherenkov_pool_x_m": float("nan"),
-        "cherenkov_pool_y_m": float("nan"),
-        "cherenkov_pool_cx": float("nan"),
-        "cherenkov_pool_cy": float("nan"),
-        "num_valid_Cherenkov_pools": 0,
-        "num_thrown_Cherenkov_pools": int(num_events),
-        "valid": False,
-    }
+    out = {}
 
     steering = corsika.make_steering(
         run_id=run_id,
@@ -61,79 +49,23 @@ def direct_discovery(
         min_num_cherenkov_photons=min_num_cherenkov_photons,
         outlier_percentile=outlier_percentile,
     )
-    cherenkov_pools = pandas.DataFrame(cherenkov_pools)
-    cherenkov_pools = cherenkov_pools.to_records(index=False)
 
-    actual_num_valid_pools = len(cherenkov_pools)
     expected_num_valid_pools = int(np.ceil(0.1 * num_events))
-    if actual_num_valid_pools < expected_num_valid_pools:
+    if len(cherenkov_pools) < expected_num_valid_pools:
         out["valid"] = False
         return out
 
-    (
-        cherenkov_pool_azimuth_deg,
-        cherenkov_pool_zenith_deg
-    ) = sphcords._cx_cy_to_az_zd_deg(
-        cx=cherenkov_pools["direction_median_cx_rad"],
-        cy=cherenkov_pools["direction_median_cy_rad"],
+    off_axis_pivot_deg = (1/8) * (primary_cone_opening_angle_deg + max_off_axis_deg)
+    insp = light_field_characterization.inspect_pools(
+        cherenkov_pools=cherenkov_pools,
+        off_axis_pivot_deg=off_axis_pivot_deg,
+        instrument_azimuth_deg=instrument_azimuth_deg,
+        instrument_zenith_deg=instrument_zenith_deg,
+        debug_print=debug_print,
     )
-
-    delta_c_deg = sphcords._angle_between_az_zd_deg(
-        az1_deg=cherenkov_pool_azimuth_deg,
-        zd1_deg=cherenkov_pool_zenith_deg,
-        az2_deg=instrument_azimuth_deg,
-        zd2_deg=instrument_zenith_deg,
-    )
-
-    c_ref_deg = (1/8) * (primary_cone_opening_angle_deg + max_off_axis_deg)
-    weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
-
-    prm_az = np.average(
-        cherenkov_pools["primary_azimuth_rad"], weights=weights
-    )
-    prm_zd = np.average(
-        cherenkov_pools["primary_zenith_rad"], weights=weights
-    )
-    average_off_axis_deg = np.average(delta_c_deg, weights=weights)
 
     out["valid"] = True
-    out["primary_azimuth_deg"] = float(np.rad2deg(prm_az))
-    out["primary_zenith_deg"] = float(np.rad2deg(prm_zd))
-    out["off_axis_deg"] = float(average_off_axis_deg)
-
-    out["cherenkov_pool_x_m"] = float(
-        np.average(cherenkov_pools["position_median_x_m"], weights=weights)
-    )
-    out["cherenkov_pool_y_m"] = float(
-        np.average(cherenkov_pools["position_median_y_m"], weights=weights)
-    )
-    out["cherenkov_pool_cx"] = float(
-        np.average(cherenkov_pools["direction_median_cx_rad"], weights=weights)
-    )
-    out["cherenkov_pool_cy"] = float(
-        np.average(cherenkov_pools["direction_median_cy_rad"], weights=weights)
-    )
-    _prm_cx, _prm_cy = sphcords._az_zd_to_cx_cy(
-        azimuth_deg=out["primary_azimuth_deg"],
-        zenith_deg=out["primary_zenith_deg"],
-    )
-    out["primary_cx"] = float(_prm_cx)
-    out["primary_cy"] = float(_prm_cy)
-
-    out["num_valid_Cherenkov_pools"] = len(cherenkov_pools)
-    out["num_thrown_Cherenkov_pools"] = int(num_events)
-
-    if debug_print:
-        print(json.dumps(out, indent=4))
-        asw = np.argsort(weights)
-        for i in range(int(len(asw) / 10)):
-            j = asw[len(asw) - 1 - i]
-            print("weight {:03d}%, delta_c {:.2f}deg".format(
-                    int(100*weights[j]),
-                    delta_c_deg[j],
-                )
-            )
-
+    out.update(insp)
     return out
 
 

@@ -1,10 +1,13 @@
 import numpy as np
-from . import discovery
+import os
+import json_numpy
+import pandas
 import tempfile
 import corsika_primary_wrapper as cpw
+
+from . import discovery
 from . import spherical_coordinates as sphcords
-import os
-import pandas as pd
+from . import tools
 
 
 KEYPREFIX = "char_"
@@ -90,7 +93,7 @@ def init_light_field_from_corsika(bunches):
     lf["t"] = bunches[:, cpw.ITIME] * 1e-9  # ns to s
     lf["size"] = bunches[:, cpw.IBSIZE]
     lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
-    return pd.DataFrame(lf).to_records(index=False)
+    return pandas.DataFrame(lf).to_records(index=False)
 
 
 def mask_inlier_in_light_field_geometry(light_field, percentile):
@@ -110,16 +113,16 @@ def parameterize_light_field(light_field):
     out = {}
 
     xy_ellipse = estimate_ellipse(a=lf["x"], b=lf["y"])
-    out["position_median_x_m"] = xy_ellipse["median_a"]
-    out["position_median_y_m"] = xy_ellipse["median_b"]
+    out["position_med_x_m"] = xy_ellipse["median_a"]
+    out["position_med_y_m"] = xy_ellipse["median_b"]
     out["position_phi_rad"] = xy_ellipse["phi_rad"]
     out["position_std_minor_m"] = xy_ellipse["minor_std"]
     out["position_std_major_m"] = xy_ellipse["major_std"]
     del xy_ellipse
 
     cxcy_ellipse = estimate_ellipse(a=lf["cx"], b=lf["cy"])
-    out["direction_median_cx_rad"] = cxcy_ellipse["median_a"]
-    out["direction_median_cy_rad"] = cxcy_ellipse["median_b"]
+    out["direction_med_cx_rad"] = cxcy_ellipse["median_a"]
+    out["direction_med_cy_rad"] = cxcy_ellipse["median_b"]
     out["direction_phi_rad"] = cxcy_ellipse["phi_rad"]
     out["direction_std_minor_rad"] = cxcy_ellipse["minor_std"]
     out["direction_std_major_rad"] = cxcy_ellipse["major_std"]
@@ -128,4 +131,56 @@ def parameterize_light_field(light_field):
     out["arrival_time_mean_s"] = float(np.mean(lf["t"]))
     out["arrival_time_median_s"] = float(np.median(lf["t"]))
     out["arrival_time_std_s"] = float(np.std(lf["t"]))
+    return out
+
+
+def inspect_pools(
+    cherenkov_pools,
+    off_axis_pivot_deg,
+    instrument_azimuth_deg,
+    instrument_zenith_deg,
+    debug_print=False,
+):
+    cers = pandas.DataFrame(cherenkov_pools)
+    cers = cers.to_records(index=False)
+
+    cer_azimuth_deg, cer_zenith_deg = sphcords._cx_cy_to_az_zd_deg(
+        cx=cers["direction_med_cx_rad"],
+        cy=cers["direction_med_cy_rad"],
+    )
+
+    cer_off_axis_deg = sphcords._angle_between_az_zd_deg(
+        az1_deg=cer_azimuth_deg,
+        zd1_deg=cer_zenith_deg,
+        az2_deg=instrument_azimuth_deg,
+        zd2_deg=instrument_zenith_deg,
+    )
+
+    weights = np.exp(-0.5 * (cer_off_axis_deg / off_axis_pivot_deg ) ** 2)
+
+    out = {}
+    out["off_axis_deg"] = np.average(cer_off_axis_deg, weights=weights)
+
+    for pkey in cers.dtype.names:
+        _avg, _std = tools.average_std(
+            cers[pkey],
+            weights=weights
+        )
+        out[pkey] = _avg
+        out[pkey + "_std"] = _std
+
+    out["total_num_photons"] = np.sum(cers["num_photons"])
+    out["total_num_airshowers"] = len(cers)
+
+    if debug_print:
+        print(json_numpy.dumps(out, indent=4))
+        asw = np.argsort(weights)
+        for i in range(int(len(asw) / 10)):
+            j = asw[len(asw) - 1 - i]
+            print("weight {:03d} %, off-axis {:.2f} deg".format(
+                    int(100*weights[j]),
+                    cer_off_axis_deg[j],
+                )
+            )
+
     return out

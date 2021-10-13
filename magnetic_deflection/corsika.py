@@ -80,8 +80,8 @@ def estimate_cherenkov_pool(
 
             if num_bunches >= min_num_cherenkov_photons:
                 pool = {}
-                pool["primary_azimuth_rad"] = ceh[cpw.I_EVTH_AZIMUTH_RAD]
-                pool["primary_zenith_rad"] = ceh[cpw.I_EVTH_ZENITH_RAD]
+                pool["primary_azimuth_deg"] = np.rad2deg(ceh[cpw.I_EVTH_AZIMUTH_RAD])
+                pool["primary_zenith_deg"] = np.rad2deg(ceh[cpw.I_EVTH_ZENITH_RAD])
                 pool["num_photons"] = np.sum(light_field["size"])
                 pool["num_bunches"] = num_bunches
 

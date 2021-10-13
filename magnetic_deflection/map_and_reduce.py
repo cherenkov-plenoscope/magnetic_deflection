@@ -18,12 +18,12 @@ def make_jobs(
     max_energy,
     num_energy_supports,
     energy_supports_power_law_slope=-1.7,
-    num_events_per_iteration=2 ** 5,
+    num_events_per_iteration=2 ** 7,
     max_total_num_events=2 ** 12,
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    debug_print=False,
+    debug_print=True,
 ):
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
@@ -154,50 +154,16 @@ def run_job(job):
 
         assert len(pools) > 0
 
-        pools = pandas.DataFrame(pools)
-        pools = pools.to_records(index=False)
-
-        (
-            cherenkov_pool_azimuth_deg,
-            cherenkov_pool_zenith_deg
-        ) = sphcords._cx_cy_to_az_zd_deg(
-            cx=pools["direction_median_cx_rad"],
-            cy=pools["direction_median_cy_rad"],
+        out = light_field_characterization.inspect_pools(
+            cherenkov_pools=pools,
+            off_axis_pivot_deg=(1/2) * (job["statistics"]["off_axis_deg"]),
+            instrument_azimuth_deg=job["instrument"]["azimuth_deg"],
+            instrument_zenith_deg=job["instrument"]["zenith_deg"],
         )
+        out["outlier_percentile"] = job["statistics"]["outlier_percentile"]
 
-        delta_c_deg = sphcords._angle_between_az_zd_deg(
-            az1_deg=cherenkov_pool_azimuth_deg,
-            zd1_deg=cherenkov_pool_zenith_deg,
-            az2_deg=job["instrument"]["azimuth_deg"],
-            zd2_deg=job["instrument"]["zenith_deg"],
-        )
-
-        c_ref_deg = (1/2) * (job["statistics"]["off_axis_deg"])
-        weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
-        weights = weights / np.sum(weights)
-
-        out = {
-            "char_position_med_x_m": np.average(pools["position_median_x_m"], weights=weights),
-            "char_position_med_y_m": np.average(pools["position_median_y_m"], weights=weights),
-            "char_position_phi_rad": np.average(pools["position_phi_rad"], weights=weights),
-            "char_position_std_major_m": np.average(pools["position_std_major_m"], weights=weights),
-            "char_position_std_minor_m": np.average(pools["position_std_minor_m"], weights=weights),
-
-            "char_direction_med_cx_rad": np.average(pools["direction_median_cx_rad"], weights=weights),
-            "char_direction_med_cy_rad": np.average(pools["direction_median_cy_rad"], weights=weights),
-            "char_direction_phi_rad": np.average(pools["direction_phi_rad"], weights=weights),
-            "char_direction_std_major_rad": np.average(pools["direction_std_major_rad"], weights=weights),
-            "char_direction_std_minor_rad": np.average(pools["direction_std_minor_rad"], weights=weights),
-
-            "char_arrival_time_mean_s": np.average(pools["arrival_time_mean_s"], weights=weights),
-            "char_arrival_time_median_s": np.average(pools["arrival_time_median_s"], weights=weights),
-            "char_arrival_time_std_s": np.average(pools["arrival_time_std_s"], weights=weights),
-            "char_total_num_photons": np.sum(weights * pools["num_photons"]),
-            "char_total_num_airshowers": len(pools),
-            "char_outlier_percentile": job["statistics"]["outlier_percentile"],
-        }
-
-        deflection.update(out)
+        for okey in out:
+            deflection[light_field_characterization.KEYPREFIX + okey] = out[okey]
         tools.write_json(result_path, deflection)
     return 0
 
