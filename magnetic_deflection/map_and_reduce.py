@@ -23,7 +23,7 @@ def make_jobs(
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    debug_print=True,
+    debug_print=False,
 ):
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
@@ -118,6 +118,7 @@ def run_job(job):
             min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
             corsika_primary_path=job["job"]["corsika_primary_path"],
             debug_print=job["job"]["debug_print"],
+            guesses_path=discovery_path,
         )
 
         tools.write_jsonl(discovery_path, guesses)

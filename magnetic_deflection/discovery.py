@@ -9,6 +9,7 @@ from . import examples
 from . import corsika
 from . import spherical_coordinates as sphcords
 from . import light_field_characterization
+from . import tools
 
 
 def direct_discovery(
@@ -83,6 +84,7 @@ def estimate_deflection(
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     debug_print=False,
+    guesses_path=None,
 ):
     prm_cone_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
@@ -116,6 +118,8 @@ def estimate_deflection(
         )
 
         guesses.append(guess)
+        if guesses_path:
+            tools.append_jsonl_unsave(guesses_path, guess)
 
         if (
             guess["valid"]
