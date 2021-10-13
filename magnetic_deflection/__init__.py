@@ -5,6 +5,7 @@ from . import analysis
 from . import light_field_characterization
 from . import corsika
 from . import spherical_coordinates
+from . import tools
 
 import os
 import json
@@ -80,7 +81,7 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
     raw_deflection_table = map_and_reduce.structure_combined_results(
         combined_results=job_results, sites=sites, particles=particles
     )
-    map_and_reduce.write_deflection_table(
+    tools.write_deflection_table(
         deflection_table=raw_deflection_table, path=raw_deflection_table_path
     )
 
@@ -150,11 +151,11 @@ def _cut_invalid(
     in_path, out_path, min_energy,
 ):
     os.makedirs(out_path, exist_ok=True)
-    raw_deflection_table = map_and_reduce.read_deflection_table(path=in_path)
+    raw_deflection_table = tools.read_deflection_table(path=in_path)
     deflection_table = analysis.cut_invalid_from_deflection_table(
         deflection_table=raw_deflection_table, min_energy=min_energy
     )
-    map_and_reduce.write_deflection_table(
+    tools.write_deflection_table(
         deflection_table=deflection_table, path=out_path
     )
 
@@ -163,11 +164,11 @@ def _add_density_fields(
     in_path, out_path,
 ):
     os.makedirs(out_path, exist_ok=True)
-    valid_deflection_table = map_and_reduce.read_deflection_table(path=in_path)
+    valid_deflection_table = tools.read_deflection_table(path=in_path)
     deflection_table = analysis.add_density_fields_to_deflection_table(
         deflection_table=valid_deflection_table
     )
-    map_and_reduce.write_deflection_table(
+    tools.write_deflection_table(
         deflection_table=deflection_table, path=out_path
     )
 
@@ -181,7 +182,7 @@ FIT_KEYS = {
 
 
 def _smooth_and_reject_outliers(in_path, out_path):
-    deflection_table = map_and_reduce.read_deflection_table(path=in_path)
+    deflection_table = tools.read_deflection_table(path=in_path)
     smooth_table = {}
     for site_key in deflection_table:
         smooth_table[site_key] = {}
@@ -203,7 +204,7 @@ def _smooth_and_reject_outliers(in_path, out_path):
                 df = pandas.DataFrame(sm)
             smooth_table[site_key][particle_key] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
-    map_and_reduce.write_deflection_table(
+    tools.write_deflection_table(
         deflection_table=smooth_table, path=out_path
     )
 
@@ -216,7 +217,7 @@ def _set_high_energies(
     energy_stop=600,
     num_points=20,
 ):
-    deflection_table = map_and_reduce.read_deflection_table(path=in_path)
+    deflection_table = tools.read_deflection_table(path=in_path)
 
     charge_signs = {}
     for particle_key in particles:
@@ -246,13 +247,13 @@ def _set_high_energies(
             df = df[df["primary_zenith_deg"] <= cpw.MAX_ZENITH_DEG]
             out[site_key][particle_key] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
-    map_and_reduce.write_deflection_table(deflection_table=out, path=out_path)
+    tools.write_deflection_table(deflection_table=out, path=out_path)
 
 
 def _fit_power_law(
     particles, sites, in_path, out_path,
 ):
-    deflection_table = map_and_reduce.read_deflection_table(path=in_path)
+    deflection_table = tools.read_deflection_table(path=in_path)
     charge_signs = {}
     for particle_key in particles:
         charge_signs[particle_key] = np.sign(

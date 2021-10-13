@@ -1,16 +1,13 @@
 import pandas
-import shutil
 import os
-import glob
 import numpy as np
-import json
-import json_numpy
 import corsika_primary_wrapper as cpw
 from . import corsika
 from . import examples
 from . import discovery
 from . import light_field_characterization
 from . import spherical_coordinates as sphcords
+from . import tools
 
 
 def make_jobs(
@@ -35,7 +32,7 @@ def make_jobs(
             min_energy = np.min(
                 particles[particle_key]["energy_bin_edges_GeV"]
             )
-            energy_supports = powerspace(
+            energy_supports = tools.powerspace(
                 start=min_energy,
                 stop=max_energy,
                 power_index=energy_supports_power_law_slope,
@@ -69,8 +66,11 @@ def make_jobs(
                     "min_num_cherenkov_photons": 1e2,
                 }
 
+                num_events = int(np.ceil(1e3 / job["particle"]["energy_GeV"]))
+                num_events = np.min([1000, num_events])
+
                 job["statistics"] = {
-                    "num_events": int(np.min([1000, np.ceil(1e3/job["particle"]["energy_GeV"])])),
+                    "num_events": num_events,
                     "outlier_percentile": outlier_percentile,
                     "off_axis_deg": 2.0 * particle[
                         "magnetic_deflection_max_off_axis_deg"
@@ -80,19 +80,7 @@ def make_jobs(
 
                 jobs.append(job)
 
-    return sort_jobs_by_key(jobs=jobs, keys=("particle", "energy_GeV"))
-
-
-def sort_jobs_by_key(jobs, keys):
-    _values = []
-    for job in jobs:
-        val = job
-        for key in keys:
-            val = val[key]
-        _values.append(val)
-    _values_argsort = np.argsort(_values)
-    jobs_sorted = [jobs[_values_argsort[i]] for i in range(len(jobs))]
-    return jobs_sorted
+    return tools.sort_jobs_by_key(jobs=jobs, keys=("particle", "energy_GeV"))
 
 
 def run_job(job):
@@ -109,7 +97,7 @@ def run_job(job):
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
     result_path = os.path.join(job["job"]["map_dir"], result_filename)
 
-    write_json(job_path, job, indent=4)
+    tools.write_json(job_path, job, indent=4)
 
     if not os.path.exists(discovery_path):
         guesses = discovery.estimate_deflection(
@@ -130,9 +118,9 @@ def run_job(job):
             DEBUG_PRINT=True,
         )
 
-        write_jsonl(discovery_path, guesses)
+        tools.write_jsonl(discovery_path, guesses)
     else:
-        guesses = read_jsonl(discovery_path)
+        guesses = tools.read_jsonl(discovery_path)
 
     deflection = guesses[-1]
 
@@ -158,9 +146,9 @@ def run_job(job):
                 min_num_cherenkov_photons=job["statistics"]["min_num_cherenkov_photons"],
                 outlier_percentile=job["statistics"]["outlier_percentile"],
             )
-            write_jsonl(statistics_path, pools)
+            tools.write_jsonl(statistics_path, pools)
         else:
-            pools = read_jsonl(statistics_path)
+            pools = tools.read_jsonl(statistics_path)
 
         assert len(pools) > 0
 
@@ -208,7 +196,7 @@ def run_job(job):
         }
 
         deflection.update(out)
-        write_json(result_path, deflection)
+        tools.write_json(result_path, deflection)
     return 0
 
 
@@ -253,100 +241,3 @@ def structure_combined_results(
             site_particle_rec = site_particle_rec[argsort]
             res[site_key][particle_key] = site_particle_rec
     return res
-
-
-def write_recarray_to_csv(recarray, path):
-    df = pandas.DataFrame(recarray)
-    csv = df.to_csv(index=False)
-    with open(path + ".tmp", "wt") as f:
-        f.write(csv)
-    shutil.move(path + ".tmp", path)
-
-
-def read_csv_to_recarray(path):
-    df = pandas.read_csv(path)
-    rec = df.to_records(index=False)
-    return rec
-
-
-def read_deflection_table(path):
-    paths = glob.glob(os.path.join(path, "*.csv"))
-    deflection_table = {}
-    for pa in paths:
-        basename = os.path.basename(pa)
-        name = basename.split(".")[0]
-        split_name = name.split("_")
-        assert len(split_name) == 2
-        site_key, particle_key = split_name
-        if site_key not in deflection_table:
-            deflection_table[site_key] = {}
-        deflection_table[site_key][particle_key] = read_csv_to_recarray(pa)
-    return deflection_table
-
-
-def write_deflection_table(deflection_table, path):
-    for site_key in deflection_table:
-        for particle_key in deflection_table[site_key]:
-            out_path = os.path.join(
-                path, "{:s}_{:s}.csv".format(site_key, particle_key)
-            )
-            write_recarray_to_csv(
-                recarray=deflection_table[site_key][particle_key],
-                path=out_path,
-            )
-
-
-def powerspace(start, stop, power_index, num, iterations=10000):
-    assert num >= 2
-    num_points_without_start_and_end = num - 2
-    if num_points_without_start_and_end >= 1:
-        full = []
-        for iti in range(iterations):
-            points = np.sort(
-                cpw.random_distributions.draw_power_law(
-                    prng=np.random.default_rng(),
-                    lower_limit=start,
-                    upper_limit=stop,
-                    power_slope=power_index,
-                    num_samples=num_points_without_start_and_end,
-                )
-            )
-            points = [start] + points.tolist() + [stop]
-            full.append(points)
-        full = np.array(full)
-        return np.mean(full, axis=0)
-    else:
-        return np.array([start, stop])
-
-
-def read_csv_to_dict(path):
-    return pandas.read_csv(path).to_dict(orient="list")
-
-
-def write_json(path, obj, indent=0):
-    with open(path + ".tmp", "wt") as f:
-        f.write(json_numpy.dumps(obj, indent=indent))
-    shutil.move(path + ".tmp", path)
-
-
-def read_json(path):
-    with open(path, "rt") as f:
-        obj = json_numpy.loads(f.read())
-    return obj
-
-
-def write_jsonl(path, list_of_obj):
-    with open(path + ".tmp", "wt") as f:
-        for obj in list_of_obj:
-            f.write(json_numpy.dumps(obj, indent=None))
-            f.write("\n")
-    shutil.move(path + ".tmp", path)
-
-
-def read_jsonl(path):
-    list_of_obj = []
-    with open(path, "rt") as f:
-        for line in f.readlines():
-            obj = json_numpy.loads(line)
-            list_of_obj.append(obj)
-    return list_of_obj
