@@ -21,7 +21,6 @@ def make_jobs(
     max_energy,
     num_energy_supports,
     energy_supports_power_law_slope=-1.7,
-    iteration_speed=0.9,
     initial_num_events_per_iteration=2 ** 5,
     max_total_num_events=2 ** 12,
     outlier_percentile=50.0,
@@ -61,7 +60,6 @@ def make_jobs(
                 job["corsika_primary_path"] = corsika_primary_path
                 job["site_key"] = site_key
                 job["particle_key"] = particle_key
-                job["iteration_speed"] = iteration_speed
                 job[
                     "initial_num_events_per_iteration"
                 ] = initial_num_events_per_iteration
@@ -83,11 +81,15 @@ def run_job(job):
     os.makedirs(job["map_dir"], exist_ok=True)
     prng = np.random.Generator(np.random.MT19937(seed=job["seed"]))
 
+    job_filename = "{:06d}_job.json".format(job["seed"])
     discovery_filename = "{:06d}.json".format(job["seed"])
     statistics_filename = "{:06d}_showers.jsonl".format(job["seed"])
 
+    job_path
     discovery_path = os.path.join(job["map_dir"], discovery_filename)
     statistics_path = os.path.join(job["map_dir"], statistics_filename)
+
+    write_json(, )
 
     if not os.path.exists(discovery_path):
         deflection = discovery.estimate_deflection(
@@ -98,13 +100,15 @@ def run_job(job):
             instrument_azimuth_deg=job["instrument_azimuth_deg"],
             instrument_zenith_deg=job["instrument_zenith_deg"],
             max_off_axis_deg=job["max_off_axis_deg"],
+            outlier_percentile=job["outlier_percentile_discovery"],
             initial_num_events_per_iteration=job[
                 "initial_num_events_per_iteration"
             ],
-            outlier_percentile=job["outlier_percentile_discovery"],
+            min_num_valid_Cherenkov_pools=5,
+            min_num_cherenkov_photons=1e2,
             max_total_num_events=job["max_total_num_events"],
             corsika_primary_path=job["corsika_primary_path"],
-            iteration_speed=job["iteration_speed"],
+            DEBUG_PRINT=True,
         )
         deflection["particle_id"] = job["primary_particle_id"]
         deflection["energy_GeV"] = job["primary_energy"]
@@ -144,6 +148,9 @@ def run_job(job):
             write_jsonl(statistics_path, pools)
         else:
             pools = read_jsonl(statistics_path)
+
+            assert len(pools) > 0
+
             pools = pandas.DataFrame(pools)
             pools = pools.to_records(index=False)
 

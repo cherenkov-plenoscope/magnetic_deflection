@@ -24,8 +24,8 @@ def direct_discovery(
     site,
     prng,
     outlier_percentile,
+    min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    min_num_cherenkov_photons_in_airshower=100,
     DEBUG_PRINT=False,
 ):
     out = {
@@ -58,7 +58,7 @@ def direct_discovery(
     cherenkov_pools = corsika.estimate_cherenkov_pool(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
-        min_num_cherenkov_photons=min_num_cherenkov_photons_in_airshower,
+        min_num_cherenkov_photons=min_num_cherenkov_photons,
         outlier_percentile=outlier_percentile,
     )
     cherenkov_pools = pandas.DataFrame(cherenkov_pools)
@@ -85,7 +85,7 @@ def direct_discovery(
         zd2_deg=instrument_zenith_deg,
     )
 
-    c_ref_deg = (1/8) * (spray_radius_deg + max_off_axis_deg)
+    c_ref_deg = (1/8) * (primary_cone_opening_angle_deg + max_off_axis_deg)
     weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
 
     prm_az = np.average(
@@ -146,13 +146,12 @@ def estimate_deflection(
     instrument_zenith_deg,
     max_off_axis_deg,
     outlier_percentile,
-    initial_num_events_per_iteration=2 ** 5,
-    max_total_num_events=2 ** 13,
-    min_num_valid_Cherenkov_pools=100,
+    initial_num_events_per_iteration,
+    max_total_num_events,
+    min_num_valid_Cherenkov_pools,
+    min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    iteration_speed=0.9,
-    min_num_cherenkov_photons_in_airshower=100,
-    verbose=True,
+    DEBUG_PRINT=False,
 ):
     prm_cone_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
@@ -178,10 +177,9 @@ def estimate_deflection(
             site=site,
             prng=prng,
             corsika_primary_path=corsika_primary_path,
-            min_num_cherenkov_photons_in_airshower=(
-                min_num_cherenkov_photons_in_airshower
-            ),
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
             outlier_percentile=outlier_percentile,
+            DEBUG_PRINT=DEBUG_PRINT,
         )
 
         if (
