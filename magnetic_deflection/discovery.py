@@ -15,9 +15,9 @@ def direct_discovery(
     num_events,
     primary_particle_id,
     primary_energy,
-    best_primary_azimuth_deg,
-    best_primary_zenith_deg,
-    spray_radius_deg,
+    primary_cone_azimuth_deg,
+    primary_cone_zenith_deg,
+    primary_cone_opening_angle_deg,
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
@@ -32,7 +32,7 @@ def direct_discovery(
         "iteration": int(run_id),
         "primary_azimuth_deg": float("nan"),
         "primary_zenith_deg": float("nan"),
-        "primary_cone_opening_angle_deg": float(spray_radius_deg),
+        "primary_cone_opening_angle_deg": float(primary_cone_opening_angle_deg),
         "off_axis_deg": float("nan"),
         "cherenkov_pool_x_m": float("nan"),
         "cherenkov_pool_y_m": float("nan"),
@@ -48,9 +48,9 @@ def direct_discovery(
         site=site,
         primary_particle_id=primary_particle_id,
         primary_energy=primary_energy,
-        primary_cone_azimuth_deg=best_primary_azimuth_deg,
-        primary_cone_zenith_deg=best_primary_zenith_deg,
-        primary_cone_opening_angle_deg=spray_radius_deg,
+        primary_cone_azimuth_deg=primary_cone_azimuth_deg,
+        primary_cone_zenith_deg=primary_cone_zenith_deg,
+        primary_cone_opening_angle_deg=primary_cone_opening_angle_deg,
         num_events=num_events,
         prng=prng,
     )
@@ -154,7 +154,7 @@ def estimate_deflection(
     min_num_cherenkov_photons_in_airshower=100,
     verbose=True,
 ):
-    spray_radius_deg = cpw.MAX_ZENITH_DEG
+    prm_cone_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0
@@ -169,9 +169,9 @@ def estimate_deflection(
             num_events=num_events,
             primary_particle_id=primary_particle_id,
             primary_energy=primary_energy,
-            best_primary_azimuth_deg=prm_az_deg,
-            best_primary_zenith_deg=prm_zd_deg,
-            spray_radius_deg=spray_radius_deg,
+            primary_cone_azimuth_deg=prm_az_deg,
+            primary_cone_zenith_deg=prm_zd_deg,
+            primary_cone_opening_angle_deg=prm_cone_deg,
             instrument_azimuth_deg=instrument_azimuth_deg,
             instrument_zenith_deg=instrument_zenith_deg,
             max_off_axis_deg=max_off_axis_deg,
@@ -191,13 +191,13 @@ def estimate_deflection(
             guess["total_num_events"] = total_num_events
             return guess
 
-        if spray_radius_deg < max_off_axis_deg:
-            print("spray_radius_deg < max_off_axis_deg")
+        if prm_cone_deg < max_off_axis_deg:
+            print("prm_cone_deg < max_off_axis_deg")
             break
 
-        if spray_radius_deg < guess["off_axis_deg"]:
+        if prm_cone_deg < guess["off_axis_deg"]:
             num_events *= 2
-            spray_radius_deg *= np.sqrt(2.0)
+            prm_cone_deg *= np.sqrt(2.0)
             print("double num events.")
             continue
 
@@ -205,7 +205,7 @@ def estimate_deflection(
             print("Too many events thrown.")
             break
 
-        spray_radius_deg *= 1.0 / np.sqrt(2.0)
+        prm_cone_deg *= 1.0 / np.sqrt(2.0)
         prm_az_deg = guess["primary_azimuth_deg"]
         prm_zd_deg = guess["primary_zenith_deg"]
 
