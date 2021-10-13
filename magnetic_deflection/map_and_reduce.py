@@ -1,13 +1,16 @@
-import pandas as pd
+import pandas
 import shutil
 import os
 import glob
 import numpy as np
 import json
+import json_numpy
 import corsika_primary_wrapper as cpw
+from . import corsika
 from . import examples
 from . import discovery
 from . import light_field_characterization
+from . import spherical_coordinates as sphcords
 
 
 def make_jobs(
@@ -80,53 +83,112 @@ def run_job(job):
     os.makedirs(job["map_dir"], exist_ok=True)
     prng = np.random.Generator(np.random.MT19937(seed=job["seed"]))
 
-    deflection = discovery.estimate_deflection(
-        prng=prng,
-        site=job["site"],
-        primary_energy=job["primary_energy"],
-        primary_particle_id=job["primary_particle_id"],
-        instrument_azimuth_deg=job["instrument_azimuth_deg"],
-        instrument_zenith_deg=job["instrument_zenith_deg"],
-        max_off_axis_deg=job["max_off_axis_deg"],
-        initial_num_events_per_iteration=job[
-            "initial_num_events_per_iteration"
-        ],
-        outlier_percentile=job["outlier_percentile_discovery"],
-        max_total_num_events=job["max_total_num_events"],
-        corsika_primary_path=job["corsika_primary_path"],
-        iteration_speed=job["iteration_speed"],
-    )
-    deflection["particle_id"] = job["primary_particle_id"]
-    deflection["energy_GeV"] = job["primary_energy"]
-    deflection["site_key"] = job["site_key"]
-    deflection["particle_key"] = job["particle_key"]
+    discovery_filename = "{:06d}.json".format(job["seed"])
+    statistics_filename = "{:06d}_showers.jsonl".format(job["seed"])
 
+    discovery_path = os.path.join(job["map_dir"], discovery_filename)
+    statistics_path = os.path.join(job["map_dir"], statistics_filename)
 
-    if deflection["valid"]:
-        lfc = light_field_characterization.characterize_cherenkov_pool(
+    if not os.path.exists(discovery_path):
+        deflection = discovery.estimate_deflection(
+            prng=prng,
             site=job["site"],
             primary_energy=job["primary_energy"],
             primary_particle_id=job["primary_particle_id"],
-            primary_azimuth_deg=deflection["primary_azimuth_deg"],
-            primary_zenith_deg=deflection["primary_zenith_deg"],
+            instrument_azimuth_deg=job["instrument_azimuth_deg"],
+            instrument_zenith_deg=job["instrument_zenith_deg"],
+            max_off_axis_deg=job["max_off_axis_deg"],
+            initial_num_events_per_iteration=job[
+                "initial_num_events_per_iteration"
+            ],
+            outlier_percentile=job["outlier_percentile_discovery"],
+            max_total_num_events=job["max_total_num_events"],
             corsika_primary_path=job["corsika_primary_path"],
-            total_energy_thrown=1e2,
-            min_num_cherenkov_photons=1e2,
-            outlier_percentile=job["outlier_percentile_statistics"],
-            prng=prng,
+            iteration_speed=job["iteration_speed"],
         )
+        deflection["particle_id"] = job["primary_particle_id"]
+        deflection["energy_GeV"] = job["primary_energy"]
+        deflection["site_key"] = job["site_key"]
+        deflection["particle_key"] = job["particle_key"]
 
-        deflection.update(lfc)
+        write_json(discovery_path, deflection)
+    else:
+        deflection = read_json(discovery_path)
 
 
-    # write result
-    # ------------
-    result_filename = "{:06d}.json".format(job["seed"])
-    map_path = os.path.join(job["map_dir"], result_filename)
-    with open(map_path + ".tmp", "wt") as f:
-        f.write(json.dumps(deflection, indent=4))
-    shutil.move(src=map_path + ".tmp", dst=map_path)
+    if deflection["valid"]:
 
+        total_energy_thrown = 1e2
+        num_events = int(np.ceil(total_energy_thrown / job["primary_energy"]))
+
+        if not os.path.exists(statistics_path):
+
+            steering = corsika.make_steering(
+                run_id=job["seed"],
+                site=job["site"],
+                primary_particle_id=job["primary_particle_id"],
+                primary_energy=job["primary_energy"],
+                primary_cone_azimuth_deg=deflection["primary_azimuth_deg"],
+                primary_cone_zenith_deg=deflection["primary_zenith_deg"],
+                primary_cone_opening_angle_deg=job["max_off_axis_deg"],
+                num_events=num_events,
+                prng=prng,
+            )
+
+            pools = corsika.estimate_cherenkov_pool(
+                corsika_primary_steering=steering,
+                corsika_primary_path=job["corsika_primary_path"],
+                min_num_cherenkov_photons=1e2,
+                outlier_percentile=job["outlier_percentile_statistics"],
+            )
+            write_jsonl(statistics_path, pools)
+        else:
+            pools = read_jsonl(statistics_path)
+            pools = pandas.DataFrame(pools)
+            pools = pools.to_records(index=False)
+
+            (
+                cherenkov_pool_azimuth_deg,
+                cherenkov_pool_zenith_deg
+            ) = sphcords._cx_cy_to_az_zd_deg(
+                cx=pools["direction_median_cx_rad"],
+                cy=pools["direction_median_cy_rad"],
+            )
+
+            delta_c_deg = sphcords._angle_between_az_zd_deg(
+                az1_deg=cherenkov_pool_azimuth_deg,
+                zd1_deg=cherenkov_pool_zenith_deg,
+                az2_deg=job["instrument_azimuth_deg"],
+                zd2_deg=job["instrument_zenith_deg"],
+            )
+
+            c_ref_deg = (1/2) * (job["max_off_axis_deg"])
+            weights = np.exp(-0.5 * (delta_c_deg / c_ref_deg ) ** 2)
+            weights = weights / np.sum(weights)
+
+            out = {
+                "char_position_med_x_m": np.average(pools["position_median_x_m"], weights=weights),
+                "char_position_med_y_m": np.average(pools["position_median_y_m"], weights=weights),
+                "char_position_phi_rad": np.average(pools["position_phi_rad"], weights=weights),
+                "char_position_std_major_m": np.average(pools["position_std_major_m"], weights=weights),
+                "char_position_std_minor_m": np.average(pools["position_std_minor_m"], weights=weights),
+
+                "char_direction_med_cx_rad": np.average(pools["direction_median_cx_rad"], weights=weights),
+                "char_direction_med_cy_rad": np.average(pools["direction_median_cy_rad"], weights=weights),
+                "char_direction_phi_rad": np.average(pools["direction_phi_rad"], weights=weights),
+                "char_direction_std_major_rad": np.average(pools["direction_std_major_rad"], weights=weights),
+                "char_direction_std_minor_rad": np.average(pools["direction_std_minor_rad"], weights=weights),
+
+                "char_arrival_time_mean_s": np.average(pools["arrival_time_mean_s"], weights=weights),
+                "char_arrival_time_median_s": np.average(pools["arrival_time_median_s"], weights=weights),
+                "char_arrival_time_std_s": np.average(pools["arrival_time_std_s"], weights=weights),
+                "char_total_num_photons": np.sum(weights * pools["num_photons"]),
+                "char_total_num_airshowers": len(pools),
+                "char_outlier_percentile": job["outlier_percentile_statistics"],
+            }
+
+            deflection.update(out)
+            write_json(discovery_path, deflection)
     return 0
 
 
@@ -152,7 +214,7 @@ def structure_combined_results(
         if result["valid"]:
             valid_results.append(result)
 
-    df = pd.DataFrame(valid_results)
+    df = pandas.DataFrame(valid_results)
 
     all_keys_keep = KEEP_KEYS + light_field_characterization.KEYS
 
@@ -174,7 +236,7 @@ def structure_combined_results(
 
 
 def write_recarray_to_csv(recarray, path):
-    df = pd.DataFrame(recarray)
+    df = pandas.DataFrame(recarray)
     csv = df.to_csv(index=False)
     with open(path + ".tmp", "wt") as f:
         f.write(csv)
@@ -182,7 +244,7 @@ def write_recarray_to_csv(recarray, path):
 
 
 def read_csv_to_recarray(path):
-    df = pd.read_csv(path)
+    df = pandas.read_csv(path)
     rec = df.to_records(index=False)
     return rec
 
@@ -238,4 +300,33 @@ def powerspace(start, stop, power_index, num, iterations=10000):
 
 
 def read_csv_to_dict(path):
-    return pd.read_csv(path).to_dict(orient="list")
+    return pandas.read_csv(path).to_dict(orient="list")
+
+
+def write_json(path, obj):
+    with open(path + ".tmp", "wt") as f:
+        f.write(json_numpy.dumps(obj))
+    shutil.move(path + ".tmp", path)
+
+
+def read_json(path):
+    with open(path, "rt") as f:
+        obj = json_numpy.loads(f.read())
+    return obj
+
+
+def write_jsonl(path, list_of_obj):
+    with open(path + ".tmp", "wt") as f:
+        for obj in list_of_obj:
+            f.write(json_numpy.dumps(obj, indent=None))
+            f.write("\n")
+    shutil.move(path + ".tmp", path)
+
+
+def read_jsonl(path):
+    list_of_obj = []
+    with open(path, "rt") as f:
+        for line in f.readlines():
+            obj = json_numpy.loads(line)
+            list_of_obj.append(obj)
+    return list_of_obj
