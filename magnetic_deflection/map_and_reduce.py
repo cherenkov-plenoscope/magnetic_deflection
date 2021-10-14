@@ -55,7 +55,9 @@ def make_jobs(
                 job = {}
                 job["job"] = {}
                 job["job"]["id"] = len(jobs)
-                job["job"]["map_dir"] = os.path.join(abs_work_dir, "map")
+                job["job"]["map_dir"] = os.path.join(
+                    abs_work_dir, "map", site_key, particle_key
+                )
                 job["job"]["corsika_primary_path"] = corsika_primary_path
 
                 job["site"] = dict(site)

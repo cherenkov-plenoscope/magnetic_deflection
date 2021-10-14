@@ -67,9 +67,22 @@ def B_make_jobs_from_work_dir(work_dir):
 
 
 def B2_read_job_results_from_work_dir(work_dir):
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
     map_dir = os.path.join(work_dir, "map")
-    result_paths = glob.glob(os.path.join(map_dir, "*.json"))
-    return [json_numpy.loads(open(p, "rt").read()) for p in result_paths]
+
+    job_results = {}
+    for skey in sites:
+        job_results[skey] = {}
+        for pkey in particles:
+            paths = glob.glob(
+                os.path.join(map_dir, skey, pkey, "*_results.json")
+            )
+            job_results[skey][pkey] = [
+                json_numpy.loads(open(p, "rt").read()) for p in paths
+            ]
+
+    return job_results
 
 
 def C_reduce_job_results_in_work_dir(job_results, work_dir):
