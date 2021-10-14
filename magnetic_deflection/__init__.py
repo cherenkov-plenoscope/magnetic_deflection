@@ -6,6 +6,7 @@ from . import light_field_characterization
 from . import corsika
 from . import spherical_coordinates
 from . import tools
+from . import jsonl_logger
 
 import os
 import json

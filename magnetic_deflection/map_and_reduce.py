@@ -9,7 +9,7 @@ from . import discovery
 from . import light_field_characterization
 from . import spherical_coordinates as sphcords
 from . import tools
-from . import jsonl_jlog
+from . import jsonl_logger
 
 
 def make_jobs(
@@ -94,7 +94,7 @@ def run_job(job):
 
     log_filename = "{:06d}_log.json".format(job["job"]["id"])
     log_path = os.path.join(job["job"]["map_dir"], log_filename)
-    jlog = jsonl_jlog.init(path=log_path)
+    jlog = jsonl_logger.init(path=log_path)
     jlog.info("job: start")
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
@@ -140,7 +140,7 @@ def run_job(job):
 
     guess = guesses[-1]
 
-    if deflection["valid"]:
+    if guess["valid"]:
         jlog.info("job: gather statistics of airshowers")
 
         if not os.path.exists(statistics_path):
