@@ -18,19 +18,17 @@ def add_density_fields_to_deflection_table(deflection_table):
             dicout = pd.DataFrame(t).to_dict(orient="list")
 
             dicout["num_cherenkov_photons_per_shower"] = (
-                t["char_total_num_photons"] / t["char_total_num_showers"]
+                t["total_num_photons"] / t["total_num_showers"]
             )
 
             dicout["spread_area_m2"] = (
-                np.pi
-                * t["char_position_std_major_m"]
-                * t["char_position_std_minor_m"]
+                np.pi * t["position_std_major_m"] * t["position_std_minor_m"]
             )
 
             dicout["spread_solid_angle_deg2"] = (
                 np.pi
-                * np.rad2deg(t["char_direction_std_major_rad"])
-                * np.rad2deg(t["char_direction_std_minor_rad"])
+                * np.rad2deg(t["direction_std_major_rad"])
+                * np.rad2deg(t["direction_std_minor_rad"])
             )
 
             dicout["light_field_outer_density"] = dicout[
@@ -54,7 +52,7 @@ def cut_invalid_from_deflection_table(
             for particle_key in deflection_table[site_key]:
                 t_raw = deflection_table[site_key][particle_key]
                 defelction_valid = t_raw["particle_azimuth_deg"] != 0.0
-                energy_valid = t_raw["energy_GeV"] >= min_energy
+                energy_valid = t_raw["particle_energy_GeV"] >= min_energy
                 valid = np.logical_and(energy_valid, defelction_valid)
                 out[site_key][particle_key] = t_raw[valid]
     return out

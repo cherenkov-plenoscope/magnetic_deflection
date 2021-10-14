@@ -55,19 +55,17 @@ with open(os.path.join(work_dir, "particles.json"), "rt") as f:
 with open(os.path.join(work_dir, "pointing.json"), "rt") as f:
     pointing = json.loads(f.read())
 
-raw = mdfl.map_and_reduce.read_deflection_table(
-    path=os.path.join(work_dir, "raw")
-)
+raw = mdfl.tools.read_deflection_table(path=os.path.join(work_dir, "raw"))
 
-raw_valid_add_clean = mdfl.map_and_reduce.read_deflection_table(
+raw_valid_add_clean = mdfl.tools.read_deflection_table(
     path=os.path.join(work_dir, "raw_valid_add_clean")
 )
 
-raw_valid_add_clean_high = mdfl.map_and_reduce.read_deflection_table(
+raw_valid_add_clean_high = mdfl.tools.read_deflection_table(
     path=os.path.join(work_dir, "raw_valid_add_clean_high")
 )
 
-result = mdfl.map_and_reduce.read_deflection_table(
+result = mdfl.tools.read_deflection_table(
     path=os.path.join(work_dir, "result")
 )
 
@@ -84,25 +82,29 @@ for site_key in sites:
             ax = fig.add_axes(ax_size)
 
             ax.plot(
-                raw[site_key][particle_key]["energy_GeV"],
+                raw[site_key][particle_key]["particle_energy_GeV"],
                 raw[site_key][particle_key][key] * key_map[key]["factor"],
                 "ko",
                 alpha=0.05,
             )
 
             ax.plot(
-                raw_valid_add_clean[site_key][particle_key]["energy_GeV"],
+                raw_valid_add_clean[site_key][particle_key][
+                    "particle_energy_GeV"
+                ],
                 raw_valid_add_clean[site_key][particle_key][key]
                 * key_map[key]["factor"],
                 "kx",
             )
             num_e = len(
-                raw_valid_add_clean[site_key][particle_key]["energy_GeV"]
+                raw_valid_add_clean[site_key][particle_key][
+                    "particle_energy_GeV"
+                ]
             )
             for ibin in range(num_e):
-                _x = raw_valid_add_clean[site_key][particle_key]["energy_GeV"][
-                    ibin
-                ]
+                _x = raw_valid_add_clean[site_key][particle_key][
+                    "particle_energy_GeV"
+                ][ibin]
                 _y_std = raw_valid_add_clean[site_key][particle_key][
                     key + "_std"
                 ][ibin]
@@ -116,7 +118,9 @@ for site_key in sites:
                 )
 
             ax.plot(
-                raw_valid_add_clean_high[site_key][particle_key]["energy_GeV"],
+                raw_valid_add_clean_high[site_key][particle_key][
+                    "particle_energy_GeV"
+                ],
                 raw_valid_add_clean_high[site_key][particle_key][key]
                 * key_map[key]["factor"],
                 "bo",
@@ -124,7 +128,7 @@ for site_key in sites:
             )
 
             ax.plot(
-                result[site_key][particle_key]["energy_GeV"],
+                result[site_key][particle_key]["particle_energy_GeV"],
                 result[site_key][particle_key][key] * key_map[key]["factor"],
                 color="k",
                 linestyle="-",

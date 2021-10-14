@@ -80,13 +80,13 @@ def estimate_deflection(
         )
 
         jlog.info(
-            "loop: " +
-            "azimuth {:.1f}, ".format(prm_az_deg) +
-            "zenith {:.1f}, ".format(prm_zd_deg) +
-            "opening {:.2f}, ".format(prm_cone_deg) +
-            "off-axis {:.2f} ".format(guess["off_axis_deg"]) +
-            "all/deg, " +
-            "num showers: {:d}".format(len(cherenkov_pools))
+            "loop: "
+            + "azimuth {:.1f}, ".format(prm_az_deg)
+            + "zenith {:.1f}, ".format(prm_zd_deg)
+            + "opening {:.2f}, ".format(prm_cone_deg)
+            + "off-axis {:.2f} ".format(guess["off_axis_deg"])
+            + "all/deg, "
+            + "num showers: {:d}".format(len(cherenkov_pools))
         )
 
         guesses.append(guess)

@@ -172,7 +172,6 @@ def run_job(job):
         jlog.info("job: use existing guess for deflection")
         estimates = tools.read_jsonl(estimates_path)
 
-
     if len(estimates) > 0:
         best_estimate = estimates[-1]
         jlog.info("job: have valid estimate for deflection")
@@ -186,9 +185,13 @@ def run_job(job):
                 site=job["site"],
                 particle_id=job["particle"]["corsika_id"],
                 particle_energy=job["particle"]["energy_GeV"],
-                particle_cone_azimuth_deg=best_estimate["particle_azimuth_deg"],
+                particle_cone_azimuth_deg=best_estimate[
+                    "particle_azimuth_deg"
+                ],
                 particle_cone_zenith_deg=best_estimate["particle_zenith_deg"],
-                particle_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
+                particle_cone_opening_angle_deg=job["statistics"][
+                    "off_axis_deg"
+                ],
                 num_showers=job["statistics"]["num_showers"],
                 min_num_cherenkov_photons=job["statistics"][
                     "min_num_cherenkov_photons"
@@ -219,46 +222,3 @@ def run_job(job):
 
     jlog.info("job: end")
     return 0
-
-
-KEEP_KEYS = [
-    "particle_id",
-    "energy_GeV",
-    "particle_azimuth_deg",
-    "particle_zenith_deg",
-    "cherenkov_pool_x_m",
-    "cherenkov_pool_y_m",
-    "off_axis_deg",
-    "num_valid_Cherenkov_pools",
-    "num_thrown_Cherenkov_pools",
-    "total_num_showers",
-]
-
-
-def structure_combined_results(
-    combined_results, particles, sites,
-):
-    valid_results = []
-    for result in combined_results:
-        if result["valid"]:
-            valid_results.append(result)
-
-    df = pandas.DataFrame(valid_results)
-
-    all_keys_keep = KEEP_KEYS + light_field_characterization.KEYS
-
-    res = {}
-    for site_key in sites:
-        res[site_key] = {}
-        for particle_key in particles:
-            site_mask = (df["site_key"] == site_key).values
-            particle_mask = (df["particle_key"] == particle_key).values
-            mask = np.logical_and(site_mask, particle_mask)
-            site_particle_df = df[mask]
-            site_particle_df = site_particle_df[site_particle_df["valid"]]
-            site_particle_keep_df = site_particle_df[all_keys_keep]
-            site_particle_rec = site_particle_keep_df.to_records(index=False)
-            argsort = np.argsort(site_particle_rec["energy_GeV"])
-            site_particle_rec = site_particle_rec[argsort]
-            res[site_key][particle_key] = site_particle_rec
-    return res

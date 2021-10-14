@@ -92,11 +92,18 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
     sites = tools.read_json(os.path.join(work_dir, "sites.json"))
     particles = tools.read_json(os.path.join(work_dir, "particles.json"))
 
-    raw_deflection_table = map_and_reduce.structure_combined_results(
-        combined_results=job_results, sites=sites, particles=particles
-    )
+    table = {}
+    for skey in sites:
+        table[skey] = {}
+        for pkey in particles:
+            df = pandas.DataFrame(job_results[skey][pkey])
+            rec = df.to_records(index=False)
+            order = np.argsort(rec["particle_energy_GeV"])
+            rec = rec[order]
+            table[skey][pkey] = rec
+
     tools.write_deflection_table(
-        deflection_table=raw_deflection_table, path=raw_deflection_table_path
+        deflection_table=table, path=raw_deflection_table_path
     )
 
 
@@ -184,8 +191,8 @@ def _add_density_fields(
 FIT_KEYS = {
     "particle_azimuth_deg": {"start": 90.0,},
     "particle_zenith_deg": {"start": 0.0,},
-    "cherenkov_pool_x_m": {"start": 0.0,},
-    "cherenkov_pool_y_m": {"start": 0.0,},
+    "position_med_x_m": {"start": 0.0,},
+    "position_med_y_m": {"start": 0.0,},
 }
 
 
@@ -198,15 +205,17 @@ def _smooth_and_reject_outliers(in_path, out_path):
             t = deflection_table[site_key][particle_key]
             sm = {}
             for key in FIT_KEYS:
-                sres = analysis.smooth(energies=t["energy_GeV"], values=t[key])
-                if "energy_GeV" in sm:
+                sres = analysis.smooth(
+                    energies=t["particle_energy_GeV"], values=t[key]
+                )
+                if "particle_energy_GeV" in sm:
                     np.testing.assert_array_almost_equal(
-                        x=sm["energy_GeV"],
+                        x=sm["particle_energy_GeV"],
                         y=sres["energy_supports"],
                         decimal=3,
                     )
                 else:
-                    sm["energy_GeV"] = sres["energy_supports"]
+                    sm["particle_energy_GeV"] = sres["energy_supports"]
                 sm[key] = sres["key_mean80"]
                 sm[key + "_std"] = sres["key_std80"]
                 df = pandas.DataFrame(sm)
@@ -238,8 +247,8 @@ def _set_high_energies(
             t = deflection_table[site_key][particle_key]
             sm = {}
             for key in FIT_KEYS:
-                sm["energy_GeV"] = np.array(
-                    t["energy_GeV"].tolist()
+                sm["particle_energy_GeV"] = np.array(
+                    t["particle_energy_GeV"].tolist()
                     + np.geomspace(
                         energy_start, energy_stop, num_points
                     ).tolist()
@@ -280,7 +289,7 @@ def _fit_power_law(
                 try:
                     expy, _ = scipy_optimize_curve_fit(
                         analysis.power_law,
-                        t["energy_GeV"],
+                        t["particle_energy_GeV"],
                         t[key] - key_start,
                         p0=(sig * charge_signs[particle_key], 1.0),
                     )
@@ -307,7 +316,7 @@ def _export_table(
     for site_key in sites:
         for particle_key in particles:
             out = {}
-            out["energy_GeV"] = np.geomspace(
+            out["particle_energy_GeV"] = np.geomspace(
                 np.min(particles[particle_key]["energy_bin_edges_GeV"]),
                 np.max(particles[particle_key]["energy_bin_edges_GeV"]),
                 1024,
@@ -318,7 +327,7 @@ def _export_table(
                 power_law = json_numpy.loads(fin.read())
             for key in FIT_KEYS:
                 rec_key = analysis.power_law(
-                    energy=out["energy_GeV"],
+                    energy=out["particle_energy_GeV"],
                     scale=power_law[key]["scale"],
                     index=power_law[key]["index"],
                 )
