@@ -21,9 +21,9 @@ def make_jobs(
     energy_supports_num,
     energy_supports_power_law_slope=-1.7,
     discovery_max_total_energy=4e3,
-    discovery_min_energy_per_iteration=12.0,
+    discovery_min_energy_per_iteration=16.0,
     discovery_min_num_showers_per_iteration=16,
-    statistics_total_energy=2e3,
+    statistics_total_energy=2.5e2,
     statistics_min_num_showers=16,
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
@@ -102,14 +102,14 @@ def make_jobs(
                         statistics_total_energy / job["particle"]["energy_GeV"]
                     )
                 )
-                num_showers = np.min([1000, num_showers])
 
                 job["statistics"] = {
                     "num_showers": num_showers,
                     "outlier_percentile": outlier_percentile,
-                    "off_axis_deg": 2.0
-                    * particle["magnetic_deflection_max_off_axis_deg"],
                     "min_num_cherenkov_photons": min_num_cherenkov_photons,
+                    "off_axis_deg": particle[
+                        "magnetic_deflection_max_off_axis_deg"
+                    ],
                 }
 
                 jobs.append(job)
@@ -132,8 +132,8 @@ def run_job(job):
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
     tools.write_json(job_path, job, indent=4)
 
-    discovery_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
-    discovery_path = os.path.join(job["job"]["map_dir"], discovery_filename)
+    estimates_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
+    estimates_path = os.path.join(job["job"]["map_dir"], estimates_filename)
 
     statistics_filename = "{:06d}_statistics.jsonl".format(job["job"]["id"])
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
@@ -143,10 +143,10 @@ def run_job(job):
 
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
-    jlog.info("job: start discovery of deflection")
-    if not os.path.exists(discovery_path):
+    jlog.info("job: discovering deflection")
+    if not os.path.exists(estimates_path):
         jlog.info("job: estimate new guess for deflection")
-        guesses = discovery.estimate_deflection(
+        estimates = discovery.estimate_deflection(
             json_logger=jlog,
             prng=prng,
             site=job["site"],
@@ -164,25 +164,20 @@ def run_job(job):
                 "min_num_cherenkov_photons"
             ],
             corsika_primary_path=job["job"]["corsika_primary_path"],
-            guesses_path=discovery_path,
+            guesses_path=estimates_path,
         )
 
-        tools.write_jsonl(discovery_path, guesses)
+        tools.write_jsonl(estimates_path, estimates)
     else:
         jlog.info("job: use existing guess for deflection")
-        guesses = tools.read_jsonl(discovery_path)
+        estimates = tools.read_jsonl(estimates_path)
 
 
-    if len(guesses) > 0:
-        guess = guesses[-1]
-        guess["particle_energy_GeV"] = job["particle"]["energy_GeV"]
-        tools.write_json(result_path, guess)
+    if len(estimates) > 0:
+        best_estimate = estimates[-1]
+        jlog.info("job: have valid estimate for deflection")
 
-    """
-    guess = guesses[-1]
-
-    if guess["valid"]:
-        jlog.info("job: start gathering statistics of showers")
+        jlog.info("job: gathering statistics")
 
         if not os.path.exists(statistics_path):
             jlog.info("job: simulate new showers")
@@ -192,11 +187,9 @@ def run_job(job):
                 site=job["site"],
                 particle_id=job["particle"]["corsika_id"],
                 particle_energy=job["particle"]["energy_GeV"],
-                particle_cone_azimuth_deg=guess["particle_azimuth_deg"],
-                particle_cone_zenith_deg=guess["particle_zenith_deg"],
-                particle_cone_opening_angle_deg=job["statistics"][
-                    "off_axis_deg"
-                ],
+                particle_cone_azimuth_deg=best_estimate["particle_azimuth_deg"],
+                particle_cone_zenith_deg=best_estimate["particle_zenith_deg"],
+                particle_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
                 num_showers=job["statistics"]["num_showers"],
                 prng=prng,
             )
@@ -214,22 +207,18 @@ def run_job(job):
             jlog.info("job: use existing showers")
             pools = tools.read_jsonl(statistics_path)
 
-        assert len(pools) > 0
-
         jlog.info("job: estimate statistics of showers")
-        out = light_field_characterization.inspect_pools(
+        result = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1 / 2) * (job["statistics"]["off_axis_deg"]),
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
         )
-        out["outlier_percentile"] = job["statistics"]["outlier_percentile"]
+        result["outlier_percentile"] = job["statistics"]["outlier_percentile"]
+        result["particle_energy_GeV"] = job["particle"]["energy_GeV"]
 
         jlog.info("job: write results")
-        for okey in out:
-            guess[light_field_characterization.KEYPREFIX + okey] = out[okey]
-        tools.write_json(result_path, guess)
-        """
+        tools.write_json(result_path, result)
 
     jlog.info("job: end")
     return 0
