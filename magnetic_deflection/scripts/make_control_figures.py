@@ -26,14 +26,14 @@ dpi = 240
 ax_size = (0.15, 0.12, 0.8, 0.8)
 
 key_map = {
-    "primary_azimuth_deg": {
+    "particle_azimuth_deg": {
         "unit": "deg",
-        "name": "primary-azimuth",
+        "name": "particle-azimuth",
         "factor": 1,
     },
-    "primary_zenith_deg": {
+    "particle_zenith_deg": {
         "unit": "deg",
-        "name": "primary-zenith",
+        "name": "particle-zenith",
         "factor": 1,
     },
     "cherenkov_pool_x_m": {

@@ -53,7 +53,7 @@ def cut_invalid_from_deflection_table(
             out[site_key] = {}
             for particle_key in deflection_table[site_key]:
                 t_raw = deflection_table[site_key][particle_key]
-                defelction_valid = t_raw["primary_azimuth_deg"] != 0.0
+                defelction_valid = t_raw["particle_azimuth_deg"] != 0.0
                 energy_valid = t_raw["energy_GeV"] >= min_energy
                 valid = np.logical_and(energy_valid, defelction_valid)
                 out[site_key][particle_key] = t_raw[valid]

@@ -15,11 +15,11 @@ from . import tools
 def direct_discovery(
     run_id,
     num_showers,
-    primary_particle_id,
-    primary_energy,
-    primary_cone_azimuth_deg,
-    primary_cone_zenith_deg,
-    primary_cone_opening_angle_deg,
+    particle_id,
+    particle_energy,
+    particle_cone_azimuth_deg,
+    particle_cone_zenith_deg,
+    particle_cone_opening_angle_deg,
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
@@ -34,11 +34,11 @@ def direct_discovery(
     steering = corsika.make_steering(
         run_id=run_id,
         site=site,
-        primary_particle_id=primary_particle_id,
-        primary_energy=primary_energy,
-        primary_cone_azimuth_deg=primary_cone_azimuth_deg,
-        primary_cone_zenith_deg=primary_cone_zenith_deg,
-        primary_cone_opening_angle_deg=primary_cone_opening_angle_deg,
+        particle_id=particle_id,
+        particle_energy=particle_energy,
+        particle_cone_azimuth_deg=particle_cone_azimuth_deg,
+        particle_cone_zenith_deg=particle_cone_zenith_deg,
+        particle_cone_opening_angle_deg=particle_cone_opening_angle_deg,
         num_showers=num_showers,
         prng=prng,
     )
@@ -55,7 +55,7 @@ def direct_discovery(
         out["valid"] = False
         return out
 
-    off_axis_pivot_deg = (1/8) * (primary_cone_opening_angle_deg + max_off_axis_deg)
+    off_axis_pivot_deg = (1/8) * (particle_cone_opening_angle_deg + max_off_axis_deg)
     insp = light_field_characterization.inspect_pools(
         cherenkov_pools=cherenkov_pools,
         off_axis_pivot_deg=off_axis_pivot_deg,
@@ -73,8 +73,8 @@ def estimate_deflection(
     json_logger,
     prng,
     site,
-    primary_energy,
-    primary_particle_id,
+    particle_energy,
+    particle_id,
     instrument_azimuth_deg,
     instrument_zenith_deg,
     max_off_axis_deg,
@@ -104,11 +104,11 @@ def estimate_deflection(
         guess = direct_discovery(
             run_id=run_id,
             num_showers=num_showers_per_iteration,
-            primary_particle_id=primary_particle_id,
-            primary_energy=primary_energy,
-            primary_cone_azimuth_deg=prm_az_deg,
-            primary_cone_zenith_deg=prm_zd_deg,
-            primary_cone_opening_angle_deg=prm_cone_deg,
+            particle_id=particle_id,
+            particle_energy=particle_energy,
+            particle_cone_azimuth_deg=prm_az_deg,
+            particle_cone_zenith_deg=prm_zd_deg,
+            particle_cone_opening_angle_deg=prm_cone_deg,
             instrument_azimuth_deg=instrument_azimuth_deg,
             instrument_zenith_deg=instrument_zenith_deg,
             max_off_axis_deg=max_off_axis_deg,
@@ -151,8 +151,8 @@ def estimate_deflection(
             break
 
         prm_cone_deg *= 1.0 / np.sqrt(2.0)
-        prm_az_deg = guess["primary_azimuth_deg"]
-        prm_zd_deg = guess["primary_zenith_deg"]
+        prm_az_deg = guess["particle_azimuth_deg"]
+        prm_zd_deg = guess["particle_zenith_deg"]
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
             jlog.info("loop: break, particle directions are nan")

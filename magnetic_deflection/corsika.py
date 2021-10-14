@@ -10,11 +10,11 @@ from . import light_field_characterization as lfc
 def make_steering(
     run_id,
     site,
-    primary_particle_id,
-    primary_energy,
-    primary_cone_azimuth_deg,
-    primary_cone_zenith_deg,
-    primary_cone_opening_angle_deg,
+    particle_id,
+    particle_energy,
+    particle_cone_azimuth_deg,
+    particle_cone_zenith_deg,
+    particle_cone_opening_angle_deg,
     num_showers,
     prng,
 ):
@@ -31,15 +31,15 @@ def make_steering(
     for shower_id in range(num_showers):
         az, zd = cpw.random_distributions.draw_azimuth_zenith_in_viewcone(
             prng=prng,
-            azimuth_rad=np.deg2rad(primary_cone_azimuth_deg),
-            zenith_rad=np.deg2rad(primary_cone_zenith_deg),
+            azimuth_rad=np.deg2rad(particle_cone_azimuth_deg),
+            zenith_rad=np.deg2rad(particle_cone_zenith_deg),
             min_scatter_opening_angle_rad=np.deg2rad(0.0),
-            max_scatter_opening_angle_rad=np.deg2rad(primary_cone_opening_angle_deg),
+            max_scatter_opening_angle_rad=np.deg2rad(particle_cone_opening_angle_deg),
             max_zenith_rad=np.deg2rad(90),
         )
         prm = {
-            "particle_id": int(primary_particle_id),
-            "energy_GeV": float(primary_energy),
+            "particle_id": int(particle_id),
+            "energy_GeV": float(particle_energy),
             "zenith_rad": zd,
             "azimuth_rad": az,
             "depth_g_per_cm2": 0.0,
@@ -80,8 +80,8 @@ def estimate_cherenkov_pool(
 
             if num_bunches >= min_num_cherenkov_photons:
                 pool = {}
-                pool["primary_azimuth_deg"] = np.rad2deg(ceh[cpw.I_EVTH_AZIMUTH_RAD])
-                pool["primary_zenith_deg"] = np.rad2deg(ceh[cpw.I_EVTH_ZENITH_RAD])
+                pool["particle_azimuth_deg"] = np.rad2deg(ceh[cpw.I_EVTH_AZIMUTH_RAD])
+                pool["particle_zenith_deg"] = np.rad2deg(ceh[cpw.I_EVTH_ZENITH_RAD])
                 pool["num_photons"] = np.sum(light_field["size"])
                 pool["num_bunches"] = num_bunches
 

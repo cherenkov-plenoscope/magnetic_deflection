@@ -45,16 +45,16 @@ PLOT_ENERGY_SUPPORTS = False
 PLOT_RAW_ESTIMATES = True
 
 key_map = {
-    "primary_azimuth_deg": {
+    "particle_azimuth_deg": {
         "unit": "deg",
-        "name": "primary-azimuth",
+        "name": "particle-azimuth",
         "factor": 1,
         "start": 90.0,
         "etend_high_energies": True,
     },
-    "primary_zenith_deg": {
+    "particle_zenith_deg": {
         "unit": "deg",
-        "name": "primary-zenith",
+        "name": "particle-zenith",
         "factor": 1,
         "start": 0.0,
         "etend_high_energies": True,
@@ -83,8 +83,8 @@ nice_site_labels = {
 }
 
 nice_variable_keys = {
-    "primary_azimuth_deg": "$\\PrmAz{}$\\,/\\,deg",
-    "primary_zenith_deg": "$\\PrmZd{}$\\,/\\,deg",
+    "particle_azimuth_deg": "$\\PrmAz{}$\\,/\\,deg",
+    "particle_zenith_deg": "$\\PrmZd{}$\\,/\\,deg",
     "cherenkov_pool_x_m": "$\\CerX{}$\\,/\\,m",
     "cherenkov_pool_y_m": "$\\CerY{}$\\,/\\,m",
 }
@@ -391,8 +391,8 @@ for site_key in deflection_table:
         rgbas[:, 3] = 0.25
         mdfl_plot.add_points_in_half_dome(
             ax=ax,
-            azimuths_deg=t["primary_azimuth_deg"],
-            zeniths_deg=t["primary_zenith_deg"],
+            azimuths_deg=t["particle_azimuth_deg"],
+            zeniths_deg=t["particle_zenith_deg"],
             point_diameter=0.1 * rfov,
             rgbas=rgbas,
         )
@@ -400,7 +400,7 @@ for site_key in deflection_table:
             ax.text(
                 -1.6 * rfov,
                 0.65 * rfov,
-                "direction of primary\n\nazimuth w.r.t.\nmagnetic north",
+                "direction of particle\n\nazimuth w.r.t.\nmagnetic north",
             )
         ax.text(
             -1.0 * rfov, -1.0 * rfov, "zenith {:1.0f}$^\circ$".format(fov_deg)
