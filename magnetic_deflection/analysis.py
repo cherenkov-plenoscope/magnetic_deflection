@@ -18,7 +18,7 @@ def add_density_fields_to_deflection_table(deflection_table):
             dicout = pd.DataFrame(t).to_dict(orient="list")
 
             dicout["num_cherenkov_photons_per_shower"] = (
-                t["char_total_num_photons"] / t["char_total_num_airshowers"]
+                t["char_total_num_photons"] / t["char_total_num_showers"]
             )
 
             dicout["spread_area_m2"] = (

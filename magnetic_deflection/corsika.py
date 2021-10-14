@@ -15,7 +15,7 @@ def make_steering(
     primary_cone_azimuth_deg,
     primary_cone_zenith_deg,
     primary_cone_opening_angle_deg,
-    num_events,
+    num_showers,
     prng,
 ):
     steering = {}
@@ -28,7 +28,7 @@ def make_steering(
         "atmosphere_id": site["atmosphere_id"],
     }
     steering["primaries"] = []
-    for event_id in range(num_events):
+    for shower_id in range(num_showers):
         az, zd = cpw.random_distributions.draw_azimuth_zenith_in_viewcone(
             prng=prng,
             azimuth_rad=np.deg2rad(primary_cone_azimuth_deg),
@@ -43,7 +43,7 @@ def make_steering(
             "zenith_rad": zd,
             "azimuth_rad": az,
             "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(event_id + run_id * num_events),
+            "random_seed": cpw.simple_seed(shower_id + run_id * num_showers),
         }
         steering["primaries"].append(prm)
     return steering
@@ -62,8 +62,8 @@ def estimate_cherenkov_pool(
             stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
         )
 
-        for idx, airshower in enumerate(corsika_run):
-            corsika_event_header, photon_bunches = airshower
+        for idx, shower in enumerate(corsika_run):
+            corsika_event_header, photon_bunches = shower
             all_light_field = lfc.init_light_field_from_corsika(
                 bunches=photon_bunches
             )

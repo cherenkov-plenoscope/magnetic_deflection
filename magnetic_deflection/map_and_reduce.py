@@ -20,8 +20,8 @@ def make_jobs(
     max_energy,
     num_energy_supports,
     energy_supports_power_law_slope=-1.7,
-    num_events_per_iteration=2 ** 7,
-    max_total_num_events=2 ** 12,
+    num_showers_per_iteration=2 ** 7,
+    max_total_num_showers=2 ** 12,
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
@@ -61,19 +61,19 @@ def make_jobs(
 
                 job["discovery"] = {
                     "outlier_percentile": 100.0,
-                    "num_events_per_iteration": num_events_per_iteration,
-                    "max_num_events": max_total_num_events,
+                    "num_showers_per_iteration": num_showers_per_iteration,
+                    "max_num_showers": max_total_num_showers,
                     "max_off_axis_deg": particle[
                         "magnetic_deflection_max_off_axis_deg"
                     ],
                     "min_num_cherenkov_photons": min_num_cherenkov_photons,
                 }
 
-                num_events = int(np.ceil(1e3 / job["particle"]["energy_GeV"]))
-                num_events = np.min([1000, num_events])
+                num_showers = int(np.ceil(1e3 / job["particle"]["energy_GeV"]))
+                num_showers = np.min([1000, num_showers])
 
                 job["statistics"] = {
-                    "num_events": num_events,
+                    "num_showers": num_showers,
                     "outlier_percentile": outlier_percentile,
                     "off_axis_deg": 2.0 * particle[
                         "magnetic_deflection_max_off_axis_deg"
@@ -123,8 +123,8 @@ def run_job(job):
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
             outlier_percentile=job["discovery"]["outlier_percentile"],
-            num_events_per_iteration=job["discovery"]["num_events_per_iteration"],
-            max_num_events=job["discovery"]["max_num_events"],
+            num_showers_per_iteration=job["discovery"]["num_showers_per_iteration"],
+            max_num_showers=job["discovery"]["max_num_showers"],
             min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
             corsika_primary_path=job["job"]["corsika_primary_path"],
             guesses_path=discovery_path,
@@ -138,10 +138,10 @@ def run_job(job):
     guess = guesses[-1]
 
     if guess["valid"]:
-        jlog.info("job: gather statistics of airshowers")
+        jlog.info("job: gather statistics of showers")
 
         if not os.path.exists(statistics_path):
-            jlog.info("job: simulate new airshowers")
+            jlog.info("job: simulate new showers")
 
             steering = corsika.make_steering(
                 run_id=1 + job["job"]["id"],
@@ -151,7 +151,7 @@ def run_job(job):
                 primary_cone_azimuth_deg=guess["primary_azimuth_deg"],
                 primary_cone_zenith_deg=guess["primary_zenith_deg"],
                 primary_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
-                num_events=job["statistics"]["num_events"],
+                num_showers=job["statistics"]["num_showers"],
                 prng=prng,
             )
 
@@ -163,12 +163,12 @@ def run_job(job):
             )
             tools.write_jsonl(statistics_path, pools)
         else:
-            jlog.info("job: use existing airshowers")
+            jlog.info("job: use existing showers")
             pools = tools.read_jsonl(statistics_path)
 
         assert len(pools) > 0
 
-        jlog.info("job: estimate statistics of airshowers")
+        jlog.info("job: estimate statistics of showers")
         out = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1/2) * (job["statistics"]["off_axis_deg"]),
@@ -196,7 +196,7 @@ KEEP_KEYS = [
     "off_axis_deg",
     "num_valid_Cherenkov_pools",
     "num_thrown_Cherenkov_pools",
-    "total_num_events",
+    "total_num_showers",
 ]
 
 

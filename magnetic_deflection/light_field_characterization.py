@@ -27,7 +27,7 @@ KEYS = [
     "char_arrival_time_median_s",
     "char_arrival_time_std_s",
     "char_total_num_photons",
-    "char_total_num_airshowers",
+    "char_total_num_showers",
     "char_outlier_percentile",
 ]
 
@@ -170,7 +170,7 @@ def inspect_pools(
         out[pkey + "_std"] = _std
 
     out["total_num_photons"] = np.sum(cers["num_photons"])
-    out["total_num_airshowers"] = len(cers)
+    out["total_num_showers"] = len(cers)
 
     if debug_print:
         print(json_numpy.dumps(out, indent=4))

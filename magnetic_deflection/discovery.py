@@ -14,7 +14,7 @@ from . import tools
 
 def direct_discovery(
     run_id,
-    num_events,
+    num_showers,
     primary_particle_id,
     primary_energy,
     primary_cone_azimuth_deg,
@@ -39,7 +39,7 @@ def direct_discovery(
         primary_cone_azimuth_deg=primary_cone_azimuth_deg,
         primary_cone_zenith_deg=primary_cone_zenith_deg,
         primary_cone_opening_angle_deg=primary_cone_opening_angle_deg,
-        num_events=num_events,
+        num_showers=num_showers,
         prng=prng,
     )
 
@@ -50,7 +50,7 @@ def direct_discovery(
         outlier_percentile=outlier_percentile,
     )
 
-    expected_num_valid_pools = int(np.ceil(0.1 * num_events))
+    expected_num_valid_pools = int(np.ceil(0.1 * num_showers))
     if len(cherenkov_pools) < expected_num_valid_pools:
         out["valid"] = False
         return out
@@ -79,8 +79,8 @@ def estimate_deflection(
     instrument_zenith_deg,
     max_off_axis_deg,
     outlier_percentile,
-    num_events_per_iteration,
-    max_num_events,
+    num_showers_per_iteration,
+    max_num_showers,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
     guesses_path=None,
@@ -90,20 +90,20 @@ def estimate_deflection(
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0
-    total_num_events = 0
+    total_num_showers = 0
 
     guesses = []
 
     jlog.info("loop: start")
-    jlog.info("loop: {:d} shower/iteration".format(num_events_per_iteration))
+    jlog.info("loop: {:d} shower/iteration".format(num_showers_per_iteration))
 
     while True:
         run_id += 1
 
-        total_num_events += num_events_per_iteration
+        total_num_showers += num_showers_per_iteration
         guess = direct_discovery(
             run_id=run_id,
-            num_events=num_events_per_iteration,
+            num_showers=num_showers_per_iteration,
             primary_particle_id=primary_particle_id,
             primary_energy=primary_energy,
             primary_cone_azimuth_deg=prm_az_deg,
@@ -132,7 +132,7 @@ def estimate_deflection(
             guess["valid"]
             and guess["off_axis_deg"] <= max_off_axis_deg
         ):
-            guess["total_num_events"] = total_num_events
+            guess["total_num_showers"] = total_num_showers
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 
@@ -141,12 +141,12 @@ def estimate_deflection(
             break
 
         if prm_cone_deg < guess["off_axis_deg"]:
-            num_events_per_iteration *= 2
+            num_showers_per_iteration *= 2
             prm_cone_deg *= np.sqrt(2.0)
-            jlog.info("loop: increase num showers to {:d}".format(num_events_per_iteration))
+            jlog.info("loop: increase num showers to {:d}".format(num_showers_per_iteration))
             continue
 
-        if total_num_events > max_num_events:
+        if total_num_showers > max_num_showers:
             jlog.info("loop: break, too many showers thrown")
             break
 
