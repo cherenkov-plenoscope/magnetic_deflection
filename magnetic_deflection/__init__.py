@@ -9,7 +9,7 @@ from . import tools
 from . import jsonl_logger
 
 import os
-import json
+import json_numpy
 import pandas
 import numpy as np
 import scipy
@@ -33,14 +33,14 @@ def A_init_work_dir(
     os.makedirs(work_dir, exist_ok=True)
 
     with open(os.path.join(work_dir, "sites.json"), "wt") as f:
-        f.write(json.dumps(sites, indent=4))
+        f.write(json_numpy.dumps(sites, indent=4))
     with open(os.path.join(work_dir, "pointing.json"), "wt") as f:
-        f.write(json.dumps(plenoscope_pointing, indent=4))
+        f.write(json_numpy.dumps(plenoscope_pointing, indent=4))
     with open(os.path.join(work_dir, "particles.json"), "wt") as f:
-        f.write(json.dumps(particles, indent=4))
+        f.write(json_numpy.dumps(particles, indent=4))
     with open(os.path.join(work_dir, "config.json"), "wt") as f:
         f.write(
-            json.dumps(
+            json_numpy.dumps(
                 {
                     "max_energy_GeV": float(max_energy),
                     "num_energy_supports": int(num_energy_supports),
@@ -51,10 +51,10 @@ def A_init_work_dir(
 
 
 def B_make_jobs_from_work_dir(work_dir):
-    sites = read_json(os.path.join(work_dir, "sites.json"))
-    particles = read_json(os.path.join(work_dir, "particles.json"))
-    pointing = read_json(os.path.join(work_dir, "pointing.json"))
-    config = read_json(os.path.join(work_dir, "config.json"))
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
+    pointing = tools.read_json(os.path.join(work_dir, "pointing.json"))
+    config = tools.read_json(os.path.join(work_dir, "config.json"))
 
     return map_and_reduce.make_jobs(
         work_dir=work_dir,
@@ -69,15 +69,15 @@ def B_make_jobs_from_work_dir(work_dir):
 def B2_read_job_results_from_work_dir(work_dir):
     map_dir = os.path.join(work_dir, "map")
     result_paths = glob.glob(os.path.join(map_dir, "*.json"))
-    return [json.loads(open(p, "rt").read()) for p in result_paths]
+    return [json_numpy.loads(open(p, "rt").read()) for p in result_paths]
 
 
 def C_reduce_job_results_in_work_dir(job_results, work_dir):
     raw_deflection_table_path = os.path.join(work_dir, "raw")
     os.makedirs(raw_deflection_table_path, exist_ok=True)
 
-    sites = read_json(os.path.join(work_dir, "sites.json"))
-    particles = read_json(os.path.join(work_dir, "particles.json"))
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
 
     raw_deflection_table = map_and_reduce.structure_combined_results(
         combined_results=job_results, sites=sites, particles=particles
@@ -90,9 +90,9 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
 def D_summarize_raw_deflection(
     work_dir, min_fit_energy=0.65,
 ):
-    sites = read_json(os.path.join(work_dir, "sites.json"))
-    particles = read_json(os.path.join(work_dir, "particles.json"))
-    pointing = read_json(os.path.join(work_dir, "pointing.json"))
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
+    pointing = tools.read_json(os.path.join(work_dir, "pointing.json"))
     min_particle_energy = np.min(
         [np.min(particles[p]["energy_bin_edges_GeV"]) for p in particles]
     )
@@ -140,12 +140,6 @@ def D_summarize_raw_deflection(
         )
     )
     subprocess.call(["python", script_path, work_dir])
-
-
-def read_json(path):
-    with open(path, "rt") as f:
-        out = json.loads(f.read())
-    return out
 
 
 def _cut_invalid(
@@ -290,7 +284,7 @@ def _fit_power_law(
             filename = "{:s}_{:s}".format(site_key, particle_key)
             filepath = os.path.join(out_path, filename)
             with open(filepath + ".json", "wt") as fout:
-                fout.write(json.dumps(fits, indent=4))
+                fout.write(json_numpy.dumps(fits, indent=4))
 
 
 def _export_table(
@@ -308,7 +302,7 @@ def _export_table(
             filename = "{:s}_{:s}".format(site_key, particle_key)
             filepath = os.path.join(in_path, filename)
             with open(filepath + ".json", "rt") as fin:
-                power_law = json.loads(fin.read())
+                power_law = json_numpy.loads(fin.read())
             for key in FIT_KEYS:
                 rec_key = analysis.power_law(
                     energy=out["energy_GeV"],
@@ -330,8 +324,8 @@ def read(work_dir, style="dict"):
     """
     Reads work_dir/result/{site:s}_{particle:s}.csv into dict[site][particle].
     """
-    sites = read_json(os.path.join(work_dir, "sites.json"))
-    particles = read_json(os.path.join(work_dir, "particles.json"))
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
     mag = {}
     for site_key in sites:
         mag[site_key] = {}
