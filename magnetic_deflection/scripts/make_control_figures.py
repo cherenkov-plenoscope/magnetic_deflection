@@ -72,43 +72,34 @@ result = mdfl.tools.read_deflection_table(
 out_dir = os.path.join(work_dir, "control_figures")
 os.makedirs(out_dir, exist_ok=True)
 
-for site_key in sites:
-    if "Off" in site_key:
+for skey in sites:
+    if "Off" in skey:
         continue
-    for particle_key in particles:
+    for pkey in particles:
         for key in mdfl.FIT_KEYS:
 
             fig = plt.figure(figsize=figsize, dpi=dpi)
             ax = fig.add_axes(ax_size)
 
             ax.plot(
-                raw[site_key][particle_key]["particle_energy_GeV"],
-                raw[site_key][particle_key][key] * key_map[key]["factor"],
+                raw[skey][pkey]["particle_energy_GeV"],
+                raw[skey][pkey][key] * key_map[key]["factor"],
                 "ko",
                 alpha=0.05,
             )
 
             ax.plot(
-                raw_valid_add_clean[site_key][particle_key][
-                    "particle_energy_GeV"
-                ],
-                raw_valid_add_clean[site_key][particle_key][key]
-                * key_map[key]["factor"],
+                raw_valid_add_clean[skey][pkey]["particle_energy_GeV"],
+                raw_valid_add_clean[skey][pkey][key] * key_map[key]["factor"],
                 "kx",
             )
-            num_e = len(
-                raw_valid_add_clean[site_key][particle_key][
-                    "particle_energy_GeV"
-                ]
-            )
+            num_e = len(raw_valid_add_clean[skey][pkey]["particle_energy_GeV"])
             for ibin in range(num_e):
-                _x = raw_valid_add_clean[site_key][particle_key][
-                    "particle_energy_GeV"
-                ][ibin]
-                _y_std = raw_valid_add_clean[site_key][particle_key][
-                    key + "_std"
-                ][ibin]
-                _y = raw_valid_add_clean[site_key][particle_key][key][ibin]
+                _x = raw_valid_add_clean[skey][pkey]["particle_energy_GeV"][
+                    ibin
+                ]
+                _y_std = raw_valid_add_clean[skey][pkey][key + "_std"][ibin]
+                _y = raw_valid_add_clean[skey][pkey][key][ibin]
                 _y_low = _y - _y_std
                 _y_high = _y + _y_std
                 ax.plot(
@@ -118,18 +109,16 @@ for site_key in sites:
                 )
 
             ax.plot(
-                raw_valid_add_clean_high[site_key][particle_key][
-                    "particle_energy_GeV"
-                ],
-                raw_valid_add_clean_high[site_key][particle_key][key]
+                raw_valid_add_clean_high[skey][pkey]["particle_energy_GeV"],
+                raw_valid_add_clean_high[skey][pkey][key]
                 * key_map[key]["factor"],
                 "bo",
                 alpha=0.3,
             )
 
             ax.plot(
-                result[site_key][particle_key]["particle_energy_GeV"],
-                result[site_key][particle_key][key] * key_map[key]["factor"],
+                result[skey][pkey]["particle_energy_GeV"],
+                result[skey][pkey][key] * key_map[key]["factor"],
                 color="k",
                 linestyle="-",
             )
@@ -146,7 +135,7 @@ for site_key in sites:
                 )
             )
             ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-            filename = "{:s}_{:s}_{:s}".format(site_key, particle_key, key)
+            filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
             filepath = os.path.join(out_dir, filename)
             fig.savefig(filepath + ".jpg")
             plt.close(fig)

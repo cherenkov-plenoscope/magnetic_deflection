@@ -11,10 +11,10 @@ prepare deflection_table
 
 def add_density_fields_to_deflection_table(deflection_table):
     out = {}
-    for site_key in deflection_table:
-        out[site_key] = {}
-        for particle_key in deflection_table[site_key]:
-            t = deflection_table[site_key][particle_key]
+    for skey in deflection_table:
+        out[skey] = {}
+        for pkey in deflection_table[skey]:
+            t = deflection_table[skey][pkey]
             dicout = pd.DataFrame(t).to_dict(orient="list")
 
             dicout["num_cherenkov_photons_per_shower"] = (
@@ -34,9 +34,7 @@ def add_density_fields_to_deflection_table(deflection_table):
             dicout["light_field_outer_density"] = dicout[
                 "num_cherenkov_photons_per_shower"
             ] / (dicout["spread_solid_angle_deg2"] * dicout["spread_area_m2"])
-            out[site_key][particle_key] = pd.DataFrame(dicout).to_records(
-                index=False
-            )
+            out[skey][pkey] = pd.DataFrame(dicout).to_records(index=False)
     return out
 
 
@@ -44,17 +42,17 @@ def cut_invalid_from_deflection_table(
     deflection_table, but_keep_site="Off", min_energy=1e-1,
 ):
     out = {}
-    for site_key in deflection_table:
-        if but_keep_site in site_key:
-            out[site_key] = deflection_table[site_key]
+    for skey in deflection_table:
+        if but_keep_site in skey:
+            out[skey] = deflection_table[skey]
         else:
-            out[site_key] = {}
-            for particle_key in deflection_table[site_key]:
-                t_raw = deflection_table[site_key][particle_key]
+            out[skey] = {}
+            for pkey in deflection_table[skey]:
+                t_raw = deflection_table[skey][pkey]
                 defelction_valid = t_raw["particle_azimuth_deg"] != 0.0
                 energy_valid = t_raw["particle_energy_GeV"] >= min_energy
                 valid = np.logical_and(energy_valid, defelction_valid)
-                out[site_key][particle_key] = t_raw[valid]
+                out[skey][pkey] = t_raw[valid]
     return out
 
 

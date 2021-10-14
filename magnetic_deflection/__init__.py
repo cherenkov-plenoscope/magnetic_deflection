@@ -137,9 +137,9 @@ def D_summarize_raw_deflection(
         out_path=os.path.join(work_dir, "raw_valid_add_clean_high"),
     )
     sites2 = {}
-    for site_key in sites:
-        if "Off" not in site_key:
-            sites2[site_key] = sites[site_key]
+    for skey in sites:
+        if "Off" not in skey:
+            sites2[skey] = sites[skey]
     _fit_power_law(
         particles=particles,
         sites=sites2,
@@ -199,10 +199,10 @@ FIT_KEYS = {
 def _smooth_and_reject_outliers(in_path, out_path):
     deflection_table = tools.read_deflection_table(path=in_path)
     smooth_table = {}
-    for site_key in deflection_table:
-        smooth_table[site_key] = {}
-        for particle_key in deflection_table[site_key]:
-            t = deflection_table[site_key][particle_key]
+    for skey in deflection_table:
+        smooth_table[skey] = {}
+        for pkey in deflection_table[skey]:
+            t = deflection_table[skey][pkey]
             sm = {}
             for key in FIT_KEYS:
                 sres = analysis.smooth(
@@ -219,7 +219,7 @@ def _smooth_and_reject_outliers(in_path, out_path):
                 sm[key] = sres["key_mean80"]
                 sm[key + "_std"] = sres["key_std80"]
                 df = pandas.DataFrame(sm)
-            smooth_table[site_key][particle_key] = df.to_records(index=False)
+            smooth_table[skey][pkey] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
     tools.write_deflection_table(deflection_table=smooth_table, path=out_path)
 
@@ -235,16 +235,14 @@ def _set_high_energies(
     deflection_table = tools.read_deflection_table(path=in_path)
 
     charge_signs = {}
-    for particle_key in particles:
-        charge_signs[particle_key] = np.sign(
-            particles[particle_key]["electric_charge_qe"]
-        )
+    for pkey in particles:
+        charge_signs[pkey] = np.sign(particles[pkey]["electric_charge_qe"])
 
     out = {}
-    for site_key in deflection_table:
-        out[site_key] = {}
-        for particle_key in deflection_table[site_key]:
-            t = deflection_table[site_key][particle_key]
+    for skey in deflection_table:
+        out[skey] = {}
+        for pkey in deflection_table[skey]:
+            t = deflection_table[skey][pkey]
             sm = {}
             for key in FIT_KEYS:
                 sm["particle_energy_GeV"] = np.array(
@@ -253,14 +251,14 @@ def _set_high_energies(
                         energy_start, energy_stop, num_points
                     ).tolist()
                 )
-                key_start = charge_signs[particle_key] * FIT_KEYS[key]["start"]
+                key_start = charge_signs[pkey] * FIT_KEYS[key]["start"]
                 sm[key] = np.array(
                     t[key].tolist()
                     + (key_start * np.ones(num_points)).tolist()
                 )
             df = pandas.DataFrame(sm)
             df = df[df["particle_zenith_deg"] <= cpw.MAX_ZENITH_DEG]
-            out[site_key][particle_key] = df.to_records(index=False)
+            out[skey][pkey] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
     tools.write_deflection_table(deflection_table=out, path=out_path)
 
@@ -270,17 +268,15 @@ def _fit_power_law(
 ):
     deflection_table = tools.read_deflection_table(path=in_path)
     charge_signs = {}
-    for particle_key in particles:
-        charge_signs[particle_key] = np.sign(
-            particles[particle_key]["electric_charge_qe"]
-        )
+    for pkey in particles:
+        charge_signs[pkey] = np.sign(particles[pkey]["electric_charge_qe"])
     os.makedirs(out_path, exist_ok=True)
-    for site_key in sites:
-        for particle_key in particles:
-            t = deflection_table[site_key][particle_key]
+    for skey in sites:
+        for pkey in particles:
+            t = deflection_table[skey][pkey]
             fits = {}
             for key in FIT_KEYS:
-                key_start = charge_signs[particle_key] * FIT_KEYS[key]["start"]
+                key_start = charge_signs[pkey] * FIT_KEYS[key]["start"]
                 if np.mean(t[key] - key_start) > 0:
                     sig = -1
                 else:
@@ -291,7 +287,7 @@ def _fit_power_law(
                         analysis.power_law,
                         t["particle_energy_GeV"],
                         t[key] - key_start,
-                        p0=(sig * charge_signs[particle_key], 1.0),
+                        p0=(sig * charge_signs[pkey], 1.0),
                     )
                 except RuntimeError as err:
                     print(err)
@@ -303,7 +299,7 @@ def _fit_power_law(
                     "index": float(expy[1]),
                     "offset": float(key_start),
                 }
-            filename = "{:s}_{:s}".format(site_key, particle_key)
+            filename = "{:s}_{:s}".format(skey, pkey)
             filepath = os.path.join(out_path, filename)
             with open(filepath + ".json", "wt") as fout:
                 fout.write(json_numpy.dumps(fits, indent=4))
@@ -313,15 +309,15 @@ def _export_table(
     particles, sites, in_path, out_path,
 ):
     os.makedirs(out_path, exist_ok=True)
-    for site_key in sites:
-        for particle_key in particles:
+    for skey in sites:
+        for pkey in particles:
             out = {}
             out["particle_energy_GeV"] = np.geomspace(
-                np.min(particles[particle_key]["energy_bin_edges_GeV"]),
-                np.max(particles[particle_key]["energy_bin_edges_GeV"]),
+                np.min(particles[pkey]["energy_bin_edges_GeV"]),
+                np.max(particles[pkey]["energy_bin_edges_GeV"]),
                 1024,
             )
-            filename = "{:s}_{:s}".format(site_key, particle_key)
+            filename = "{:s}_{:s}".format(skey, pkey)
             filepath = os.path.join(in_path, filename)
             with open(filepath + ".json", "rt") as fin:
                 power_law = json_numpy.loads(fin.read())
@@ -349,19 +345,17 @@ def read(work_dir, style="dict"):
     sites = tools.read_json(os.path.join(work_dir, "sites.json"))
     particles = tools.read_json(os.path.join(work_dir, "particles.json"))
     mag = {}
-    for site_key in sites:
-        mag[site_key] = {}
-        for particle_key in particles:
+    for skey in sites:
+        mag[skey] = {}
+        for pkey in particles:
             path = os.path.join(
-                work_dir,
-                "result",
-                "{:s}_{:s}.csv".format(site_key, particle_key),
+                work_dir, "result", "{:s}_{:s}.csv".format(skey, pkey),
             )
             df = pandas.read_csv(path)
             if style == "record":
-                mag[site_key][particle_key] = df.to_records()
+                mag[skey][pkey] = df.to_records()
             elif style == "dict":
-                mag[site_key][particle_key] = df.to_dict("list")
+                mag[skey][pkey] = df.to_dict("list")
             else:
                 raise KeyError("Unknown style: '{:s}'.".format(style))
     return mag
