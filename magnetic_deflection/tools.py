@@ -8,26 +8,25 @@ import json_numpy
 import corsika_primary_wrapper as cpw
 
 
-def sort_jobs_by_key(jobs, keys):
+def sort_records_by_key(records, keys):
     """
-    Returns the jobs sorted by the values pointed to by keys
+    Returns the records sorted by the values pointed to by keys
 
     Parameters
     ----------
-    jobs : list of dicts
+    records : list of dicts
         A list of dicts where each dict has the entry pointed to by keys.
     keys : tuple of keys
         A tuple of keys to access each layer of the dict.
     """
-    _values = []
-    for job in jobs:
-        val = job
+    values = []
+    for obj in records:
+        val = obj
         for key in keys:
             val = val[key]
-        _values.append(val)
-    _values_argsort = np.argsort(_values)
-    jobs_sorted = [jobs[_values_argsort[i]] for i in range(len(jobs))]
-    return jobs_sorted
+        values.append(val)
+    order = np.argsort(values)
+    return [records[order[i]] for i in range(len(records))]
 
 
 def write_recarray_to_csv(recarray, path):

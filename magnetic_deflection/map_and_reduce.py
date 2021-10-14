@@ -85,7 +85,7 @@ def make_jobs(
 
                 jobs.append(job)
 
-    return tools.sort_jobs_by_key(jobs=jobs, keys=("particle", "energy_GeV"))
+    return tools.sort_records_by_key(records=jobs, keys=("particle", "energy_GeV"))
 
 
 def run_job(job):
