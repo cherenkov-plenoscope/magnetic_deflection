@@ -15,7 +15,6 @@ import numpy as np
 import scipy
 from scipy.optimize import curve_fit as scipy_optimize_curve_fit
 import shutil
-import corsika_primary_wrapper as cpw
 import pkg_resources
 import subprocess
 import glob
@@ -257,7 +256,7 @@ def _set_high_energies(
                     + (key_start * np.ones(num_points)).tolist()
                 )
             df = pandas.DataFrame(sm)
-            df = df[df["particle_zenith_deg"] <= cpw.MAX_ZENITH_DEG]
+            df = df[df["particle_zenith_deg"] <= corsika.MAX_ZENITH_DEG]
             out[skey][pkey] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
     tools.write_deflection_table(deflection_table=out, path=out_path)
@@ -330,7 +329,7 @@ def _export_table(
                 rec_key += power_law[key]["offset"]
                 out[key] = rec_key
             df = pandas.DataFrame(out)
-            df = df[df["particle_zenith_deg"] <= cpw.MAX_ZENITH_DEG]
+            df = df[df["particle_zenith_deg"] <= corsika.MAX_ZENITH_DEG]
             csv = df.to_csv(index=False)
             out_filepath = os.path.join(out_path, filename)
             with open(out_filepath + ".csv.tmp", "wt") as fout:

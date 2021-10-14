@@ -6,6 +6,8 @@ import os
 
 from . import light_field_characterization as lfc
 
+MAX_ZENITH_DEG = cpw.MAX_ZENITH_DEG
+
 
 def make_steering(
     run_id,
@@ -69,7 +71,7 @@ def estimate_cherenkov_pool(
 
         for idx, shower in enumerate(corsika_run):
             corsika_event_header, photon_bunches = shower
-            all_light_field = lfc.init_light_field_from_corsika(
+            all_light_field = init_light_field_from_corsika(
                 bunches=photon_bunches
             )
 
@@ -132,3 +134,15 @@ def make_cherenkov_pools_statistics(
         min_num_cherenkov_photons=min_num_cherenkov_photons,
         outlier_percentile=outlier_percentile,
     )
+
+
+def init_light_field_from_corsika(bunches):
+    lf = {}
+    lf["x"] = bunches[:, cpw.IX] * cpw.CM2M  # cm to m
+    lf["y"] = bunches[:, cpw.IY] * cpw.CM2M  # cm to m
+    lf["cx"] = bunches[:, cpw.ICX]
+    lf["cy"] = bunches[:, cpw.ICY]
+    lf["t"] = bunches[:, cpw.ITIME] * 1e-9  # ns to s
+    lf["size"] = bunches[:, cpw.IBSIZE]
+    lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
+    return pandas.DataFrame(lf).to_records(index=False)

@@ -1,7 +1,6 @@
 import json
 import os
 import numpy as np
-import corsika_primary_wrapper as cpw
 import pandas
 import tempfile
 import time
@@ -29,7 +28,7 @@ def estimate_deflection(
     guesses_path=None,
 ):
     jlog = json_logger
-    prm_cone_deg = cpw.MAX_ZENITH_DEG
+    prm_cone_deg = corsika.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
     run_id = 0

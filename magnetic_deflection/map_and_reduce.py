@@ -1,7 +1,6 @@
 import pandas
 import os
 import numpy as np
-import corsika_primary_wrapper as cpw
 
 from . import corsika
 from . import examples

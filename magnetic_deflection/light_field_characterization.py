@@ -3,7 +3,6 @@ import os
 import json_numpy
 import pandas
 import tempfile
-import corsika_primary_wrapper as cpw
 
 from . import discovery
 from . import spherical_coordinates as sphcords
@@ -60,18 +59,6 @@ def percentile_indices_wrt_median(values, percentile):
     return percentile_indices(
         values=values, target_value=np.median(values), percentile=percentile
     )
-
-
-def init_light_field_from_corsika(bunches):
-    lf = {}
-    lf["x"] = bunches[:, cpw.IX] * cpw.CM2M  # cm to m
-    lf["y"] = bunches[:, cpw.IY] * cpw.CM2M  # cm to m
-    lf["cx"] = bunches[:, cpw.ICX]
-    lf["cy"] = bunches[:, cpw.ICY]
-    lf["t"] = bunches[:, cpw.ITIME] * 1e-9  # ns to s
-    lf["size"] = bunches[:, cpw.IBSIZE]
-    lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
-    return pandas.DataFrame(lf).to_records(index=False)
 
 
 def mask_inlier_in_light_field_geometry(light_field, percentile):
