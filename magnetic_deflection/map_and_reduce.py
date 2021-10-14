@@ -20,7 +20,7 @@ def make_jobs(
     energy_supports_max,
     energy_supports_num,
     energy_supports_power_law_slope=-1.7,
-    discovery_max_total_energy=2e3,
+    discovery_max_total_energy=4e3,
     discovery_min_energy_per_iteration=12.0,
     discovery_min_num_showers_per_iteration=16,
     statistics_total_energy=2e3,
@@ -141,7 +141,7 @@ def run_job(job):
 
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
-    jlog.info("job: beging discovery of deflection")
+    jlog.info("job: start discovery of deflection")
     if not os.path.exists(discovery_path):
         jlog.info("job: estimate new guess for deflection")
         guesses = discovery.estimate_deflection(
@@ -173,7 +173,7 @@ def run_job(job):
     guess = guesses[-1]
 
     if guess["valid"]:
-        jlog.info("job: gather statistics of showers")
+        jlog.info("job: start gathering statistics of showers")
 
         if not os.path.exists(statistics_path):
             jlog.info("job: simulate new showers")

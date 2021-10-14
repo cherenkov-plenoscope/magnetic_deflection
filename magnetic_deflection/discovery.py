@@ -13,6 +13,7 @@ from . import tools
 
 
 def direct_discovery(
+    cherenkov_pools,
     run_id,
     num_showers,
     particle_id,
@@ -43,7 +44,7 @@ def direct_discovery(
         prng=prng,
     )
 
-    cherenkov_pools = corsika.estimate_cherenkov_pool(
+    new_pools = corsika.estimate_cherenkov_pool(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons,
@@ -51,9 +52,11 @@ def direct_discovery(
     )
 
     expected_num_valid_pools = int(np.ceil(0.1 * num_showers))
-    if len(cherenkov_pools) < expected_num_valid_pools:
+    if len(new_pools) < expected_num_valid_pools:
         out["valid"] = False
         return out
+
+    cherenkov_pools += new_pools
 
     off_axis_pivot_deg = (1 / 8) * (
         particle_cone_opening_angle_deg + max_off_axis_deg
@@ -93,6 +96,8 @@ def estimate_deflection(
     prm_zd_deg = 0.0
     run_id = 0
     total_num_showers = 0
+    last_off_axis_deg = 180.0
+    cherenkov_pools = []
 
     guesses = []
 
@@ -104,6 +109,7 @@ def estimate_deflection(
 
         total_num_showers += num_showers_per_iteration
         guess = direct_discovery(
+            cherenkov_pools=cherenkov_pools,
             run_id=run_id,
             num_showers=num_showers_per_iteration,
             particle_id=particle_id,
@@ -122,8 +128,8 @@ def estimate_deflection(
         )
 
         jlog.info(
-            "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.1f}, off-axis {:.1f} all/deg".format(
-                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"]
+            "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.2f}, off-axis {:.2f} all/deg, num showers: {:d}".format(
+                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"], len(cherenkov_pools)
             )
         )
 
@@ -136,31 +142,36 @@ def estimate_deflection(
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 
-        if prm_cone_deg < max_off_axis_deg:
-            jlog.info("loop: break, prm_cone_deg < max_off_axis_deg")
-            break
-
-        if prm_cone_deg < guess["off_axis_deg"]:
-            num_showers_per_iteration *= 2
-            prm_cone_deg *= np.sqrt(2.0)
-            jlog.info(
-                "loop: increase num showers to {:d}".format(
-                    num_showers_per_iteration
-                )
-            )
-            continue
-
-        if total_num_showers > max_num_showers:
-            jlog.info("loop: break, too many showers thrown")
-            break
-
-        prm_cone_deg *= 1.0 / np.sqrt(2.0)
-        prm_az_deg = guess["particle_azimuth_deg"]
-        prm_zd_deg = guess["particle_zenith_deg"]
+        prm_az_deg = float(guess["particle_azimuth_deg"])
+        prm_zd_deg = float(guess["particle_zenith_deg"])
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
             jlog.info("loop: break, particle directions are nan")
             break
+
+        if total_num_showers > max_num_showers:
+            jlog.info("loop: break, too many showers")
+            break
+
+        if prm_cone_deg < max_off_axis_deg:
+            prm_cone_deg *= 2.0
+            jlog.info("loop: increase opening to {:.1f}deg".format(prm_cone_deg))
+        else:
+            prm_cone_deg *= 1.0 / np.sqrt(2.0)
+
+        if (
+            guess["off_axis_deg"] > last_off_axis_deg and
+            guess["off_axis_deg"] > (1/2) * prm_cone_deg
+        ):
+            num_showers_per_iteration *= 2
+            prm_cone_deg *= 2.0
+            jlog.info(
+                "loop: increase num showers to {:d}, and keep opening".format(
+                    num_showers_per_iteration
+                )
+            )
+
+        last_off_axis_deg = float(guess["off_axis_deg"])
 
     jlog.info("loop: failed")
     return guesses
