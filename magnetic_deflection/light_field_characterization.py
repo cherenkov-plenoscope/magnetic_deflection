@@ -145,8 +145,7 @@ def inspect_pools(
     cers = cers.to_records(index=False)
 
     cer_azimuth_deg, cer_zenith_deg = sphcords._cx_cy_to_az_zd_deg(
-        cx=cers["direction_med_cx_rad"],
-        cy=cers["direction_med_cy_rad"],
+        cx=cers["direction_med_cx_rad"], cy=cers["direction_med_cy_rad"],
     )
 
     cer_off_axis_deg = sphcords._angle_between_az_zd_deg(
@@ -156,16 +155,13 @@ def inspect_pools(
         zd2_deg=instrument_zenith_deg,
     )
 
-    weights = np.exp(-0.5 * (cer_off_axis_deg / off_axis_pivot_deg ) ** 2)
+    weights = np.exp(-0.5 * (cer_off_axis_deg / off_axis_pivot_deg) ** 2)
 
     out = {}
     out["off_axis_deg"] = np.average(cer_off_axis_deg, weights=weights)
 
     for pkey in cers.dtype.names:
-        _avg, _std = tools.average_std(
-            cers[pkey],
-            weights=weights
-        )
+        _avg, _std = tools.average_std(cers[pkey], weights=weights)
         out[pkey] = _avg
         out[pkey + "_std"] = _std
 
@@ -177,9 +173,9 @@ def inspect_pools(
         asw = np.argsort(weights)
         for i in range(int(len(asw) / 10)):
             j = asw[len(asw) - 1 - i]
-            print("weight {:03d} %, off-axis {:.2f} deg".format(
-                    int(100*weights[j]),
-                    cer_off_axis_deg[j],
+            print(
+                "weight {:03d} %, off-axis {:.2f} deg".format(
+                    int(100 * weights[j]), cer_off_axis_deg[j],
                 )
             )
 

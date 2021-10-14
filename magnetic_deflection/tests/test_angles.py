@@ -48,9 +48,7 @@ def test_angles_arrays():
     az_deg = np.linspace(-380, 380, num)
     zd_deg = np.linspace(0, 89, num)
 
-    cx, cy = sphcors._az_zd_to_cx_cy(
-        azimuth_deg=az_deg, zenith_deg=zd_deg
-    )
+    cx, cy = sphcors._az_zd_to_cx_cy(azimuth_deg=az_deg, zenith_deg=zd_deg)
 
     az_deg_back, zd_deg_back = sphcors._cx_cy_to_az_zd_deg(cx=cx, cy=cy)
 

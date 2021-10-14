@@ -75,15 +75,16 @@ def make_jobs(
                 job["statistics"] = {
                     "num_showers": num_showers,
                     "outlier_percentile": outlier_percentile,
-                    "off_axis_deg": 2.0 * particle[
-                        "magnetic_deflection_max_off_axis_deg"
-                    ],
+                    "off_axis_deg": 2.0
+                    * particle["magnetic_deflection_max_off_axis_deg"],
                     "min_num_cherenkov_photons": min_num_cherenkov_photons,
                 }
 
                 jobs.append(job)
 
-    return tools.sort_records_by_key(records=jobs, keys=("particle", "energy_GeV"))
+    return tools.sort_records_by_key(
+        records=jobs, keys=("particle", "energy_GeV")
+    )
 
 
 def run_job(job):
@@ -123,9 +124,13 @@ def run_job(job):
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
             outlier_percentile=job["discovery"]["outlier_percentile"],
-            num_showers_per_iteration=job["discovery"]["num_showers_per_iteration"],
+            num_showers_per_iteration=job["discovery"][
+                "num_showers_per_iteration"
+            ],
             max_num_showers=job["discovery"]["max_num_showers"],
-            min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
+            min_num_cherenkov_photons=job["discovery"][
+                "min_num_cherenkov_photons"
+            ],
             corsika_primary_path=job["job"]["corsika_primary_path"],
             guesses_path=discovery_path,
         )
@@ -150,7 +155,9 @@ def run_job(job):
                 particle_energy=job["particle"]["energy_GeV"],
                 particle_cone_azimuth_deg=guess["particle_azimuth_deg"],
                 particle_cone_zenith_deg=guess["particle_zenith_deg"],
-                particle_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
+                particle_cone_opening_angle_deg=job["statistics"][
+                    "off_axis_deg"
+                ],
                 num_showers=job["statistics"]["num_showers"],
                 prng=prng,
             )
@@ -158,7 +165,9 @@ def run_job(job):
             pools = corsika.estimate_cherenkov_pool(
                 corsika_primary_steering=steering,
                 corsika_primary_path=job["job"]["corsika_primary_path"],
-                min_num_cherenkov_photons=job["statistics"]["min_num_cherenkov_photons"],
+                min_num_cherenkov_photons=job["statistics"][
+                    "min_num_cherenkov_photons"
+                ],
                 outlier_percentile=job["statistics"]["outlier_percentile"],
             )
             tools.write_jsonl(statistics_path, pools)
@@ -171,7 +180,7 @@ def run_job(job):
         jlog.info("job: estimate statistics of showers")
         out = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
-            off_axis_pivot_deg=(1/2) * (job["statistics"]["off_axis_deg"]),
+            off_axis_pivot_deg=(1 / 2) * (job["statistics"]["off_axis_deg"]),
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
         )

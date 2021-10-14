@@ -100,7 +100,7 @@ def average_std(values, weights):
     values, weights -- Numpy ndarrays with the same shape.
     """
     average = np.average(values, weights=weights)
-    variance = np.average((values-average)**2, weights=weights)
+    variance = np.average((values - average) ** 2, weights=weights)
     return (average, np.sqrt(variance))
 
 

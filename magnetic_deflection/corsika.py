@@ -34,7 +34,9 @@ def make_steering(
             azimuth_rad=np.deg2rad(particle_cone_azimuth_deg),
             zenith_rad=np.deg2rad(particle_cone_zenith_deg),
             min_scatter_opening_angle_rad=np.deg2rad(0.0),
-            max_scatter_opening_angle_rad=np.deg2rad(particle_cone_opening_angle_deg),
+            max_scatter_opening_angle_rad=np.deg2rad(
+                particle_cone_opening_angle_deg
+            ),
             max_zenith_rad=np.deg2rad(90),
         )
         prm = {
@@ -50,7 +52,10 @@ def make_steering(
 
 
 def estimate_cherenkov_pool(
-    corsika_primary_steering, corsika_primary_path, min_num_cherenkov_photons, outlier_percentile
+    corsika_primary_steering,
+    corsika_primary_path,
+    min_num_cherenkov_photons,
+    outlier_percentile,
 ):
     pools = []
 
@@ -69,8 +74,7 @@ def estimate_cherenkov_pool(
             )
 
             mask_inlier = lfc.mask_inlier_in_light_field_geometry(
-                light_field=all_light_field,
-                percentile=outlier_percentile,
+                light_field=all_light_field, percentile=outlier_percentile,
             )
 
             light_field = all_light_field[mask_inlier]
@@ -80,8 +84,12 @@ def estimate_cherenkov_pool(
 
             if num_bunches >= min_num_cherenkov_photons:
                 pool = {}
-                pool["particle_azimuth_deg"] = np.rad2deg(ceh[cpw.I_EVTH_AZIMUTH_RAD])
-                pool["particle_zenith_deg"] = np.rad2deg(ceh[cpw.I_EVTH_ZENITH_RAD])
+                pool["particle_azimuth_deg"] = np.rad2deg(
+                    ceh[cpw.I_EVTH_AZIMUTH_RAD]
+                )
+                pool["particle_zenith_deg"] = np.rad2deg(
+                    ceh[cpw.I_EVTH_ZENITH_RAD]
+                )
                 pool["num_photons"] = np.sum(light_field["size"])
                 pool["num_bunches"] = num_bunches
 

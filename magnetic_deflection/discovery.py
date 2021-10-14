@@ -55,7 +55,9 @@ def direct_discovery(
         out["valid"] = False
         return out
 
-    off_axis_pivot_deg = (1/8) * (particle_cone_opening_angle_deg + max_off_axis_deg)
+    off_axis_pivot_deg = (1 / 8) * (
+        particle_cone_opening_angle_deg + max_off_axis_deg
+    )
     insp = light_field_characterization.inspect_pools(
         cherenkov_pools=cherenkov_pools,
         off_axis_pivot_deg=off_axis_pivot_deg,
@@ -121,17 +123,15 @@ def estimate_deflection(
 
         jlog.info(
             "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.1f}, off-axis {:.1f} all/deg".format(
-                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"])
+                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"]
+            )
         )
 
         guesses.append(guess)
         if guesses_path:
             tools.append_jsonl_unsave(guesses_path, guess)
 
-        if (
-            guess["valid"]
-            and guess["off_axis_deg"] <= max_off_axis_deg
-        ):
+        if guess["valid"] and guess["off_axis_deg"] <= max_off_axis_deg:
             guess["total_num_showers"] = total_num_showers
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
@@ -143,7 +143,11 @@ def estimate_deflection(
         if prm_cone_deg < guess["off_axis_deg"]:
             num_showers_per_iteration *= 2
             prm_cone_deg *= np.sqrt(2.0)
-            jlog.info("loop: increase num showers to {:d}".format(num_showers_per_iteration))
+            jlog.info(
+                "loop: increase num showers to {:d}".format(
+                    num_showers_per_iteration
+                )
+            )
             continue
 
         if total_num_showers > max_num_showers:

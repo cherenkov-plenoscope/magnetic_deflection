@@ -205,9 +205,7 @@ def _smooth_and_reject_outliers(in_path, out_path):
                 df = pandas.DataFrame(sm)
             smooth_table[site_key][particle_key] = df.to_records(index=False)
     os.makedirs(out_path, exist_ok=True)
-    tools.write_deflection_table(
-        deflection_table=smooth_table, path=out_path
-    )
+    tools.write_deflection_table(deflection_table=smooth_table, path=out_path)
 
 
 def _set_high_energies(
