@@ -129,7 +129,11 @@ def estimate_deflection(
 
         jlog.info(
             "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.2f}, off-axis {:.2f} all/deg, num showers: {:d}".format(
-                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"], len(cherenkov_pools)
+                prm_az_deg,
+                prm_zd_deg,
+                prm_cone_deg,
+                guess["off_axis_deg"],
+                len(cherenkov_pools),
             )
         )
 
@@ -155,13 +159,15 @@ def estimate_deflection(
 
         if prm_cone_deg < max_off_axis_deg:
             prm_cone_deg *= 2.0
-            jlog.info("loop: increase opening to {:.1f}deg".format(prm_cone_deg))
+            jlog.info(
+                "loop: increase opening to {:.1f}deg".format(prm_cone_deg)
+            )
         else:
             prm_cone_deg *= 1.0 / np.sqrt(2.0)
 
         if (
-            guess["off_axis_deg"] > last_off_axis_deg and
-            guess["off_axis_deg"] > (1/2) * prm_cone_deg
+            guess["off_axis_deg"] > last_off_axis_deg
+            and guess["off_axis_deg"] > (1 / 2) * prm_cone_deg
         ):
             num_showers_per_iteration *= 2
             prm_cone_deg *= 2.0
