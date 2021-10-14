@@ -12,68 +12,6 @@ from . import light_field_characterization
 from . import tools
 
 
-def direct_discovery(
-    cherenkov_pools,
-    run_id,
-    num_showers,
-    particle_id,
-    particle_energy,
-    particle_cone_azimuth_deg,
-    particle_cone_zenith_deg,
-    particle_cone_opening_angle_deg,
-    instrument_azimuth_deg,
-    instrument_zenith_deg,
-    max_off_axis_deg,
-    site,
-    prng,
-    outlier_percentile,
-    min_num_cherenkov_photons,
-    corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-):
-    out = {}
-
-    steering = corsika.make_steering(
-        run_id=run_id,
-        site=site,
-        particle_id=particle_id,
-        particle_energy=particle_energy,
-        particle_cone_azimuth_deg=particle_cone_azimuth_deg,
-        particle_cone_zenith_deg=particle_cone_zenith_deg,
-        particle_cone_opening_angle_deg=particle_cone_opening_angle_deg,
-        num_showers=num_showers,
-        prng=prng,
-    )
-
-    new_pools = corsika.estimate_cherenkov_pool(
-        corsika_primary_steering=steering,
-        corsika_primary_path=corsika_primary_path,
-        min_num_cherenkov_photons=min_num_cherenkov_photons,
-        outlier_percentile=outlier_percentile,
-    )
-
-    expected_num_valid_pools = int(np.ceil(0.1 * num_showers))
-    if len(new_pools) < expected_num_valid_pools:
-        out["valid"] = False
-        return out
-
-    cherenkov_pools += new_pools
-
-    off_axis_pivot_deg = (1 / 8) * (
-        particle_cone_opening_angle_deg + max_off_axis_deg
-    )
-    insp = light_field_characterization.inspect_pools(
-        cherenkov_pools=cherenkov_pools,
-        off_axis_pivot_deg=off_axis_pivot_deg,
-        instrument_azimuth_deg=instrument_azimuth_deg,
-        instrument_zenith_deg=instrument_zenith_deg,
-        debug_print=False,
-    )
-
-    out["valid"] = True
-    out.update(insp)
-    return out
-
-
 def estimate_deflection(
     json_logger,
     prng,
@@ -108,41 +46,58 @@ def estimate_deflection(
         run_id += 1
 
         total_num_showers += num_showers_per_iteration
-        guess = direct_discovery(
-            cherenkov_pools=cherenkov_pools,
+
+        steering = corsika.make_steering(
             run_id=run_id,
-            num_showers=num_showers_per_iteration,
+            site=site,
             particle_id=particle_id,
             particle_energy=particle_energy,
             particle_cone_azimuth_deg=prm_az_deg,
             particle_cone_zenith_deg=prm_zd_deg,
             particle_cone_opening_angle_deg=prm_cone_deg,
-            instrument_azimuth_deg=instrument_azimuth_deg,
-            instrument_zenith_deg=instrument_zenith_deg,
-            max_off_axis_deg=max_off_axis_deg,
-            site=site,
+            num_showers=num_showers_per_iteration,
             prng=prng,
+        )
+
+        new_pools = corsika.estimate_cherenkov_pool(
+            corsika_primary_steering=steering,
             corsika_primary_path=corsika_primary_path,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
             outlier_percentile=outlier_percentile,
         )
 
+        num_valid_pools = int(np.ceil(0.1 * num_showers_per_iteration))
+        if len(new_pools) < num_valid_pools:
+            jlog.info("loop: break, not enough valid cherenkov pools")
+            break
+
+        cherenkov_pools += new_pools
+
+        off_axis_pivot_deg = (1 / 8) * (prm_cone_deg + max_off_axis_deg)
+
+        guess = light_field_characterization.inspect_pools(
+            cherenkov_pools=cherenkov_pools,
+            off_axis_pivot_deg=off_axis_pivot_deg,
+            instrument_azimuth_deg=instrument_azimuth_deg,
+            instrument_zenith_deg=instrument_zenith_deg,
+            debug_print=False,
+        )
+
         jlog.info(
-            "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.2f}, off-axis {:.2f} all/deg, num showers: {:d}".format(
-                prm_az_deg,
-                prm_zd_deg,
-                prm_cone_deg,
-                guess["off_axis_deg"],
-                len(cherenkov_pools),
-            )
+            "loop: " +
+            "azimuth {:.1f}, ".format(prm_az_deg) +
+            "zenith {:.1f}, ".format(prm_zd_deg) +
+            "opening {:.2f}, ".format(prm_cone_deg) +
+            "off-axis {:.2f} ".format(guess["off_axis_deg"]) +
+            "all/deg, " +
+            "num showers: {:d}".format(len(cherenkov_pools))
         )
 
         guesses.append(guess)
         if guesses_path:
             tools.append_jsonl_unsave(guesses_path, guess)
 
-        if guess["valid"] and guess["off_axis_deg"] <= max_off_axis_deg:
-            guess["total_num_showers"] = total_num_showers
+        if guess["off_axis_deg"] <= max_off_axis_deg:
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 

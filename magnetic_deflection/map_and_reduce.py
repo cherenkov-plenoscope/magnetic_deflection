@@ -123,7 +123,7 @@ def run_job(job):
 
     os.makedirs(job["job"]["map_dir"], exist_ok=True)
 
-    log_filename = "{:06d}_log.json".format(job["job"]["id"])
+    log_filename = "{:06d}_log.jsonl".format(job["job"]["id"])
     log_path = os.path.join(job["job"]["map_dir"], log_filename)
     jlog = jsonl_logger.init(path=log_path)
     jlog.info("job: start")
@@ -172,6 +172,13 @@ def run_job(job):
         jlog.info("job: use existing guess for deflection")
         guesses = tools.read_jsonl(discovery_path)
 
+
+    if len(guesses) > 0:
+        guess = guesses[-1]
+        guess["particle_energy_GeV"] = job["particle"]["energy_GeV"]
+        tools.write_json(result_path, guess)
+
+    """
     guess = guesses[-1]
 
     if guess["valid"]:
@@ -222,6 +229,7 @@ def run_job(job):
         for okey in out:
             guess[light_field_characterization.KEYPREFIX + okey] = out[okey]
         tools.write_json(result_path, guess)
+        """
 
     jlog.info("job: end")
     return 0

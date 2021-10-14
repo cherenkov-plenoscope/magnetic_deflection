@@ -76,7 +76,7 @@ def B2_read_job_results_from_work_dir(work_dir):
         job_results[skey] = {}
         for pkey in particles:
             paths = glob.glob(
-                os.path.join(map_dir, skey, pkey, "*_results.json")
+                os.path.join(map_dir, skey, pkey, "*_result.json")
             )
             job_results[skey][pkey] = [
                 json_numpy.loads(open(p, "rt").read()) for p in paths
