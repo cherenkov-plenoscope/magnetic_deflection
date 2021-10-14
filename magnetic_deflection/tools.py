@@ -3,7 +3,6 @@ import pandas
 import shutil
 import os
 import glob
-import json
 import json_numpy
 import corsika_primary_wrapper as cpw
 

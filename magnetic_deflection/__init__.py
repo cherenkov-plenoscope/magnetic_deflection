@@ -18,7 +18,6 @@ import shutil
 import pkg_resources
 import subprocess
 import glob
-import pickle
 
 
 def A_init_work_dir(

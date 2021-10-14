@@ -1,6 +1,5 @@
 import numpy as np
-import pandas as pd
-import scipy
+import pandas
 
 
 """
@@ -15,7 +14,7 @@ def add_density_fields_to_deflection_table(deflection_table):
         out[skey] = {}
         for pkey in deflection_table[skey]:
             t = deflection_table[skey][pkey]
-            dicout = pd.DataFrame(t).to_dict(orient="list")
+            dicout = pandas.DataFrame(t).to_dict(orient="list")
 
             dicout["num_cherenkov_photons_per_shower"] = (
                 t["total_num_photons"] / t["total_num_showers"]
@@ -34,7 +33,7 @@ def add_density_fields_to_deflection_table(deflection_table):
             dicout["light_field_outer_density"] = dicout[
                 "num_cherenkov_photons_per_shower"
             ] / (dicout["spread_solid_angle_deg2"] * dicout["spread_area_m2"])
-            out[skey][pkey] = pd.DataFrame(dicout).to_records(index=False)
+            out[skey][pkey] = pandas.DataFrame(dicout).to_records(index=False)
     return out
 
 

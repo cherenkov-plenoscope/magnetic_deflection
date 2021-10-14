@@ -1,4 +1,3 @@
-import pandas
 import os
 import numpy as np
 
@@ -6,7 +5,6 @@ from . import corsika
 from . import examples
 from . import discovery
 from . import light_field_characterization
-from . import spherical_coordinates as sphcords
 from . import tools
 from . import jsonl_logger
 

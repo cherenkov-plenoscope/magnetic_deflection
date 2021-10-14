@@ -1,12 +1,9 @@
 import json
 import os
 import numpy as np
-import pandas
-import tempfile
-import time
+
 from . import examples
 from . import corsika
-from . import spherical_coordinates as sphcords
 from . import light_field_characterization
 from . import tools
 

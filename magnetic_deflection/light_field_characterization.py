@@ -2,9 +2,7 @@ import numpy as np
 import os
 import json_numpy
 import pandas
-import tempfile
 
-from . import discovery
 from . import spherical_coordinates as sphcords
 from . import tools
 
