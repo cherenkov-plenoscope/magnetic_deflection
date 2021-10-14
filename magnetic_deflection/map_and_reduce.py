@@ -16,7 +16,7 @@ def make_jobs(
     work_dir,
     sites,
     particles,
-    plenoscope_pointing,
+    pointing,
     max_energy,
     num_energy_supports,
     energy_supports_power_law_slope=-1.7,
@@ -59,7 +59,7 @@ def make_jobs(
                 job["particle"]["energy_GeV"] = energy_supports[energy_idx]
                 job["particle"]["corsika_id"] = particle["particle_id"]
 
-                job["instrument"] = plenoscope_pointing
+                job["pointing"] = pointing
 
                 job["discovery"] = {
                     "outlier_percentile": 100.0,
@@ -121,8 +121,8 @@ def run_job(job):
             site=job["site"],
             primary_energy=job["particle"]["energy_GeV"],
             primary_particle_id=job["particle"]["corsika_id"],
-            instrument_azimuth_deg=job["instrument"]["azimuth_deg"],
-            instrument_zenith_deg=job["instrument"]["zenith_deg"],
+            instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
+            instrument_zenith_deg=job["pointing"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
             outlier_percentile=job["discovery"]["outlier_percentile"],
             num_events_per_iteration=job["discovery"]["num_events_per_iteration"],
@@ -175,8 +175,8 @@ def run_job(job):
         out = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1/2) * (job["statistics"]["off_axis_deg"]),
-            instrument_azimuth_deg=job["instrument"]["azimuth_deg"],
-            instrument_zenith_deg=job["instrument"]["zenith_deg"],
+            instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
+            instrument_zenith_deg=job["pointing"]["zenith_deg"],
         )
         out["outlier_percentile"] = job["statistics"]["outlier_percentile"]
 
