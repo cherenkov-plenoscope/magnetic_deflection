@@ -2,12 +2,14 @@ import pandas
 import os
 import numpy as np
 import corsika_primary_wrapper as cpw
+
 from . import corsika
 from . import examples
 from . import discovery
 from . import light_field_characterization
 from . import spherical_coordinates as sphcords
 from . import tools
+from . import jsonl_jlog
 
 
 def make_jobs(
@@ -87,8 +89,13 @@ def make_jobs(
 
 
 def run_job(job):
+
     os.makedirs(job["job"]["map_dir"], exist_ok=True)
-    prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
+
+    log_filename = "{:06d}_log.json".format(job["job"]["id"])
+    log_path = os.path.join(job["job"]["map_dir"], log_filename)
+    jlog = jsonl_jlog.init(path=log_path)
+    jlog.info("job: start")
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
@@ -103,8 +110,13 @@ def run_job(job):
     result_filename = "{:06d}_result.json".format(job["job"]["id"])
     result_path = os.path.join(job["job"]["map_dir"], result_filename)
 
+    prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
+
+    jlog.info("job: beging discovery of deflection")
     if not os.path.exists(discovery_path):
+        jlog.info("job: estimate new guess for deflection")
         guesses = discovery.estimate_deflection(
+            json_logger=jlog,
             prng=prng,
             site=job["site"],
             primary_energy=job["particle"]["energy_GeV"],
@@ -123,21 +135,24 @@ def run_job(job):
 
         tools.write_jsonl(discovery_path, guesses)
     else:
+        jlog.info("job: use existing guess for deflection")
         guesses = tools.read_jsonl(discovery_path)
 
-    deflection = guesses[-1]
+    guess = guesses[-1]
 
     if deflection["valid"]:
+        jlog.info("job: gather statistics of airshowers")
 
         if not os.path.exists(statistics_path):
+            jlog.info("job: simulate new airshowers")
 
             steering = corsika.make_steering(
                 run_id=1 + job["job"]["id"],
                 site=job["site"],
                 primary_particle_id=job["particle"]["corsika_id"],
                 primary_energy=job["particle"]["energy_GeV"],
-                primary_cone_azimuth_deg=deflection["primary_azimuth_deg"],
-                primary_cone_zenith_deg=deflection["primary_zenith_deg"],
+                primary_cone_azimuth_deg=guess["primary_azimuth_deg"],
+                primary_cone_zenith_deg=guess["primary_zenith_deg"],
                 primary_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
                 num_events=job["statistics"]["num_events"],
                 prng=prng,
@@ -151,10 +166,12 @@ def run_job(job):
             )
             tools.write_jsonl(statistics_path, pools)
         else:
+            jlog.info("job: use existing airshowers")
             pools = tools.read_jsonl(statistics_path)
 
         assert len(pools) > 0
 
+        jlog.info("job: estimate statistics of airshowers")
         out = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1/2) * (job["statistics"]["off_axis_deg"]),
@@ -163,9 +180,12 @@ def run_job(job):
         )
         out["outlier_percentile"] = job["statistics"]["outlier_percentile"]
 
+        jlog.info("job: write results")
         for okey in out:
-            deflection[light_field_characterization.KEYPREFIX + okey] = out[okey]
-        tools.write_json(result_path, deflection)
+            guess[light_field_characterization.KEYPREFIX + okey] = out[okey]
+        tools.write_json(result_path, guess)
+
+    jlog.info("job: end")
     return 0
 
 

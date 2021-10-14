@@ -71,6 +71,7 @@ def direct_discovery(
 
 
 def estimate_deflection(
+    json_logger,
     prng,
     site,
     primary_energy,
@@ -86,6 +87,7 @@ def estimate_deflection(
     debug_print=False,
     guesses_path=None,
 ):
+    jlog = json_logger
     prm_cone_deg = cpw.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
@@ -93,6 +95,9 @@ def estimate_deflection(
     total_num_events = 0
 
     guesses = []
+
+    jlog.info("loop: start")
+    jlog.info("loop: {:d} shower/iteration".format(num_events_per_iteration))
 
     while True:
         run_id += 1
@@ -117,6 +122,11 @@ def estimate_deflection(
             debug_print=debug_print,
         )
 
+        jlog.info(
+            "loop: azimuth {:.1f}, zenith {:.1f}, opening {:.1f}, off-axis {:.1f} all/deg".format(
+                prm_az_deg, prm_zd_deg, prm_cone_deg, guess["off_axis_deg"])
+        )
+
         guesses.append(guess)
         if guesses_path:
             tools.append_jsonl_unsave(guesses_path, guess)
@@ -126,20 +136,21 @@ def estimate_deflection(
             and guess["off_axis_deg"] <= max_off_axis_deg
         ):
             guess["total_num_events"] = total_num_events
+            jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 
         if prm_cone_deg < max_off_axis_deg:
-            print("prm_cone_deg < max_off_axis_deg")
+            jlog.info("loop: break, prm_cone_deg < max_off_axis_deg")
             break
 
         if prm_cone_deg < guess["off_axis_deg"]:
             num_events_per_iteration *= 2
             prm_cone_deg *= np.sqrt(2.0)
-            print("double num events.")
+            jlog.info("loop: increase num showers to {:d}".format(num_events_per_iteration))
             continue
 
         if total_num_events > max_num_events:
-            print("Too many events thrown.")
+            jlog.info("loop: break, too many showers thrown")
             break
 
         prm_cone_deg *= 1.0 / np.sqrt(2.0)
@@ -147,8 +158,8 @@ def estimate_deflection(
         prm_zd_deg = guess["primary_zenith_deg"]
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
-            print("directions are Nan")
+            jlog.info("loop: break, particle directions are nan")
             break
 
-    # failed.
+    jlog.info("loop: failed")
     return guesses
