@@ -23,9 +23,7 @@ argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 deflection_dir = argv[1]
 
-deflection_table = mdfl.map_and_reduce.read_deflection_table(
-    path=deflection_dir
-)
+deflection_table = mdfl.tools.read_deflection_table(path=deflection_dir)
 
 with open(os.path.join(deflection_dir, "sites.json"), "rt") as f:
     sites = json.loads(f.read())
@@ -89,7 +87,7 @@ nice_variable_keys = {
     "cherenkov_pool_y_m": "$\\CerY{}$\\,/\\,m",
 }
 
-nice_particle_keys = {
+nice_pkeys = {
     "gamma": "Gamma-ray",
     "electron": "Electron",
     "proton": "Proton",
@@ -104,10 +102,8 @@ nice_power_law_variable_keys = {
 
 
 charge_signs = {}
-for particle_key in particles:
-    charge_signs[particle_key] = np.sign(
-        particles[particle_key]["electric_charge_qe"]
-    )
+for pkey in particles:
+    charge_signs[pkey] = np.sign(particles[pkey]["electric_charge_qe"])
 
 
 figsize = (16 / 2, 9 / 2)
@@ -119,7 +115,7 @@ dpi = 240
 ax_size_fit = (0.2, 0.12, 0.75, 0.8)
 
 
-def make_site_str(site_key, site):
+def make_site_str(skey, site):
     return "".join(
         [
             "{:s}, {:.1f}$\,$km$\,$a.s.l., ",
@@ -128,7 +124,7 @@ def make_site_str(site_key, site):
             "Bz {:.1f}$\,$uT",
         ]
     ).format(
-        site_key,
+        skey,
         site["observation_level_asl_m"] * 1e-3,
         site["atmosphere_id"],
         site["earth_magnetic_field_x_muT"],
@@ -159,13 +155,13 @@ def latex_format_scientific(f):
 def make_latex_table_with_power_law_fit(power_law_fit_table):
     matrix = []
     partile_line = ["", "", ""]
-    for particle_key in nice_particle_keys:
-        partile_line.append(nice_particle_keys[particle_key])
+    for pkey in nice_pkeys:
+        partile_line.append(nice_pkeys[pkey])
     matrix.append(partile_line)
-    for site_key in nice_site_labels:
-        if "Off" in site_key:
+    for skey in nice_site_labels:
+        if "Off" in skey:
             continue
-        site_line = [nice_site_labels[site_key], "", "", "", "", "", ""]
+        site_line = [nice_site_labels[skey], "", "", "", "", "", ""]
         matrix.append(site_line)
         for variable_key in nice_variable_keys:
             variable_line = [
@@ -181,11 +177,11 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
 
             for param_key in ["A", "B", "C"]:
                 value_line = ["", "", nice_power_law_variable_keys[param_key]]
-                for particle_key in nice_particle_keys:
+                for pkey in nice_pkeys:
 
-                    power_law_fit = power_law_fit_table[site_key][
-                        particle_key
-                    ][variable_key]["power_law"]
+                    power_law_fit = power_law_fit_table[skey][pkey][
+                        variable_key
+                    ]["power_law"]
 
                     if param_key == "B":
                         value = "{:,.3f}".format(power_law_fit[param_key])
@@ -204,24 +200,26 @@ deflection_table = mdfl.analysis.add_density_fields_to_deflection_table(
 )
 
 
-for site_key in deflection_table:
-    power_law_fit_table[site_key] = {}
-    for particle_key in deflection_table[site_key]:
-        print(site_key, particle_key)
-        site_str = make_site_str(site_key, sites[site_key])
+for skey in deflection_table:
+    power_law_fit_table[skey] = {}
+    for pkey in deflection_table[skey]:
+        print(skey, pkey)
+        site_str = make_site_str(skey, sites[skey])
 
-        t = deflection_table[site_key][particle_key]
+        t = deflection_table[skey][pkey]
         energy_fine = np.geomspace(
-            np.min(t["energy_GeV"]), 10 * np.max(t["energy_GeV"]), 1000
+            np.min(t["particle_energy_GeV"]),
+            10 * np.max(t["particle_energy_GeV"]),
+            1000,
         )
 
-        if "Off" in site_key:
+        if "Off" in skey:
             continue
 
-        power_law_fit_table[site_key][particle_key] = {}
+        power_law_fit_table[skey][pkey] = {}
         for key in key_map:
             sres = mdfl.analysis.smooth(
-                energies=t["energy_GeV"], values=t[key]
+                energies=t["particle_energy_GeV"], values=t[key]
             )
             energy_supports = sres["energy_supports"]
             key_std80 = sres["key_std80"]
@@ -229,7 +227,7 @@ for site_key in deflection_table:
             unc80_upper = key_mean80 + key_std80
             unc80_lower = key_mean80 - key_std80
 
-            if particle_key == "electron":
+            if pkey == "electron":
                 valid_range = energy_supports > 1.0
                 energy_supports = energy_supports[valid_range]
                 key_std80 = key_std80[valid_range]
@@ -237,7 +235,7 @@ for site_key in deflection_table:
                 unc80_upper = unc80_upper[valid_range]
                 unc80_lower = unc80_lower[valid_range]
 
-            key_start = charge_signs[particle_key] * key_map[key]["start"]
+            key_start = charge_signs[pkey] * key_map[key]["start"]
 
             if key_map[key]["etend_high_energies"]:
                 energy_bins_ext = np.array(
@@ -260,10 +258,10 @@ for site_key in deflection_table:
                 mdfl.analysis.power_law,
                 energy_bins_ext,
                 key_mean80_ext - key_start,
-                p0=(sig * charge_signs[particle_key], 1.0),
+                p0=(sig * charge_signs[pkey], 1.0),
             )
 
-            info_str = particle_key + ", " + site_str
+            info_str = pkey + ", " + site_str
 
             rec_key = mdfl.analysis.power_law(
                 energy=energy_fine, scale=expy[0], index=expy[1]
@@ -274,7 +272,7 @@ for site_key in deflection_table:
             ax = fig.add_axes(ax_size_fit)
             if PLOT_RAW_ESTIMATES:
                 ax.plot(
-                    t["energy_GeV"],
+                    t["particle_energy_GeV"],
                     np.array(t[key]) * key_map[key]["factor"],
                     "ko",
                     alpha=0.05,
@@ -330,7 +328,7 @@ for site_key in deflection_table:
                 )
             )
             ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-            filename = "{:s}_{:s}_{:s}".format(site_key, particle_key, key)
+            filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
             filepath = os.path.join(deflection_dir, filename)
             fig.savefig(filepath + ".jpg")
             plt.close(fig)
@@ -343,7 +341,7 @@ for site_key in deflection_table:
                     "B": float(expy[1]),
                     "C": float(key_start),
                 },
-                "energy_GeV": sres["energy_supports"].tolist(),
+                "particle_energy_GeV": sres["energy_supports"].tolist(),
                 "mean": sres["key_mean80"].tolist(),
                 "std": sres["key_std80"].tolist(),
             }
@@ -351,14 +349,14 @@ for site_key in deflection_table:
             with open(filepath + ".json", "wt") as fout:
                 fout.write(json.dumps(_fit, indent=4))
 
-            power_law_fit_table[site_key][particle_key][key] = _fit
+            power_law_fit_table[skey][pkey][key] = _fit
 
         azimuths_deg_steps = np.linspace(0, 360, 12, endpoint=False)
-        if particle_key == "gamma":
+        if pkey == "gamma":
             fov_deg = 1.0
-        elif particle_key == "proton":
+        elif pkey == "proton":
             fov_deg = 10.0
-        elif particle_key == "helium":
+        elif pkey == "helium":
             fov_deg = 10.0
         else:
             fov_deg = 90.0
@@ -380,14 +378,15 @@ for site_key in deflection_table:
         )
         cmap_name = "nipy_spectral"
         cmap_norm = plt_colors.LogNorm(
-            vmin=np.min(t["energy_GeV"]), vmax=np.max(t["energy_GeV"])
+            vmin=np.min(t["particle_energy_GeV"]),
+            vmax=np.max(t["particle_energy_GeV"]),
         )
         cmap_mappable = matplotlib.cm.ScalarMappable(
             norm=cmap_norm, cmap=cmap_name
         )
         plt.colorbar(cmap_mappable, cax=cmap_ax)
         cmap_ax.set_xlabel("energy$\,/\,$GeV")
-        rgbas = cmap_mappable.to_rgba(t["energy_GeV"])
+        rgbas = cmap_mappable.to_rgba(t["particle_energy_GeV"])
         rgbas[:, 3] = 0.25
         mdfl_plot.add_points_in_half_dome(
             ax=ax,
@@ -415,7 +414,7 @@ for site_key in deflection_table:
         fig.savefig(
             os.path.join(
                 deflection_dir,
-                "{:s}_{:s}_{:s}.jpg".format(site_key, particle_key, "dome"),
+                "{:s}_{:s}_{:s}.jpg".format(skey, pkey, "dome"),
             )
         )
         plt.close(fig)
@@ -438,18 +437,18 @@ for site_key in deflection_table:
     parmap = {"gamma": "k", "electron": "b", "proton": "r", "helium": "orange"}
 
     for den_key in density_map:
-        ts = deflection_table[site_key]
+        ts = deflection_table[skey]
         alpha = 0.2
         fig = plt.figure(figsize=figsize, dpi=dpi)
         ax = fig.add_axes(ax_size)
-        for particle_key in parmap:
+        for pkey in parmap:
             ax.plot(
-                ts[particle_key]["energy_GeV"],
-                ts[particle_key][den_key],
+                ts[pkey]["particle_energy_GeV"],
+                ts[pkey][den_key],
                 "o",
-                color=parmap[particle_key],
+                color=parmap[pkey],
                 alpha=alpha,
-                label=particle_key,
+                label=pkey,
             )
         leg = ax.legend()
         if PLOT_TITLE_INFO:
@@ -463,9 +462,7 @@ for site_key in deflection_table:
         ax.set_ylabel(density_map[den_key]["label"])
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
         fig.savefig(
-            os.path.join(
-                deflection_dir, "{:s}_{:s}.jpg".format(site_key, den_key)
-            )
+            os.path.join(deflection_dir, "{:s}_{:s}.jpg".format(skey, den_key))
         )
         plt.close(fig)
 
@@ -496,27 +493,27 @@ particle_colors = {
 
 fig = plt.figure(figsize=figsize, dpi=dpi)
 ax = fig.add_axes(ax_size)
-for particle_key in ["electron", "gamma"]:
-    for site_key in nice_site_labels:
-        E = deflection_table[site_key][particle_key]["energy_GeV"]
-        V = deflection_table[site_key][particle_key][den_key]
+for pkey in ["electron", "gamma"]:
+    for skey in nice_site_labels:
+        E = deflection_table[skey][pkey]["particle_energy_GeV"]
+        V = deflection_table[skey][pkey][den_key]
         mask = np.arange(20, len(E), len(E) // 10)
         ax.plot(
             E,
             V,
-            sitemap[site_key],
-            color=particle_colors[particle_key],
+            sitemap[skey],
+            color=particle_colors[pkey],
             alpha=0.1 * alpha,
         )
-        if particle_colors[particle_key] == "black":
-            label = nice_site_labels[site_key]
+        if particle_colors[pkey] == "black":
+            label = nice_site_labels[skey]
         else:
             label = None
         ax.plot(
             E[mask],
             smooth(V, 9)[mask],
-            sitemap[site_key],
-            color=particle_colors[particle_key],
+            sitemap[skey],
+            color=particle_colors[pkey],
             label=label,
         )
 
