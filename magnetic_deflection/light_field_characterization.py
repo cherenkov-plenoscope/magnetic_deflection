@@ -10,28 +10,6 @@ from . import spherical_coordinates as sphcords
 from . import tools
 
 
-KEYPREFIX = "char_"
-
-KEYS = [
-    "char_position_med_x_m",
-    "char_position_med_y_m",
-    "char_position_phi_rad",
-    "char_position_std_major_m",
-    "char_position_std_minor_m",
-    "char_direction_med_cx_rad",
-    "char_direction_med_cy_rad",
-    "char_direction_phi_rad",
-    "char_direction_std_major_rad",
-    "char_direction_std_minor_rad",
-    "char_arrival_time_mean_s",
-    "char_arrival_time_median_s",
-    "char_arrival_time_std_s",
-    "char_total_num_photons",
-    "char_total_num_showers",
-    "char_outlier_percentile",
-]
-
-
 def estimate_ellipse(a, b):
     cov_matrix = np.cov(np.c_[a, b].T)
     eigen_vals, eigen_vecs = np.linalg.eig(cov_matrix)
