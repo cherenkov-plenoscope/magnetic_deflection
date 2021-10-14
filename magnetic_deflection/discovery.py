@@ -112,7 +112,7 @@ def estimate_deflection(
             jlog.info("loop: break, too many showers")
             break
 
-        if prm_cone_deg < max_off_axis_deg:
+        if prm_cone_deg < 2 * guess["off_axis_deg"]:
             prm_cone_deg *= 2.0
             jlog.info(
                 "loop: increase opening to {:.1f}deg".format(prm_cone_deg)
