@@ -47,8 +47,7 @@ def estimate_deflection(
 
         total_num_showers += num_showers_per_iteration
 
-        steering = corsika.make_steering(
-            run_id=run_id,
+        new_pools = corsika.make_cherenkov_pools_statistics(
             site=site,
             particle_id=particle_id,
             particle_energy=particle_energy,
@@ -56,18 +55,15 @@ def estimate_deflection(
             particle_cone_zenith_deg=prm_zd_deg,
             particle_cone_opening_angle_deg=prm_cone_deg,
             num_showers=num_showers_per_iteration,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
+            outlier_percentile=outlier_percentile,
+            corsika_primary_path=corsika_primary_path,
+            run_id=run_id,
             prng=prng,
         )
 
-        new_pools = corsika.estimate_cherenkov_pool(
-            corsika_primary_steering=steering,
-            corsika_primary_path=corsika_primary_path,
-            min_num_cherenkov_photons=min_num_cherenkov_photons,
-            outlier_percentile=outlier_percentile,
-        )
-
-        num_valid_pools = int(np.ceil(0.1 * num_showers_per_iteration))
-        if len(new_pools) < num_valid_pools:
+        min_num_valid_pools = int(np.ceil(0.1 * num_showers_per_iteration))
+        if len(new_pools) < min_num_valid_pools:
             jlog.info("loop: break, not enough valid cherenkov pools")
             break
 

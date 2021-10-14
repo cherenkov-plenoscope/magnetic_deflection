@@ -182,8 +182,7 @@ def run_job(job):
         if not os.path.exists(statistics_path):
             jlog.info("job: simulate new showers")
 
-            steering = corsika.make_steering(
-                run_id=1 + job["job"]["id"],
+            pools = corsika.make_cherenkov_pools_statistics(
                 site=job["site"],
                 particle_id=job["particle"]["corsika_id"],
                 particle_energy=job["particle"]["energy_GeV"],
@@ -191,17 +190,15 @@ def run_job(job):
                 particle_cone_zenith_deg=best_estimate["particle_zenith_deg"],
                 particle_cone_opening_angle_deg=job["statistics"]["off_axis_deg"],
                 num_showers=job["statistics"]["num_showers"],
-                prng=prng,
-            )
-
-            pools = corsika.estimate_cherenkov_pool(
-                corsika_primary_steering=steering,
-                corsika_primary_path=job["job"]["corsika_primary_path"],
                 min_num_cherenkov_photons=job["statistics"][
                     "min_num_cherenkov_photons"
                 ],
                 outlier_percentile=job["statistics"]["outlier_percentile"],
+                corsika_primary_path=job["job"]["corsika_primary_path"],
+                run_id=1 + job["job"]["id"],
+                prng=prng,
             )
+
             tools.write_jsonl(statistics_path, pools)
         else:
             jlog.info("job: use existing showers")

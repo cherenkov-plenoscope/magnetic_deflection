@@ -98,3 +98,37 @@ def estimate_cherenkov_pool(
                 pools.append(pool)
 
         return pools
+
+
+def make_cherenkov_pools_statistics(
+    site,
+    particle_id,
+    particle_energy,
+    particle_cone_azimuth_deg,
+    particle_cone_zenith_deg,
+    particle_cone_opening_angle_deg,
+    num_showers,
+    min_num_cherenkov_photons,
+    outlier_percentile,
+    corsika_primary_path,
+    run_id,
+    prng,
+):
+    steering = make_steering(
+        run_id=run_id,
+        site=site,
+        particle_id=particle_id,
+        particle_energy=particle_energy,
+        particle_cone_azimuth_deg=particle_cone_azimuth_deg,
+        particle_cone_zenith_deg=particle_cone_zenith_deg,
+        particle_cone_opening_angle_deg=particle_cone_opening_angle_deg,
+        num_showers=num_showers,
+        prng=prng,
+    )
+
+    return estimate_cherenkov_pool(
+        corsika_primary_steering=steering,
+        corsika_primary_path=corsika_primary_path,
+        min_num_cherenkov_photons=min_num_cherenkov_photons,
+        outlier_percentile=outlier_percentile,
+    )
