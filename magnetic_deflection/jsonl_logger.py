@@ -2,7 +2,7 @@ import logging
 
 
 def init(path):
-    l = logging.getLogger(name="magnetic_deflection")
+    l = logging.Logger(name=path)
     file_handler = logging.FileHandler(filename=path, mode="a")
     datefmt_iso8601 = "%Y-%m-%dT%H:%M:%S"
     formatter = logging.Formatter(

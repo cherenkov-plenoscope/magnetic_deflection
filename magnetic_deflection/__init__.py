@@ -61,8 +61,8 @@ def B_make_jobs_from_work_dir(work_dir):
         sites=sites,
         particles=particles,
         pointing=pointing,
-        max_energy=config["max_energy_GeV"],
-        num_energy_supports=config["num_energy_supports"],
+        energy_supports_max=config["max_energy_GeV"],
+        energy_supports_num=config["num_energy_supports"],
     )
 
 

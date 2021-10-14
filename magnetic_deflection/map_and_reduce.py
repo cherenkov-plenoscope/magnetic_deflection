@@ -17,15 +17,25 @@ def make_jobs(
     sites,
     particles,
     pointing,
-    max_energy,
-    num_energy_supports,
+    energy_supports_max,
+    energy_supports_num,
     energy_supports_power_law_slope=-1.7,
-    num_showers_per_iteration=2 ** 7,
-    max_total_num_showers=2 ** 12,
+    discovery_max_total_energy=2e3,
+    discovery_min_energy_per_iteration=12.0,
+    discovery_min_num_showers_per_iteration=16,
+    statistics_total_energy=2e3,
+    statistics_min_num_showers=16,
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
 ):
+    assert discovery_max_total_energy > (
+        discovery_min_num_showers_per_iteration * energy_supports_max
+    )
+    assert statistics_total_energy > (
+        statistics_min_num_showers * energy_supports_max
+    )
+
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
     for site_key in sites:
@@ -37,9 +47,9 @@ def make_jobs(
             )
             energy_supports = tools.powerspace(
                 start=min_energy,
-                stop=max_energy,
+                stop=energy_supports_max,
                 power_index=energy_supports_power_law_slope,
-                num=num_energy_supports,
+                num=energy_supports_num,
             )
             for energy_idx in range(len(energy_supports)):
                 job = {}
@@ -59,9 +69,25 @@ def make_jobs(
 
                 job["pointing"] = pointing
 
+                max_total_num_showers = int(
+                    np.ceil(
+                        discovery_max_total_energy
+                        / job["particle"]["energy_GeV"]
+                    )
+                )
+                num_showers = int(
+                    np.ceil(
+                        discovery_min_energy_per_iteration
+                        / job["particle"]["energy_GeV"]
+                    )
+                )
+                num_showers = np.max(
+                    [num_showers, discovery_min_num_showers_per_iteration]
+                )
+
                 job["discovery"] = {
                     "outlier_percentile": 100.0,
-                    "num_showers_per_iteration": num_showers_per_iteration,
+                    "num_showers_per_iteration": num_showers,
                     "max_num_showers": max_total_num_showers,
                     "max_off_axis_deg": particle[
                         "magnetic_deflection_max_off_axis_deg"
@@ -69,7 +95,11 @@ def make_jobs(
                     "min_num_cherenkov_photons": min_num_cherenkov_photons,
                 }
 
-                num_showers = int(np.ceil(1e3 / job["particle"]["energy_GeV"]))
+                num_showers = int(
+                    np.ceil(
+                        statistics_total_energy / job["particle"]["energy_GeV"]
+                    )
+                )
                 num_showers = np.min([1000, num_showers])
 
                 job["statistics"] = {
