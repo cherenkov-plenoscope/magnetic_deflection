@@ -25,7 +25,6 @@ def make_jobs(
     outlier_percentile=50.0,
     min_num_cherenkov_photons=100,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    debug_print=False,
 ):
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
@@ -48,7 +47,6 @@ def make_jobs(
                 job["job"]["id"] = len(jobs)
                 job["job"]["map_dir"] = os.path.join(abs_work_dir, "map")
                 job["job"]["corsika_primary_path"] = corsika_primary_path
-                job["job"]["debug_print"] = debug_print
 
                 job["site"] = dict(site)
                 assert "key" not in job["site"]
@@ -129,7 +127,6 @@ def run_job(job):
             max_num_events=job["discovery"]["max_num_events"],
             min_num_cherenkov_photons=job["discovery"]["min_num_cherenkov_photons"],
             corsika_primary_path=job["job"]["corsika_primary_path"],
-            debug_print=job["job"]["debug_print"],
             guesses_path=discovery_path,
         )
 

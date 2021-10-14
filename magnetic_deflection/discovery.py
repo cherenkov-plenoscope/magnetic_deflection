@@ -28,7 +28,6 @@ def direct_discovery(
     outlier_percentile,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    debug_print=False,
 ):
     out = {}
 
@@ -62,7 +61,7 @@ def direct_discovery(
         off_axis_pivot_deg=off_axis_pivot_deg,
         instrument_azimuth_deg=instrument_azimuth_deg,
         instrument_zenith_deg=instrument_zenith_deg,
-        debug_print=debug_print,
+        debug_print=False,
     )
 
     out["valid"] = True
@@ -84,7 +83,6 @@ def estimate_deflection(
     max_num_events,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    debug_print=False,
     guesses_path=None,
 ):
     jlog = json_logger
@@ -119,7 +117,6 @@ def estimate_deflection(
             corsika_primary_path=corsika_primary_path,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
             outlier_percentile=outlier_percentile,
-            debug_print=debug_print,
         )
 
         jlog.info(
