@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 import json
 import magnetic_deflection as mdfl
-from magnetic_deflection import plot_sky_dome as mdfl_plot
 import plenoirf as irf
 
 

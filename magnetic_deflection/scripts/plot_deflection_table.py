@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import json
 import magnetic_deflection as mdfl
-from magnetic_deflection import plot_sky_dome as mdfl_plot
+import sebastians_matplotlib_addons as sebplt
 import plenoirf as irf
 import scipy
 
@@ -367,7 +367,7 @@ for skey in deflection_table:
         cmap_ax = fig.add_axes((0.8, 0.07, 0.02, 0.85))
         if PLOT_TITLE_INFO:
             ax.set_title(site_str, alpha=0.5)
-        mdfl_plot.add_grid_in_half_dome(
+        sebplt.hemisphere.ax_add_grid(
             ax=ax,
             azimuths_deg=azimuths_deg_steps,
             zeniths_deg=np.linspace(0, fov_deg, 10),
@@ -388,7 +388,7 @@ for skey in deflection_table:
         cmap_ax.set_xlabel("energy$\,/\,$GeV")
         rgbas = cmap_mappable.to_rgba(t["particle_energy_GeV"])
         rgbas[:, 3] = 0.25
-        mdfl_plot.add_points_in_half_dome(
+        sebplt.hemisphere.ax_add_points(
             ax=ax,
             azimuths_deg=t["particle_azimuth_deg"],
             zeniths_deg=t["particle_zenith_deg"],
@@ -406,7 +406,7 @@ for skey in deflection_table:
         )
         ax.set_axis_off()
         ax.set_aspect("equal")
-        mdfl_plot.add_ticklabels_in_half_dome(
+        sebplt.hemisphere.ax_add_ticklabels(
             ax=ax, azimuths_deg=azimuths_deg_steps, rfov=rfov
         )
         ax.set_xlim([-1.01 * rfov, 1.01 * rfov])
