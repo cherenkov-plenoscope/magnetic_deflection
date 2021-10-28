@@ -2,6 +2,8 @@ import numpy as np
 import os
 import json_numpy
 import pandas
+import scipy
+from scipy import spatial
 
 from . import spherical_coordinates as sphcords
 from . import tools
@@ -118,7 +120,25 @@ def inspect_pools(
         zd2_deg=instrument_zenith_deg,
     )
 
-    weights = np.exp(-0.5 * (cer_off_axis_deg / off_axis_pivot_deg) ** 2)
+    w_off = make_weights_off_axis(
+        off_axis_deg=cer_off_axis_deg,
+        off_axis_pivot_deg=off_axis_pivot_deg
+    )
+    w_nph = make_weights_num_photons(num_photons=cers["num_photons"])
+
+    w_off_nph = w_off * w_nph
+
+    weights = make_neighborhood_weights(
+        cer_cx_rad=cers["direction_med_cx_rad"],
+        cer_cy_rad=cers["direction_med_cy_rad"],
+        cer_weights=w_off_nph,
+        pivot_radius_rad=4 * np.deg2rad(off_axis_pivot_deg),
+        min_num_neighborhood=2
+    )
+    if np.sum(weights) == 0:
+        print("fallback, no neighbor wights.")
+
+    weights = w_off_nph
 
     out = {}
     out["off_axis_deg"] = np.average(cer_off_axis_deg, weights=weights)
@@ -131,15 +151,100 @@ def inspect_pools(
     out["total_num_photons"] = np.sum(cers["num_photons"])
     out["total_num_showers"] = len(cers)
 
-    if debug_print:
-        print(json_numpy.dumps(out, indent=4))
+    if True:
+        print("---")
+        #print(json_numpy.dumps(out, indent=4))
         asw = np.argsort(weights)
         for i in range(int(len(asw) / 10)):
             j = asw[len(asw) - 1 - i]
             print(
                 "weight {:03d} %, off-axis {:.2f} deg".format(
-                    int(100 * weights[j]), cer_off_axis_deg[j],
+                    int(100 * weights[j]/np.sum(weights)), cer_off_axis_deg[j],
                 )
             )
 
     return out
+
+
+def make_weights_num_photons(num_photons):
+    """
+    Returns weights (0 - 1]
+    Reduce the weight of dim showers with only a few photons.
+    These might create strong outliers.
+    """
+    med = np.median(num_photons)
+    weights = (num_photons / med)
+    weights[weights > 1.0] = 1.0
+    return weights
+
+
+def make_weights_off_axis(off_axis_deg, off_axis_pivot_deg):
+    return np.exp(-0.5 * (off_axis_deg / off_axis_pivot_deg) ** 2)
+
+
+def make_neighborhood_weights(
+    cer_cx_rad,
+    cer_cy_rad,
+    cer_weights,
+    pivot_radius_rad,
+    min_num_neighborhood=2
+):
+    tree = HemisphereTree_init(cx=cer_cx_rad, cy=cer_cy_rad)
+    return HemisphereTree_make_neighbor_weights(
+        tree=tree,
+        tree_weights=cer_weights,
+        pivot_radius=pivot_radius_rad,
+        min_num_neighborhood=min_num_neighborhood,
+    )
+
+
+def direction_cosines_to_vector(cx, cy):
+    cz = np.sqrt(1.0 - cx ** 2 - cy ** 2)
+    return np.c_[cx, cy, cz]
+
+def HemisphereTree_init(cx, cy):
+    vec = direction_cosines_to_vector(cx=cx, cy=cy)
+    tree = scipy.spatial.cKDTree(data=vec)
+    return tree
+
+def HemisphereTree_make_neighbor_weights(
+    tree,
+    tree_weights,
+    pivot_radius,
+    min_num_neighborhood=2
+):
+    point_weights = []
+    num_points = tree.data.shape[0]
+    for point_i, point_x in enumerate(tree.data):
+        _dd, _ii = tree.query(
+            k=num_points,
+            x=point_x,
+        )
+
+        dd = []
+        ii = []
+        for i in range(len(_ii)):
+            if _ii[i] == point_i:
+                continue
+            if _dd[i] > pivot_radius:
+                continue
+            dd.append(_dd[i])
+            ii.append(_ii[i])
+
+        if len(ii) >= min_num_neighborhood:
+
+            #print("pivot_radius deg:", np.rad2deg(pivot_radius))
+            #print("dd deg:",  np.rad2deg(dd))
+            #print("ii:", ii)
+
+            dw = (pivot_radius - dd) / pivot_radius
+            dw[dw < 0] = 0
+            #print("dw", dw)
+
+            w = tree_weights[ii]
+
+            point_weight = np.average(w, weights=dw)
+        else:
+            point_weight = 0.0
+        point_weights.append(point_weight)
+    return np.array(point_weights)
