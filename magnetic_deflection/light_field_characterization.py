@@ -189,6 +189,9 @@ def make_neighborhood_weights(
     pivot_radius_rad,
     min_num_neighborhood=2
 ):
+    """
+    Returns weights which depend less on individual outliers.
+    """
     tree = HemisphereTree_init(cx=cer_cx_rad, cy=cer_cy_rad)
     return HemisphereTree_make_neighbor_weights(
         tree=tree,
@@ -202,51 +205,20 @@ def direction_cosines_to_vector(cx, cy):
     cz = np.sqrt(1.0 - cx ** 2 - cy ** 2)
     return np.c_[cx, cy, cz]
 
+
 def HemisphereTree_init(cx, cy):
     vec = direction_cosines_to_vector(cx=cx, cy=cy)
     tree = scipy.spatial.cKDTree(data=vec)
     return tree
 
-def HemisphereTree_make_neighbor_weights(
-    tree,
-    tree_weights,
-    pivot_radius,
-    min_num_neighborhood=2
-):
-    point_weights = []
-    num_points = tree.data.shape[0]
-    for point_i, point_x in enumerate(tree.data):
-        _dd, _ii = tree.query(
-            k=num_points,
-            x=point_x,
-        )
-        dd, ii = _remove_point_itself_and_cut_pivot_radius(
-            _dd=_dd,
-            _ii=_ii,
-            point_i=point_i,
-            pivot_radius=pivot_radius
-        )
-
-        if len(ii) >= min_num_neighborhood:
-
-            #print("pivot_radius deg:", np.rad2deg(pivot_radius))
-            #print("dd deg:",  np.rad2deg(dd))
-            #print("ii:", ii)
-
-            dw = (pivot_radius - dd) / pivot_radius
-            dw[dw < 0] = 0
-            #print("dw", dw)
-
-            w = tree_weights[ii]
-
-            point_weight = np.average(w, weights=dw)
-        else:
-            point_weight = 0.0
-        point_weights.append(point_weight)
-    return np.array(point_weights)
-
-
-def _remove_point_itself_and_cut_pivot_radius(_dd, _ii, point_i, pivot_radius):
+def HemisphereTree_query_self(tree, point_i, pivot_radius):
+    """
+    Returns distances 'dd' and indices 'ii' to neighboring points of 'point_i'.
+    """
+    _dd, _ii = tree.query(
+        k=tree.data.shape[0],
+        x=tree.data[point_i],
+    )
     dd = []
     ii = []
     for i in range(len(_ii)):
@@ -257,3 +229,32 @@ def _remove_point_itself_and_cut_pivot_radius(_dd, _ii, point_i, pivot_radius):
         dd.append(_dd[i])
         ii.append(_ii[i])
     return dd, ii
+
+
+def HemisphereTree_make_neighbor_weights(
+    tree,
+    tree_weights,
+    pivot_radius,
+    min_num_neighborhood=2
+):
+    point_weights = []
+    for point_i in range(tree.data.shape[0]):
+
+        dd, ii = HemisphereTree_query_self(
+            tree=tree,
+            point_i=point_i,
+            pivot_radius=pivot_radius
+        )
+
+        if len(ii) >= min_num_neighborhood:
+
+            dw = (pivot_radius - dd) / pivot_radius
+            dw[dw < 0] = 0
+
+            w = tree_weights[ii]
+
+            point_weight = np.average(w, weights=dw)
+        else:
+            point_weight = 0.0
+        point_weights.append(point_weight)
+    return np.array(point_weights)
