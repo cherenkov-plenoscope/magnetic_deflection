@@ -106,6 +106,7 @@ def estimate_deflection(
 
         if prm_cone_deg < 2 * guess["off_axis_deg"]:
             prm_cone_deg *= 2.0
+            prm_cone_deg = np.min([prm_cone_deg, corsika.MAX_ZENITH_DEG])
             jlog.info(
                 "loop: increase opening to {:.1f}deg".format(prm_cone_deg)
             )
