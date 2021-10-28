@@ -220,16 +220,12 @@ def HemisphereTree_make_neighbor_weights(
             k=num_points,
             x=point_x,
         )
-
-        dd = []
-        ii = []
-        for i in range(len(_ii)):
-            if _ii[i] == point_i:
-                continue
-            if _dd[i] > pivot_radius:
-                continue
-            dd.append(_dd[i])
-            ii.append(_ii[i])
+        dd, ii = _remove_point_itself_and_cut_pivot_radius(
+            _dd=_dd,
+            _ii=_ii,
+            point_i=point_i,
+            pivot_radius=pivot_radius
+        )
 
         if len(ii) >= min_num_neighborhood:
 
@@ -248,3 +244,16 @@ def HemisphereTree_make_neighbor_weights(
             point_weight = 0.0
         point_weights.append(point_weight)
     return np.array(point_weights)
+
+
+def _remove_point_itself_and_cut_pivot_radius(_dd, _ii, point_i, pivot_radius):
+    dd = []
+    ii = []
+    for i in range(len(_ii)):
+        if _ii[i] == point_i:
+            continue
+        if _dd[i] > pivot_radius:
+            continue
+        dd.append(_dd[i])
+        ii.append(_ii[i])
+    return dd, ii
