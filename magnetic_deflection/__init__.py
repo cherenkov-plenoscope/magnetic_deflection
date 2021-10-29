@@ -36,16 +36,29 @@ def A_init_work_dir(
         f.write(json_numpy.dumps(plenoscope_pointing, indent=4))
     with open(os.path.join(work_dir, "particles.json"), "wt") as f:
         f.write(json_numpy.dumps(particles, indent=4))
+    _write_default_config(
+        work_dir=work_dir,
+        energy_supports_max=max_energy,
+        energy_supports_num=num_energy_supports
+    )
+
+
+def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
+    cfg = {
+        "energy_supports_max": float(energy_supports_max),
+        "energy_supports_num": int(energy_supports_num),
+        "energy_supports_power_law_slope": -1.7,
+        "discovery_max_total_energy": 8e3,
+        "discovery_min_energy_per_iteration": 16.0,
+        "discovery_min_num_showers_per_iteration": 32,
+        "statistics_total_energy": 8e3,
+        "statistics_min_num_showers": 100,
+        "outlier_percentile": 50.0,
+        "min_num_cherenkov_photons": 100,
+        "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
+    }
     with open(os.path.join(work_dir, "config.json"), "wt") as f:
-        f.write(
-            json_numpy.dumps(
-                {
-                    "max_energy_GeV": float(max_energy),
-                    "num_energy_supports": int(num_energy_supports),
-                },
-                indent=4,
-            )
-        )
+        f.write(json_numpy.dumps(cfg, indent=4))
 
 
 def B_make_jobs_from_work_dir(work_dir):
@@ -59,8 +72,7 @@ def B_make_jobs_from_work_dir(work_dir):
         sites=sites,
         particles=particles,
         pointing=pointing,
-        energy_supports_max=config["max_energy_GeV"],
-        energy_supports_num=config["num_energy_supports"],
+        **config,
     )
 
 

@@ -36,7 +36,11 @@ def estimate_deflection(
     guesses = []
 
     jlog.info("loop: start")
-    jlog.info("loop: {:d} shower/iteration".format(num_showers_per_iteration))
+    jlog.info("loop: {:d} shower/iteration, {:d} showers max.".format(
+            num_showers_per_iteration,
+            max_num_showers
+        )
+    )
 
     while True:
         run_id += 1

@@ -16,21 +16,31 @@ def make_jobs(
     pointing,
     energy_supports_max,
     energy_supports_num,
-    energy_supports_power_law_slope=-1.7,
-    discovery_max_total_energy=4e3,
-    discovery_min_energy_per_iteration=16.0,
-    discovery_min_num_showers_per_iteration=16,
-    statistics_total_energy=2.5e2,
-    statistics_min_num_showers=16,
-    outlier_percentile=50.0,
-    min_num_cherenkov_photons=100,
-    corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
+    energy_supports_power_law_slope,
+    discovery_max_total_energy,
+    discovery_min_energy_per_iteration,
+    discovery_min_num_showers_per_iteration,
+    statistics_total_energy,
+    statistics_min_num_showers,
+    outlier_percentile,
+    min_num_cherenkov_photons,
+    corsika_primary_path,
 ):
-    assert discovery_max_total_energy > (
-        discovery_min_num_showers_per_iteration * energy_supports_max
-    )
-    assert statistics_total_energy > (
+    assert energy_supports_max > 0
+    assert energy_supports_num > 1
+
+    assert 0 < outlier_percentile <= 100
+    assert min_num_cherenkov_photons > 0
+
+    assert statistics_min_num_showers > 0
+    assert statistics_total_energy >= 2 * (
         statistics_min_num_showers * energy_supports_max
+    )
+
+    assert discovery_min_num_showers_per_iteration > 0
+    assert discovery_min_energy_per_iteration > 0
+    assert discovery_max_total_energy >= (
+        discovery_min_num_showers_per_iteration * energy_supports_max
     )
 
     abs_work_dir = os.path.abspath(work_dir)
@@ -104,7 +114,7 @@ def make_jobs(
                     "num_showers": num_showers,
                     "outlier_percentile": outlier_percentile,
                     "min_num_cherenkov_photons": min_num_cherenkov_photons,
-                    "off_axis_deg": particle[
+                    "off_axis_deg": 3.0 * particle[
                         "magnetic_deflection_max_off_axis_deg"
                     ],
                 }
@@ -124,6 +134,10 @@ def run_job(job):
     log_path = os.path.join(job["job"]["map_dir"], log_filename)
     jlog = jsonl_logger.init(path=log_path)
     jlog.info("job: start")
+    jlog.info("job: site: {:s}, particle: {:s}, energy: {:f} GeV".format(
+        job["site"]["key"],
+        job["particle"]["key"],
+        job["particle"]["energy_GeV"]))
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
@@ -173,8 +187,13 @@ def run_job(job):
         best_estimate = estimates[-1]
         jlog.info("job: have valid estimate for deflection")
 
-        jlog.info("job: gathering statistics")
+        if best_estimate["off_axis_deg"] > job["statistics"]["off_axis_deg"]:
+            jlog.info("job: increase opening angle to gather statistics.")
+            cone_opening_angle_deg = best_estimate["off_axis_deg"]
+        else:
+            cone_opening_angle_deg = job["statistics"]["off_axis_deg"]
 
+        jlog.info("job: gathering statistics")
         if not os.path.exists(statistics_path):
             jlog.info("job: simulate new showers")
 
@@ -186,9 +205,7 @@ def run_job(job):
                     "particle_azimuth_deg"
                 ],
                 particle_cone_zenith_deg=best_estimate["particle_zenith_deg"],
-                particle_cone_opening_angle_deg=job["statistics"][
-                    "off_axis_deg"
-                ],
+                particle_cone_opening_angle_deg=cone_opening_angle_deg,
                 num_showers=job["statistics"]["num_showers"],
                 min_num_cherenkov_photons=job["statistics"][
                     "min_num_cherenkov_photons"
