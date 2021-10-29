@@ -72,7 +72,6 @@ def estimate_deflection(
             off_axis_pivot_deg=off_axis_pivot_deg,
             instrument_azimuth_deg=instrument_azimuth_deg,
             instrument_zenith_deg=instrument_zenith_deg,
-            debug_print=False,
         )
 
         jlog.info(
