@@ -6,7 +6,7 @@ from . import examples
 from . import corsika
 from . import light_field_characterization
 from . import tools
-
+from . import spherical_coordinates
 
 def estimate_deflection(
     json_logger,
@@ -25,6 +25,7 @@ def estimate_deflection(
     guesses_path=None,
 ):
     jlog = json_logger
+    shift_angle_deg = 0.0
     prm_cone_deg = corsika.MAX_ZENITH_DEG
     prm_az_deg = 0.0
     prm_zd_deg = 0.0
@@ -63,11 +64,19 @@ def estimate_deflection(
         )
 
         min_num_valid_pools = int(np.ceil(0.1 * num_showers_per_iteration))
-        if len(new_pools) < min_num_valid_pools:
-            jlog.info("loop: break, not enough valid cherenkov pools")
-            break
-
+        num_new_pools = len(new_pools)
         cherenkov_pools += new_pools
+
+        if num_new_pools < min_num_valid_pools:
+            jlog.info(
+                "loop: not enough valid cherenkov pools, "
+                + "back to zenith, open cone, double num shower."
+            )
+            num_showers_per_iteration *= 2
+            prm_cone_deg = corsika.MAX_ZENITH_DEG
+            prm_az_deg = 0.0
+            prm_zd_deg = 0.0
+            continue
 
         off_axis_pivot_deg = (1 / 8) * (prm_cone_deg + max_off_axis_deg)
 
@@ -95,6 +104,14 @@ def estimate_deflection(
         if guess["off_axis_deg"] <= max_off_axis_deg:
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
+
+        shift_angle_deg = spherical_coordinates._angle_between_az_zd_deg(
+            az1_deg=prm_az_deg,
+            zd1_deg=prm_zd_deg,
+            az2_deg=guess["particle_azimuth_deg"],
+            zd2_deg=guess["particle_zenith_deg"],
+        )
+        jlog.info("loop: shift angle {:.2f} deg".format(shift_angle_deg))
 
         prm_az_deg = float(guess["particle_azimuth_deg"])
         prm_zd_deg = float(guess["particle_zenith_deg"])
