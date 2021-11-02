@@ -87,12 +87,20 @@ def estimate_deflection(
             instrument_zenith_deg=instrument_zenith_deg,
         )
 
+        shift_angle_deg = spherical_coordinates._angle_between_az_zd_deg(
+            az1_deg=prm_az_deg,
+            zd1_deg=prm_zd_deg,
+            az2_deg=guess["particle_azimuth_deg"],
+            zd2_deg=guess["particle_zenith_deg"],
+        )
+
         jlog.info(
             "loop: "
             + "azimuth {:.1f}, ".format(prm_az_deg)
             + "zenith {:.1f}, ".format(prm_zd_deg)
             + "opening {:.2f}, ".format(prm_cone_deg)
-            + "off-axis {:.2f} ".format(guess["off_axis_deg"])
+            + "off-axis {:.2f}, ".format(guess["off_axis_deg"])
+            + "shift {:.2f} ".format(shift_angle_deg)
             + "all/deg, "
             + "num showers: {:d}".format(len(cherenkov_pools))
         )
@@ -105,13 +113,6 @@ def estimate_deflection(
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 
-        shift_angle_deg = spherical_coordinates._angle_between_az_zd_deg(
-            az1_deg=prm_az_deg,
-            zd1_deg=prm_zd_deg,
-            az2_deg=guess["particle_azimuth_deg"],
-            zd2_deg=guess["particle_zenith_deg"],
-        )
-        jlog.info("loop: shift angle {:.2f} deg".format(shift_angle_deg))
 
         prm_az_deg = float(guess["particle_azimuth_deg"])
         prm_zd_deg = float(guess["particle_zenith_deg"])
