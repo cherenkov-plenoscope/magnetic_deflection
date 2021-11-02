@@ -21,17 +21,19 @@ from matplotlib import colors as plt_colors
 
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
-deflection_dir = argv[1]
+work_dir = argv[1]
 
-deflection_table = mdfl.tools.read_deflection_table(path=deflection_dir)
+deflection_table = mdfl.tools.read_deflection_table(os.path.join(work_dir, "raw"))
 
-with open(os.path.join(deflection_dir, "sites.json"), "rt") as f:
+shower_statistics = mdfl.read_shower_statistics(work_dir=work_dir)
+
+with open(os.path.join(work_dir, "sites.json"), "rt") as f:
     sites = json.loads(f.read())
 
-with open(os.path.join(deflection_dir, "particles.json"), "rt") as f:
+with open(os.path.join(work_dir, "particles.json"), "rt") as f:
     particles = json.loads(f.read())
 
-with open(os.path.join(deflection_dir, "pointing.json"), "rt") as f:
+with open(os.path.join(work_dir, "pointing.json"), "rt") as f:
     pointing = json.loads(f.read())
 
 PLOT_TITLE_INFO = False
@@ -57,14 +59,14 @@ key_map = {
         "start": 0.0,
         "etend_high_energies": True,
     },
-    "cherenkov_pool_x_m": {
+    "position_med_x_m": {
         "unit": "km",
         "name": "Cherenkov-pool-x",
         "factor": 1e-3,
         "start": 0.0,
         "etend_high_energies": True,
     },
-    "cherenkov_pool_y_m": {
+    "position_med_y_m": {
         "unit": "km",
         "name": "Cherenkov-pool-y",
         "factor": 1e-3,
@@ -83,8 +85,8 @@ nice_site_labels = {
 nice_variable_keys = {
     "particle_azimuth_deg": "$\\PrmAz{}$\\,/\\,deg",
     "particle_zenith_deg": "$\\PrmZd{}$\\,/\\,deg",
-    "cherenkov_pool_x_m": "$\\CerX{}$\\,/\\,m",
-    "cherenkov_pool_y_m": "$\\CerY{}$\\,/\\,m",
+    "position_med_x_m": "$\\CerX{}$\\,/\\,m",
+    "position_med_y_m": "$\\CerY{}$\\,/\\,m",
 }
 
 nice_pkeys = {
@@ -329,7 +331,7 @@ for skey in deflection_table:
             )
             ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
-            filepath = os.path.join(deflection_dir, filename)
+            filepath = os.path.join(work_dir, filename)
             fig.savefig(filepath + ".jpg")
             plt.close(fig)
 
@@ -413,7 +415,7 @@ for skey in deflection_table:
         ax.set_ylim([-1.01 * rfov, 1.01 * rfov])
         fig.savefig(
             os.path.join(
-                deflection_dir,
+                work_dir,
                 "{:s}_{:s}_{:s}.jpg".format(skey, pkey, "dome"),
             )
         )
@@ -462,13 +464,13 @@ for skey in deflection_table:
         ax.set_ylabel(density_map[den_key]["label"])
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
         fig.savefig(
-            os.path.join(deflection_dir, "{:s}_{:s}.jpg".format(skey, den_key))
+            os.path.join(work_dir, "{:s}_{:s}.jpg".format(skey, den_key))
         )
         plt.close(fig)
 
 
 _table = make_latex_table_with_power_law_fit(power_law_fit_table)
-with open(os.path.join(deflection_dir, "power_law_table.tex"), "wt") as fout:
+with open(os.path.join(work_dir, "power_law_table.tex"), "wt") as fout:
     fout.write(_table)
 
 
@@ -528,5 +530,5 @@ ax.set_xlim([0.4, 20.0])
 ax.set_ylim([1e-3, 1e2])
 ax.set_ylabel(density_map[den_key]["label"])
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-fig.savefig(os.path.join(deflection_dir, "{:s}.jpg".format(den_key)))
+fig.savefig(os.path.join(work_dir, "{:s}.jpg".format(den_key)))
 plt.close(fig)

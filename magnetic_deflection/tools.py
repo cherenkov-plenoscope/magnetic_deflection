@@ -5,6 +5,10 @@ import os
 import glob
 import json_numpy
 import corsika_primary_wrapper as cpw
+import io
+import tarfile
+
+from . import spherical_coordinates
 
 
 def sort_records_by_key(records, keys):
@@ -140,3 +144,38 @@ def read_jsonl(path):
             obj = json_numpy.loads(line)
             list_of_obj.append(obj)
     return list_of_obj
+
+
+def read_statistics_site_particle(map_site_particle_dir):
+    map_dir = map_site_particle_dir
+    paths = glob.glob(os.path.join(map_dir, "*_statistics.jsonl"))
+    basenames = [os.path.basename(p) for p in paths]
+    job_ids = [int(b[0:6]) for b in basenames]
+    job_ids.sort()
+
+    stats = []
+    for job_id in job_ids:
+        j_path = os.path.join(map_dir, "{:06d}_job.json".format(job_id))
+        s_path = os.path.join(map_dir, "{:06d}_statistics.jsonl".format(job_id))
+        job = read_json(j_path)
+        showers = read_jsonl(s_path)
+
+        for shower in showers:
+            shower["particle_energy_GeV"] = float(job["particle"]["energy_GeV"])
+
+            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=shower["direction_med_cx_rad"],
+                cy=shower["direction_med_cy_rad"]
+            )
+
+            off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
+                az1_deg=cer_az_deg,
+                zd1_deg=cer_zd_deg,
+                az2_deg=job["pointing"]["azimuth_deg"],
+                zd2_deg=job["pointing"]["zenith_deg"],
+            )
+            shower["off_axis_deg"] = float(off_axis_deg)
+            stats.append(shower)
+
+    stats_df = pandas.DataFrame(stats)
+    return stats_df.to_records(index=False)

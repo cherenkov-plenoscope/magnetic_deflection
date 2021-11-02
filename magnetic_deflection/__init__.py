@@ -7,6 +7,7 @@ from . import corsika
 from . import spherical_coordinates
 from . import tools
 from . import jsonl_logger
+from . import recarray_io
 
 import os
 import json_numpy
@@ -117,6 +118,42 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
     )
 
 
+def C2_reduce_statistics_in_work_dir(work_dir):
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
+    shower_statistics_dir = os.path.join(work_dir, "shower_statistics")
+
+    os.makedirs(shower_statistics_dir, exist_ok=True)
+
+    for skey in sites:
+        for pkey in particles:
+            print("Reducing shower statistics: ", skey, pkey)
+
+            sp = tools.read_statistics_site_particle(
+                map_site_particle_dir=os.path.join(work_dir, "map", skey, pkey)
+            )
+
+            sp_dir = os.path.join(shower_statistics_dir, skey, pkey)
+            os.makedirs(sp_dir, exist_ok=True)
+            recarray_io.write_to_tar(
+                recarray=sp,
+                path=os.path.join(sp_dir, "shower_statistics.tar")
+            )
+
+
+def read_shower_statistics(work_dir):
+    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
+    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
+    shower_statistics_dir = os.path.join(work_dir, "shower_statistics")
+    out = {}
+    for skey in sites:
+        out[skey] = {}
+        for pkey in particles:
+            out[skey][pkey] = recarray_io.read_from_tar(path=os.path.join(
+                shower_statistics_dir, skey, pkey, "shower_statistics.tar"))
+    return out
+
+
 def D_summarize_raw_deflection(
     work_dir, min_fit_energy=0.65,
 ):
@@ -170,6 +207,7 @@ def D_summarize_raw_deflection(
         )
     )
     subprocess.call(["python", script_path, work_dir])
+
 
 def Z_get_incomplete_jobs(work_dir):
     jobs_path_state = Z_get_incomplete_job_paths(work_dir)
