@@ -110,6 +110,8 @@ def make_jobs(
                     )
                 )
 
+                num_showers = np.max([num_showers, statistics_min_num_showers])
+
                 job["statistics"] = {
                     "num_showers": num_showers,
                     "outlier_percentile": outlier_percentile,
