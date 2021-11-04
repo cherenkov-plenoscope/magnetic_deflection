@@ -480,3 +480,12 @@ def read(work_dir, style="dict"):
             else:
                 raise KeyError("Unknown style: '{:s}'.".format(style))
     return mag
+
+
+def read_config(work_dir):
+    cf = {}
+    cf["sites"] = tools.read_json(os.path.join(work_dir, "sites.json"))
+    cf["particles"] = tools.read_json(os.path.join(work_dir, "particles.json"))
+    cf["pointing"] = tools.read_json(os.path.join(work_dir, "pointing.json"))
+    cf["config"] = tools.read_json(os.path.join(work_dir, "config.json"))
+    return cf
