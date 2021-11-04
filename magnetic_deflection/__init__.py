@@ -53,7 +53,7 @@ def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
         "discovery_min_energy_per_iteration": 16.0,
         "discovery_min_num_showers_per_iteration": 32,
         "statistics_total_energy": 8e3,
-        "statistics_min_num_showers": 100,
+        "statistics_min_num_showers": 500,
         "outlier_percentile": 50.0,
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
