@@ -1,20 +1,11 @@
 #!/usr/bin/python
 import sys
-from os.path import join as opj
 import os
-import pandas as pd
 import numpy as np
-import json
 import magnetic_deflection as mdfl
-import sebastians_matplotlib_addons as sebplt
 import plenoirf as irf
-import scipy
-
-
+import sebastians_matplotlib_addons as sebplt
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 
