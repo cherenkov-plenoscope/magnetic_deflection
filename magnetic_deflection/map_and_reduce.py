@@ -33,15 +33,11 @@ def make_jobs(
     assert min_num_cherenkov_photons > 0
 
     assert statistics_min_num_showers > 0
-    assert statistics_total_energy >= 2 * (
-        statistics_min_num_showers * energy_supports_max
-    )
+    assert statistics_total_energy >= energy_supports_max
 
     assert discovery_min_num_showers_per_iteration > 0
     assert discovery_min_energy_per_iteration > 0
-    assert discovery_max_total_energy >= (
-        discovery_min_num_showers_per_iteration * energy_supports_max
-    )
+    assert discovery_max_total_energy >= energy_supports_max
 
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
