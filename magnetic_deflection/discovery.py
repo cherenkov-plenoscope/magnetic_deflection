@@ -46,6 +46,10 @@ def estimate_deflection(
     while True:
         run_id += 1
 
+        if total_num_showers > max_num_showers:
+            jlog.info("loop: break, too many showers")
+            break
+
         total_num_showers += num_showers_per_iteration
 
         new_pools = corsika.make_cherenkov_pools_statistics(
@@ -119,10 +123,6 @@ def estimate_deflection(
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
             jlog.info("loop: break, particle directions are nan")
-            break
-
-        if total_num_showers > max_num_showers:
-            jlog.info("loop: break, too many showers")
             break
 
         if prm_cone_deg < 2 * guess["off_axis_deg"]:
