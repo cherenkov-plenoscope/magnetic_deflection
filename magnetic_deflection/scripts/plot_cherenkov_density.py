@@ -38,7 +38,10 @@ density_map = {
 
 parmap = {"gamma": "k", "electron": "b", "proton": "r", "helium": "orange"}
 
+MIN_NUM_SHOWER = 11
+
 # compute density
+# ---------------
 cherenkov_density = {}
 for skey in shower_statistics:
     cherenkov_density[skey] = {}
@@ -84,21 +87,31 @@ def make_off_axis_angle_deg(
         zd2_deg=pointing_zenith_deg,
     )
 
+ENERGY = {}
+ENERGY["fine"] = {}
+ENERGY["fine"]["num_bins"] = 60
+ENERGY["fine"]["bin_edges"] = np.geomspace(1e-1, 1e2, ENERGY["fine"]["num_bins"] + 1)
+ENERGY["coarse"] = {}
+ENERGY["coarse"]["num_bins"] = 10
+ENERGY["coarse"]["bin_edges"] = np.geomspace(1e-1, 1e2, ENERGY["coarse"]["num_bins"] + 1)
 
 num_energy_bins = 60
 energy_bin_edges = np.geomspace(1e-1, 1e2, num_energy_bins + 1)
 
+# cut on-axis and bin in energy
+# -----------------------------
+ooo = {}
+for fkey in ENERGY:
 
-for skey in shower_statistics:
-    for dkey in density_map:
-        alpha = 0.2
+    num_energy_bins = 60
+    energy_bin_edges = np.geomspace(1e-1, 1e2, num_energy_bins + 1)
 
-        fig = sebplt.figure(figsize)
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
-
-        for pkey in parmap:
+    ooo[fkey] = {}
+    for skey in cherenkov_density:
+        ooo[fkey][skey] = {}
+        for pkey in cherenkov_density[skey]:
+            ooo[fkey][skey][pkey] = {}
             sst = shower_statistics[skey][pkey]
-            cde = cherenkov_density[skey][pkey][dkey]
 
             off_axis_deg = make_off_axis_angle_deg(
                 cherenkov_direction_med_cx_rad=sst["direction_med_cx_rad"],
@@ -106,15 +119,24 @@ for skey in shower_statistics:
                 pointing_azimuth_deg=c["pointing"]["azimuth_deg"],
                 pointing_zenith_deg=c["pointing"]["zenith_deg"],
             )
+
             on_axis_mask = (
                 off_axis_deg
                 <= 2
                 * c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
             )
 
-            for e_bin in range(num_energy_bins):
-                E_start = energy_bin_edges[e_bin]
-                E_stop = energy_bin_edges[e_bin + 1]
+            for dkey in density_map:
+                ooo[fkey][skey][pkey][dkey] = {
+                    "percentile84": np.nan * np.ones(ENERGY[fkey]["num_bins"]),
+                    "percentile50": np.nan * np.ones(ENERGY[fkey]["num_bins"]),
+                    "percentile16": np.nan * np.ones(ENERGY[fkey]["num_bins"]),
+                    "num": np.zeros(ENERGY[fkey]["num_bins"]),
+                }
+
+            for ebin in range(ENERGY[fkey]["num_bins"]):
+                E_start = ENERGY[fkey]["bin_edges"][ebin]
+                E_stop = ENERGY[fkey]["bin_edges"][ebin + 1]
                 E_mask = np.logical_and(
                     sst["particle_energy_GeV"] >= E_start,
                     sst["particle_energy_GeV"] < E_stop,
@@ -122,25 +144,53 @@ for skey in shower_statistics:
                 mask = np.logical_and(E_mask, on_axis_mask)
                 num_samples = np.sum(mask)
 
-                print(skey, pkey, e_bin, num_samples)
+                print(skey, pkey, "E-bin:", ebin, "num. shower:", num_samples)
 
-                if num_samples:
-                    dens_avg = np.percentile(cde[mask], 50)
-                    dens_std_plus = np.percentile(cde[mask], 50 + 68 / 2)
-                    dens_std_minus = np.percentile(cde[mask], 50 - 68 / 2)
+                for dkey in density_map:
+                    cde = cherenkov_density[skey][pkey][dkey]
+                    valid_cde = cde[mask]
 
-                    d_start = dens_std_minus
-                    d_stop = dens_std_plus
+                    if num_samples >= MIN_NUM_SHOWER:
+                        p84 = np.percentile(valid_cde, 50 + 68 / 2)
+                        p50 = np.percentile(valid_cde, 50)
+                        p16 = np.percentile(valid_cde, 50 - 68 / 2)
+                        ooo[fkey][skey][pkey][dkey]["percentile84"][ebin] = p84
+                        ooo[fkey][skey][pkey][dkey]["percentile50"][ebin] = p50
+                        ooo[fkey][skey][pkey][dkey]["percentile16"][ebin] = p16
+                        ooo[fkey][skey][pkey][dkey]["num"][ebin] = num_samples
+
+oof = ooo["fine"]
+ooc = ooo["coarse"]
+
+alpha = 0.2
+
+for dkey in density_map:
+    for skey in shower_statistics:
+
+        fig = sebplt.figure(figsize)
+        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+
+        for pkey in parmap:
+
+            for ebin in range(num_energy_bins):
+                E_start = ENERGY["fine"]["bin_edges"][ebin]
+                E_stop = ENERGY["fine"]["bin_edges"][ebin + 1]
+
+                if oof[skey][pkey][dkey]["num"][ebin] > MIN_NUM_SHOWER:
+                    p16 = oof[skey][pkey][dkey]["percentile16"][ebin]
+                    p50 = oof[skey][pkey][dkey]["percentile50"][ebin]
+                    p84 = oof[skey][pkey][dkey]["percentile84"][ebin]
+
                     ax.fill(
                         [E_start, E_start, E_stop, E_stop],
-                        [d_start, d_stop, d_stop, d_start],
+                        [p16, p84, p84, p16],
                         color=parmap[pkey],
                         alpha=alpha,
                         linewidth=0.0,
                     )
                     ax.plot(
                         [E_start, E_stop],
-                        [dens_avg, dens_avg],
+                        [p50, p50],
                         color=parmap[pkey],
                         alpha=1.0,
                     )
@@ -149,8 +199,108 @@ for skey in shower_statistics:
         ax.spines["top"].set_visible(False)
         ax.set_xlabel("energy$\,/\,$GeV")
         ax.set_ylabel(density_map[dkey]["label"])
-        ax.set_xlim([min(energy_bin_edges), max(energy_bin_edges)])
+        ax.set_xlim([min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])])
         ax.set_ylim(density_map[dkey]["lim"])
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
         fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
         plt.close(fig)
+
+
+# statistics
+# ----------
+for skey in shower_statistics:
+
+    fig = sebplt.figure(figsize)
+    ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+
+    for pkey in parmap:
+        for ebin in range(num_energy_bins):
+            E_start = ENERGY["fine"]["bin_edges"][ebin]
+            E_stop = ENERGY["fine"]["bin_edges"][ebin + 1]
+
+            count = oof[skey][pkey][dkey]["num"][ebin]
+            ax.plot(
+                [E_start, E_stop],
+                [count, count],
+                color=parmap[pkey],
+                alpha=1.0,
+            )
+            ax.fill(
+                [E_start, E_start, E_stop, E_stop],
+                [0, count, count, 0],
+                color=parmap[pkey],
+                alpha=alpha,
+                linewidth=0.0,
+            )
+
+    ax.loglog()
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.set_xlabel("energy$\,/\,$GeV")
+    ax.set_ylabel("num. shower / 1")
+    ax.set_xlim([min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])])
+    ax.set_ylim([1e1, 1e5])
+    ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+    fig.savefig(os.path.join(out_dir, "{:s}_statistics.jpg".format(skey)))
+    plt.close(fig)
+
+
+
+# density by side
+# ---------------
+
+nice_site_labels = {
+    #"namibiaOff": "Gamsberg-Off",
+    "namibia": "Gamsberg",
+    "chile": "Chajnantor",
+    #"lapalma": "Roque",
+}
+
+dkey = "light_field_outer_density"
+
+sitemap = {"namibia": "+", "lapalma": "^", "chile": "*", "namibiaOff": "."}
+
+particle_colors = {
+    "electron": "blue",
+    "gamma": "black",
+}
+
+fig = sebplt.figure(figsize)
+ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+
+for skey in nice_site_labels:
+    for pkey in particle_colors:
+
+        if particle_colors[pkey] == "black":
+            label = nice_site_labels[skey]
+        else:
+            label = None
+
+        ax.plot(
+            ENERGY["coarse"]["bin_edges"][0:-1],
+            ooc[skey][pkey][dkey]["percentile50"],
+            sitemap[skey],
+            color=particle_colors[pkey],
+            alpha=0.5,
+            label=label,
+        )
+
+        ax.plot(
+            ENERGY["coarse"]["bin_edges"][0:-1],
+            ooc[skey][pkey][dkey]["percentile50"],
+            "-",
+            color=particle_colors[pkey],
+            alpha=0.33,
+        )
+
+leg = ax.legend()
+ax.loglog()
+ax.spines["right"].set_visible(False)
+ax.spines["top"].set_visible(False)
+ax.set_xlabel("energy$\,/\,$GeV")
+ax.set_xlim([min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])])
+ax.set_ylim(density_map[dkey]["lim"])
+ax.set_ylabel(density_map[dkey]["label"])
+ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))
+plt.close(fig)
