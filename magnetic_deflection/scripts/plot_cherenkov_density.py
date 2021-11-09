@@ -87,13 +87,18 @@ def make_off_axis_angle_deg(
         zd2_deg=pointing_zenith_deg,
     )
 
+
 ENERGY = {}
 ENERGY["fine"] = {}
 ENERGY["fine"]["num_bins"] = 60
-ENERGY["fine"]["bin_edges"] = np.geomspace(1e-1, 1e2, ENERGY["fine"]["num_bins"] + 1)
+ENERGY["fine"]["bin_edges"] = np.geomspace(
+    1e-1, 1e2, ENERGY["fine"]["num_bins"] + 1
+)
 ENERGY["coarse"] = {}
 ENERGY["coarse"]["num_bins"] = 10
-ENERGY["coarse"]["bin_edges"] = np.geomspace(1e-1, 1e2, ENERGY["coarse"]["num_bins"] + 1)
+ENERGY["coarse"]["bin_edges"] = np.geomspace(
+    1e-1, 1e2, ENERGY["coarse"]["num_bins"] + 1
+)
 
 num_energy_bins = 60
 energy_bin_edges = np.geomspace(1e-1, 1e2, num_energy_bins + 1)
@@ -199,7 +204,12 @@ for dkey in density_map:
         ax.spines["top"].set_visible(False)
         ax.set_xlabel("energy$\,/\,$GeV")
         ax.set_ylabel(density_map[dkey]["label"])
-        ax.set_xlim([min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])])
+        ax.set_xlim(
+            [
+                min(ENERGY["fine"]["bin_edges"]),
+                max(ENERGY["fine"]["bin_edges"]),
+            ]
+        )
         ax.set_ylim(density_map[dkey]["lim"])
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
         fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
@@ -238,22 +248,23 @@ for skey in shower_statistics:
     ax.spines["top"].set_visible(False)
     ax.set_xlabel("energy$\,/\,$GeV")
     ax.set_ylabel("num. shower / 1")
-    ax.set_xlim([min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])])
+    ax.set_xlim(
+        [min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])]
+    )
     ax.set_ylim([1e1, 1e5])
     ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
     fig.savefig(os.path.join(out_dir, "{:s}_statistics.jpg".format(skey)))
     plt.close(fig)
 
 
-
 # density by side
 # ---------------
 
 nice_site_labels = {
-    #"namibiaOff": "Gamsberg-Off",
+    # "namibiaOff": "Gamsberg-Off",
     "namibia": "Gamsberg",
     "chile": "Chajnantor",
-    #"lapalma": "Roque",
+    # "lapalma": "Roque",
 }
 
 dkey = "light_field_outer_density"
@@ -298,7 +309,9 @@ ax.loglog()
 ax.spines["right"].set_visible(False)
 ax.spines["top"].set_visible(False)
 ax.set_xlabel("energy$\,/\,$GeV")
-ax.set_xlim([min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])])
+ax.set_xlim(
+    [min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])]
+)
 ax.set_ylim(density_map[dkey]["lim"])
 ax.set_ylabel(density_map[dkey]["label"])
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
