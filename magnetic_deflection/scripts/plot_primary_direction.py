@@ -26,9 +26,6 @@ matplotlib.rcParams["font.family"] = "STIXGeneral"
 figsize = {"rows": 1024, "cols": 1024, "fontsize": 1}
 hemisphere_axstyle = {"spines": [], "axes": [], "grid": False}
 
-PLOT_TITLE_INFO = True
-PLOT_TITLE_INFO_SKY_DOME = True
-
 energy_start_GeV = 0.1
 energy_stop_GeV = 100
 
