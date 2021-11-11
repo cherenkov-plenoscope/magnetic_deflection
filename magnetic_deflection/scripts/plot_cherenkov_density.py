@@ -145,7 +145,7 @@ for skey in on_axis_shower_statistics:
             * np.rad2deg(oasst["direction_std_major_rad"])
             * np.rad2deg(oasst["direction_std_minor_rad"])
         )
-        den["light_field_outer_density"] = oasst["num_photons"] / (
+        den["density"] = oasst["num_photons"] / (
             den["spread_solid_angle_deg2"] * den["spread_area_m2"]
         )
 
@@ -297,10 +297,10 @@ for skey in oof:
     plt.close(fig)
 
 
-# density by side
-# ---------------
+# density side by side
+# --------------------
 
-dkey = "light_field_outer_density"
+dkey = "density"
 
 fig = sebplt.figure(figsize)
 ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
