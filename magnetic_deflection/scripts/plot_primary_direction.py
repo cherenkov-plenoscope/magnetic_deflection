@@ -23,15 +23,19 @@ c = mdfl.read_config(work_dir=work_dir)
 matplotlib.rcParams["mathtext.fontset"] = "cm"
 matplotlib.rcParams["font.family"] = "STIXGeneral"
 
-figsize = {"rows": 1024, "cols": 1024, "fontsize": 1}
+figsize = {"rows": 1280, "cols": 1280, "fontsize": 1.5}
+cmap_figsize = {"rows": 240, "cols": 1280, "fontsize": 1.5}
+
+ON_AXIS_SCALE = 1.0
+
 hemisphere_axstyle = {"spines": [], "axes": [], "grid": False}
 
 energy_start_GeV = 0.1
 energy_stop_GeV = 100
 
-# colormap
-# --------
-cmap_figsize = {"rows": 160, "cols": 1024, "fontsize": 1}
+# energy colorbar
+# ---------------
+
 cmap_fig = sebplt.figure(cmap_figsize)
 cmap_ax = sebplt.add_axes(
     fig=cmap_fig, span=(0.05, 0.75, 0.9, 0.2), style=sebplt.AXES_MATPLOTLIB
@@ -44,6 +48,9 @@ cmap_ax.set_xlabel("energy$\,/\,$GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 plt.close(cmap_fig)
 
+
+# hemisphere showing deflections
+# ------------------------------
 field_of_view = {
     "wide": {
         "angle_deg": 45,
@@ -107,7 +114,8 @@ for skey in shower_statistics:
 
             mask_on_axis = (
                 showers["off_axis_deg"]
-                <= c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
+                <= ON_AXIS_SCALE
+                * c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
             )
 
             rgbas = cmap_mappable.to_rgba(
