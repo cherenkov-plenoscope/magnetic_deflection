@@ -76,10 +76,10 @@ key_map = {
 }
 
 nice_site_labels = {
-    "namibiaOff": "Gamsberg-Off",
+    #"namibiaOff": "Gamsberg-Off",
     "namibia": "Gamsberg",
     "chile": "Chajnantor",
-    "lapalma": "Roque",
+    #"lapalma": "Roque",
 }
 
 nice_variable_keys = {
@@ -353,9 +353,59 @@ for skey in deflection_table:
 
             power_law_fit_table[skey][pkey][key] = _fit
 
+    density_map = {
+        "num_cherenkov_photons_per_shower": {
+            "label": "size of Cherenkov-pool$\,/\,$1"
+        },
+        "spread_area_m2": {
+            "label": "Cherenkov-pool's spread in area$\,/\,$m$^{2}$"
+        },
+        "spread_solid_angle_deg2": {
+            "label": "Cherenkov-pool's spread in solid angle$\,/\,$deg$^{2}$"
+        },
+        "light_field_outer_density": {
+            "label": "density of Cherenkov-pool$\,/\,$m$^{-2}\,$deg$^{-2}$"
+        },
+    }
+
+    parmap = {"gamma": "k", "electron": "b", "proton": "r", "helium": "orange"}
+
+    for den_key in density_map:
+        ts = deflection_table[skey]
+        alpha = 0.2
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        ax = fig.add_axes(ax_size)
+        for particle_key in parmap:
+            ax.plot(
+                ts[particle_key]["particle_energy_GeV"],
+                ts[particle_key][den_key],
+                "o",
+                color=parmap[particle_key],
+                alpha=alpha,
+                label=particle_key,
+            )
+        leg = ax.legend()
+        if PLOT_TITLE_INFO:
+            ax.set_title(site_str, alpha=0.5)
+        ax.loglog()
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.set_xlabel("energy$\,/\,$GeV")
+        ax.set_xlim([0.4, 200.0])
+        ax.set_ylim([1e-6, 1e3])
+        ax.set_ylabel(density_map[den_key]["label"])
+        ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+        fig.savefig(
+            os.path.join(
+                work_dir, "{:s}_{:s}.jpg".format(skey, den_key)
+            )
+        )
+        plt.close(fig)
+
 _table = make_latex_table_with_power_law_fit(power_law_fit_table)
 with open(os.path.join(work_dir, "power_law_table.tex"), "wt") as fout:
     fout.write(_table)
+
 
 
 """
@@ -376,7 +426,7 @@ particle_colors = {
     "electron": "blue",
     "gamma": "black",
 }
-
+alpha = 0.2
 fig = plt.figure(figsize=figsize, dpi=dpi)
 ax = fig.add_axes(ax_size)
 for pkey in ["electron", "gamma"]:
