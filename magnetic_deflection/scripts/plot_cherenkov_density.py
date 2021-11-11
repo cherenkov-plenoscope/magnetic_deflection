@@ -53,12 +53,11 @@ for skey in shower_statistics:
 
         mask_on_axis = (
             sst["off_axis_deg"]
-            <= 2
-            * c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
+            <= 2 * c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
         )
         on_axis_shower_statistics[skey][pkey] = sst[mask_on_axis]
 
-del(shower_statistics)
+del shower_statistics
 
 
 # plot raw statistics
@@ -87,7 +86,7 @@ for tkey in statkeys:
         ax.semilogx()
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
-        ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
+        ax.set_xlabel("energy" + LABEL_UNIT_SEP + "GeV")
         ax.set_ylabel(tkey)
         ax.set_xlim(
             [
@@ -95,9 +94,13 @@ for tkey in statkeys:
                 max(ENERGY["fine"]["bin_edges"]),
             ]
         )
-        #ax.set_ylim(1e2, 1e6)
+        # ax.set_ylim(1e2, 1e6)
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-        fig.savefig(os.path.join(raw_statistics_dir, "{:s}_{:s}.jpg".format(skey, tkey)))
+        fig.savefig(
+            os.path.join(
+                raw_statistics_dir, "{:s}_{:s}.jpg".format(skey, tkey)
+            )
+        )
         plt.close(fig)
 
 
@@ -112,7 +115,9 @@ for skey in on_axis_shower_statistics:
         den = {}
         den["num_photons"] = oasst["num_photons"]
         den["spread_area_m2"] = (
-            np.pi * oasst["position_std_major_m"] * oasst["position_std_minor_m"]
+            np.pi
+            * oasst["position_std_major_m"]
+            * oasst["position_std_minor_m"]
         )
         den["spread_solid_angle_deg2"] = (
             np.pi
@@ -212,10 +217,11 @@ for dkey in c["plotting"]["light_field"]:
         ax.loglog()
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
-        ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
+        ax.set_xlabel("energy" + LABEL_UNIT_SEP + "GeV")
         ax.set_ylabel(
-            c["plotting"]["light_field"][dkey]["label"] + LABEL_UNIT_SEP +
-            c["plotting"]["light_field"][dkey]["unit"]
+            c["plotting"]["light_field"][dkey]["label"]
+            + LABEL_UNIT_SEP
+            + c["plotting"]["light_field"][dkey]["unit"]
         )
         ax.set_xlim(
             [
@@ -259,8 +265,8 @@ for skey in oof:
     ax.loglog()
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
-    ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
-    ax.set_ylabel("num. shower"+LABEL_UNIT_SEP+"1")
+    ax.set_xlabel("energy" + LABEL_UNIT_SEP + "GeV")
+    ax.set_ylabel("num. shower" + LABEL_UNIT_SEP + "1")
     ax.set_xlim(
         [min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])]
     )
@@ -310,14 +316,15 @@ leg = ax.legend()
 ax.loglog()
 ax.spines["right"].set_visible(False)
 ax.spines["top"].set_visible(False)
-ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
+ax.set_xlabel("energy" + LABEL_UNIT_SEP + "GeV")
 ax.set_xlim(
     [min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])]
 )
 ax.set_ylim(c["plotting"]["light_field"][dkey]["limits"])
 ax.set_ylabel(
-    c["plotting"]["light_field"][dkey]["label"] + LABEL_UNIT_SEP +
-    c["plotting"]["light_field"][dkey]["unit"]
+    c["plotting"]["light_field"][dkey]["label"]
+    + LABEL_UNIT_SEP
+    + c["plotting"]["light_field"][dkey]["unit"]
 )
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
 fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))

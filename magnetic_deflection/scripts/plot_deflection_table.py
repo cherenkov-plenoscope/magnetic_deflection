@@ -20,12 +20,14 @@ work_dir = argv[1]
 out_dir = os.path.join(work_dir, "plot_deflection_table")
 os.makedirs(out_dir, exist_ok=True)
 
-deflection_table = mdfl.tools.read_deflection_table(os.path.join(work_dir, "raw"))
+deflection_table = mdfl.tools.read_deflection_table(
+    os.path.join(work_dir, "raw")
+)
 
 config = mdfl.read_config(work_dir=work_dir)
 
-FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.}
-FIGSIZE_FIT = {"rows": 720, "cols": 1280, "fontsize": 1.}
+FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.0}
+FIGSIZE_FIT = {"rows": 720, "cols": 1280, "fontsize": 1.0}
 
 PLOT_TITLE_INFO = False
 PLOT_TITLE_INFO_SKY_DOME = False
@@ -119,12 +121,22 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
     for skey in power_law_fit_table:
         if "Off" in skey:
             continue
-        site_line = [config["plotting"]["sites"][skey]["label"], "", "", "", "", "", ""]
+        site_line = [
+            config["plotting"]["sites"][skey]["label"],
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]
         matrix.append(site_line)
         for variable_key in key_map:
             variable_line = [
                 "",
-                key_map[variable_key]["latex_key"] + "\\,/\\," + key_map[variable_key]["unit"],
+                key_map[variable_key]["latex_key"]
+                + "\\,/\\,"
+                + key_map[variable_key]["unit"],
                 "",
                 "",
                 "",
@@ -237,23 +249,16 @@ for skey in deflection_table:
                 )
 
             if PLOT_ENERGY_SUPPORTS:
-                ax.plot(
-                    energy_supports, key_mean80, "kx"
-                )
+                ax.plot(energy_supports, key_mean80, "kx")
                 for ibin in range(len(energy_supports)):
                     _x = energy_supports[ibin]
                     _y_low = unc80_lower[ibin]
                     _y_high = unc80_upper[ibin]
                     ax.plot(
-                        [_x, _x],
-                        np.array([_y_low, _y_high]),
-                        "k-",
+                        [_x, _x], np.array([_y_low, _y_high]), "k-",
                     )
                 ax.plot(
-                    energy_bins_ext,
-                    key_mean80_ext,
-                    "bo",
-                    alpha=0.3,
+                    energy_bins_ext, key_mean80_ext, "bo", alpha=0.3,
                 )
 
             if PLOT_POWER_LAW_FIT:
@@ -332,11 +337,7 @@ for skey in deflection_table:
             + " / "
             + config["plotting"]["light_field"][dkey]["unit"]
         )
-        fig.savefig(
-            os.path.join(
-                out_dir, "{:s}_{:s}.jpg".format(skey, dkey)
-            )
-        )
+        fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
         plt.close(fig)
 
 _table = make_latex_table_with_power_law_fit(power_law_fit_table)
@@ -347,6 +348,7 @@ with open(os.path.join(out_dir, "power_law_table.tex"), "wt") as fout:
 # --------------------
 
 dkey = "light_field_outer_density"
+
 
 def smooth(y, box_pts):
     box = np.ones(box_pts) / box_pts
@@ -382,8 +384,18 @@ for pkey in ["electron", "gamma"]:
             label=label,
         )
 
-ax.text(1.1, 50, config["plotting"]["particles"]["gamma"]["label"], color=config["plotting"]["particles"]["gamma"]["color"])
-ax.text(1.1, 25, config["plotting"]["particles"]["electron"]["label"], color=config["plotting"]["particles"]["electron"]["color"])
+ax.text(
+    1.1,
+    50,
+    config["plotting"]["particles"]["gamma"]["label"],
+    color=config["plotting"]["particles"]["gamma"]["color"],
+)
+ax.text(
+    1.1,
+    25,
+    config["plotting"]["particles"]["electron"]["label"],
+    color=config["plotting"]["particles"]["electron"]["color"],
+)
 leg = ax.legend()
 ax.loglog()
 ax.set_xlabel("energy$\\,/\\,$GeV")

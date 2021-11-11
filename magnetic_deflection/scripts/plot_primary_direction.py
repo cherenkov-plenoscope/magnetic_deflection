@@ -62,7 +62,7 @@ field_of_view = {
         "angle_deg": 5,
         "particles": ["gamma"],
         "zenith_mayor_deg": [0, 1, 2, 3, 4, 5,],
-        "zenith_minor_deg": [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,]
+        "zenith_minor_deg": [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,],
     },
 }
 
