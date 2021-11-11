@@ -8,6 +8,7 @@ from . import spherical_coordinates
 from . import tools
 from . import jsonl_logger
 from . import recarray_io
+from . import Records
 
 import os
 import json_numpy
@@ -491,5 +492,11 @@ def read_config(work_dir):
     cf["particles"] = tools.read_json(os.path.join(work_dir, "particles.json"))
     cf["pointing"] = tools.read_json(os.path.join(work_dir, "pointing.json"))
     cf["config"] = tools.read_json(os.path.join(work_dir, "config.json"))
-    cf["plotting"] = tools.read_json(os.path.join(work_dir, "plotting.json"))
+
+    plotting_path = os.path.join(work_dir, "plotting.json")
+    if not os.path.exists(plotting_path):
+        with open(plotting_path, "wt") as f:
+            f.write(json_numpy.dumps(examples.PLOTTING))
+    cf["plotting"] = tools.read_json(plotting_path)
+
     return cf

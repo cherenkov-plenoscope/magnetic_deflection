@@ -5,7 +5,7 @@ import io
 import tarfile
 
 
-def write_to_tar(recarray, path, use_four_byte_types=True):
+def write_to_tar(recarray, path):
     with tarfile.open(path + ".tmp", "w") as tarfout:
         for column_key in recarray.dtype.names:
                 dtype_key = recarray.dtype[column_key].str
