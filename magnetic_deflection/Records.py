@@ -27,25 +27,44 @@ def init(dtypes={"a": "i8"}):
         "f4": 'f',
         "f8": 'd',
     }
-    o = {}
+    records = {}
     for key in dtypes:
         dtype_key = str(dtypes[key])
         dtype_key = str.replace(dtype_key, "<", "")
         dtype_key = str.replace(dtype_key, ">", "")
         dtype_key = str.replace(dtype_key, "|", "")
         ctype = arr2np[dtype_key]
-        o[key] = array.array(ctype, [])
-    return o
+        records[key] = array.array(ctype, [])
+    return records
 
 
-def append(recs, obj):
-    for key in recs:
+def append_dict(records, dict_object):
+    for key in dict_object:
+        if key not in records:
+            raise Warning("The key '{:s}' is not in records.")
+
+    for key in records:
         try:
-            recs[key].append(obj[key])
+            records[key].append(dict_object[key])
         except Exception as err:
             print(key)
             raise err
+    return records
 
 
-def to_records(recs):
-    return pandas.DataFrame(recs).to_records(index=False)
+def append_numpy_recarray(records, recarray):
+    for key in recarray.dtype.names:
+        if key not in records:
+            raise Warning("The key '{:s}' is not in records.")
+
+    for key in records:
+        try:
+            records[key].extend(recarray[key])
+        except Exception as err:
+            print(key)
+            raise err
+    return records
+
+
+def to_numpy_recarray(records):
+    return pandas.DataFrame(records).to_records(index=False)
