@@ -11,26 +11,24 @@ import matplotlib
 from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 
-matplotlib.rcParams["mathtext.fontset"] = "cm"
-matplotlib.rcParams["font.family"] = "STIXGeneral"
-
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
 out_dir = os.path.join(work_dir, "plot_deflection_table")
 os.makedirs(out_dir, exist_ok=True)
 
-deflection_table = mdfl.tools.read_deflection_table(
-    os.path.join(work_dir, "raw")
-)
 
-config = mdfl.read_config(work_dir=work_dir)
+CFG = mdfl.read_config(work_dir=work_dir)
+PLT = CFG["plotting"]
 
-FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.0}
-FIGSIZE_FIT = {"rows": 720, "cols": 1280, "fontsize": 1.0}
+matplotlib.rcParams["mathtext.fontset"] = PLT["rcParams"]["mathtext.fontset"]
+matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
+
+FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
+FIGSIZE_FIT = {"rows": 720, "cols": 1280, "fontsize": 1.25}
+AXSPAN = [0.15, 0.2, 0.8, 0.75]
 
 PLOT_TITLE_INFO = False
-PLOT_TITLE_INFO_SKY_DOME = False
 
 PLOT_POWER_LAW_FIT = True
 POWER_LAW_FIT_COLOR = "k"
@@ -76,9 +74,9 @@ fit_map = {
 
 
 charge_signs = {}
-for pkey in config["particles"]:
+for pkey in CFG["particles"]:
     charge_signs[pkey] = np.sign(
-        config["particles"][pkey]["electric_charge_qe"]
+        CFG["particles"][pkey]["electric_charge_qe"]
     )
 
 
@@ -115,14 +113,14 @@ def latex_table(matrix):
 def make_latex_table_with_power_law_fit(power_law_fit_table):
     matrix = []
     partile_line = ["", "", ""]
-    for pkey in config["plotting"]["particles"]:
-        partile_line.append(config["plotting"]["particles"][pkey]["label"])
+    for pkey in PLT["particles"]:
+        partile_line.append(PLT["particles"][pkey]["label"])
     matrix.append(partile_line)
     for skey in power_law_fit_table:
         if "Off" in skey:
             continue
         site_line = [
-            config["plotting"]["sites"][skey]["label"],
+            PLT["sites"][skey]["label"],
             "",
             "",
             "",
@@ -162,6 +160,10 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
     return latex_table(matrix)
 
 
+deflection_table = mdfl.tools.read_deflection_table(
+    os.path.join(work_dir, "raw")
+)
+
 deflection_table = mdfl.analysis.cut_invalid_from_deflection_table(
     deflection_table=deflection_table, but_keep_site="Off"
 )
@@ -174,7 +176,7 @@ for skey in deflection_table:
     power_law_fit_table[skey] = {}
     for pkey in deflection_table[skey]:
         print(skey, pkey)
-        site_str = make_site_str(skey, config["sites"][skey])
+        site_str = make_site_str(skey, CFG["sites"][skey])
 
         t = deflection_table[skey][pkey]
         energy_fine = np.geomspace(
@@ -239,7 +241,7 @@ for skey in deflection_table:
             rec_key += key_start
 
             fig = sebplt.figure(FIGSIZE_FIT)
-            ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
+            ax = sebplt.add_axes(fig, AXSPAN)
             if PLOT_RAW_ESTIMATES:
                 ax.plot(
                     t["particle_energy_GeV"],
@@ -272,7 +274,7 @@ for skey in deflection_table:
             if PLOT_TITLE_INFO:
                 ax.set_title(info_str, alpha=0.5)
             ax.semilogx()
-            ax.set_xlabel("energy$\,/\,$GeV")
+            ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
             ax.set_xlim([0.4, 110])
 
             y_fit_lower = np.min(unc80_lower)
@@ -284,9 +286,9 @@ for skey in deflection_table:
             _uu = y_fit_upper + 0.2 * y_fit_range
             ax.set_ylim([_ll, _uu])
             ax.set_ylabel(
-                "{key:s}$\,/\,${unit:s}".format(
-                    key=key_map[key]["name"], unit=key_map[key]["unit"]
-                )
+                key_map[key]["name"]
+                + PLT["label_unit_seperator"]
+                + key_map[key]["unit"]
             )
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
             filepath = os.path.join(out_dir, filename)
@@ -311,31 +313,31 @@ for skey in deflection_table:
 
             power_law_fit_table[skey][pkey][key] = _fit
 
-    for dkey in config["plotting"]["light_field"]:
+    for dkey in PLT["light_field"]:
         ts = deflection_table[skey]
         alpha = 0.2
         fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
+        ax = sebplt.add_axes(fig, AXSPAN)
         for pkey in ts:
             ax.plot(
                 ts[pkey]["particle_energy_GeV"],
                 ts[pkey][dkey],
                 "o",
-                color=config["plotting"]["particles"][pkey]["color"],
+                color=PLT["particles"][pkey]["color"],
                 alpha=alpha,
-                label=config["plotting"]["particles"][pkey]["label"],
+                label=PLT["particles"][pkey]["label"],
             )
         leg = ax.legend()
         if PLOT_TITLE_INFO:
             ax.set_title(site_str, alpha=0.5)
         ax.loglog()
-        ax.set_xlabel("energy$\,/\,$GeV")
+        ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
         ax.set_xlim([1e-1, 1e2])
-        ax.set_ylim(config["plotting"]["light_field"][dkey]["limits"])
+        ax.set_ylim(PLT["light_field"][dkey]["limits"])
         ax.set_ylabel(
-            config["plotting"]["light_field"][dkey]["label"]
-            + " / "
-            + config["plotting"]["light_field"][dkey]["unit"]
+            PLT["light_field"][dkey]["label"]
+            + PLT["label_unit_seperator"]
+            + PLT["light_field"][dkey]["unit"]
         )
         fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
         plt.close(fig)
@@ -358,9 +360,9 @@ def smooth(y, box_pts):
 
 alpha = 0.2
 fig = sebplt.figure(FIGSIZE)
-ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
+ax = sebplt.add_axes(fig, AXSPAN)
 for pkey in ["electron", "gamma"]:
-    particle_color = config["plotting"]["particles"][pkey]["color"]
+    particle_color = PLT["particles"][pkey]["color"]
     for skey in deflection_table:
         E = deflection_table[skey][pkey]["particle_energy_GeV"]
         V = deflection_table[skey][pkey][dkey]
@@ -368,18 +370,18 @@ for pkey in ["electron", "gamma"]:
         ax.plot(
             E,
             V,
-            config["plotting"]["sites"][skey]["marker"],
+            PLT["sites"][skey]["marker"],
             color=particle_color,
             alpha=0.1 * alpha,
         )
         if particle_color == "black":
-            label = config["plotting"]["sites"][skey]["label"]
+            label = PLT["sites"][skey]["label"]
         else:
             label = None
         ax.plot(
             E[mask],
             smooth(V, 9)[mask],
-            config["plotting"]["sites"][skey]["marker"],
+            PLT["sites"][skey]["marker"],
             color=particle_color,
             label=label,
         )
@@ -387,20 +389,24 @@ for pkey in ["electron", "gamma"]:
 ax.text(
     1.1,
     50,
-    config["plotting"]["particles"]["gamma"]["label"],
-    color=config["plotting"]["particles"]["gamma"]["color"],
+    PLT["particles"]["gamma"]["label"],
+    color=PLT["particles"]["gamma"]["color"],
 )
 ax.text(
     1.1,
     25,
-    config["plotting"]["particles"]["electron"]["label"],
-    color=config["plotting"]["particles"]["electron"]["color"],
+    PLT["particles"]["electron"]["label"],
+    color=PLT["particles"]["electron"]["color"],
 )
 leg = ax.legend()
 ax.loglog()
-ax.set_xlabel("energy$\\,/\\,$GeV")
+ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
 ax.set_xlim([1e-1, 1e2])
 ax.set_ylim([1e-3, 1e2])
-ax.set_ylabel(config["plotting"]["light_field"][dkey]["label"])
+ax.set_ylabel(
+    PLT["light_field"][dkey]["label"]
+    + PLT["label_unit_seperator"]
+    + PLT["light_field"][dkey]["unit"]
+)
 fig.savefig(os.path.join(out_dir, "{:s}.jpg".format(dkey)))
 plt.close(fig)
