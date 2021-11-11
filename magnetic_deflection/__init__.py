@@ -43,9 +43,7 @@ def A_init_work_dir(
         energy_supports_max=max_energy,
         energy_supports_num=num_energy_supports
     )
-    # write default plotting config
-    with open(os.path.join(work_dir, "plotting.json"), "wt") as f:
-        f.write(json_numpy.dumps(examples.PLOTTING, indent=4))
+    _write_default_plotting_config(work_dir=work_dir)
 
 
 def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
@@ -64,6 +62,11 @@ def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
     }
     with open(os.path.join(work_dir, "config.json"), "wt") as f:
         f.write(json_numpy.dumps(cfg, indent=4))
+
+
+def _write_default_plotting_config(work_dir):
+    with open(os.path.join(work_dir, "plotting.json"), "wt") as f:
+        f.write(json_numpy.dumps(examples.PLOTTING))
 
 
 def B_make_jobs_from_work_dir(work_dir):
@@ -492,11 +495,5 @@ def read_config(work_dir):
     cf["particles"] = tools.read_json(os.path.join(work_dir, "particles.json"))
     cf["pointing"] = tools.read_json(os.path.join(work_dir, "pointing.json"))
     cf["config"] = tools.read_json(os.path.join(work_dir, "config.json"))
-
-    plotting_path = os.path.join(work_dir, "plotting.json")
-    if not os.path.exists(plotting_path):
-        with open(plotting_path, "wt") as f:
-            f.write(json_numpy.dumps(examples.PLOTTING))
-    cf["plotting"] = tools.read_json(plotting_path)
-
+    cf["plotting"] = tools.read_json(os.path.join(work_dir, "plotting.json"))
     return cf
