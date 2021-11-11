@@ -99,4 +99,9 @@ PLOTTING = {
             "limits": [1e-3, 1e2],
         },
     },
+    "label_unit_seperator": "$\\,/\\,$",
+    "rcParams": {
+        "mathtext.fontset": "cm",
+        "font.family": "STIXGeneral",
+    },
 }
