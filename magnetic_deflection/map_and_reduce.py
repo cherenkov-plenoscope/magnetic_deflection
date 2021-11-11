@@ -7,6 +7,7 @@ from . import discovery
 from . import light_field_characterization
 from . import tools
 from . import jsonl_logger
+from . import spherical_coordinates
 
 
 def make_jobs(
@@ -144,7 +145,7 @@ def run_job(job):
     estimates_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
     estimates_path = os.path.join(job["job"]["map_dir"], estimates_filename)
 
-    statistics_filename = "{:06d}_statistics.jsonl".format(job["job"]["id"])
+    statistics_filename = "{:06d}_statistics.recarray.tar".format(job["job"]["id"])
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
 
     result_filename = "{:06d}_result.json".format(job["job"]["id"])
@@ -214,10 +215,16 @@ def run_job(job):
                 prng=prng,
             )
 
-            tools.write_jsonl(statistics_path, pools)
+            pools = add_off_axis_to_pool_statistics(
+                pool_statistics=pools,
+                instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
+                instrument_zenith_deg=job["pointing"]["zenith_deg"],
+            )
+
+            _write_pool_statistics(pool_statistics=pools, path=statistics_path)
         else:
             jlog.info("job: use existing showers")
-            pools = tools.read_jsonl(statistics_path)
+            pools = _read_pool_statistics(path=statistics_path)
 
         jlog.info("job: estimate statistics of showers")
         result = light_field_characterization.inspect_pools(
@@ -234,3 +241,39 @@ def run_job(job):
 
     jlog.info("job: end")
     return 0
+
+
+def add_off_axis_to_pool_statistics(
+    pool_statistics,
+    instrument_azimuth_deg,
+    instrument_zenith_deg
+):
+    for i in range(len(pool_statistics)):
+        cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+            cx=pool_statistics[i]["direction_med_cx_rad"],
+            cy=pool_statistics[i]["direction_med_cy_rad"]
+        )
+        off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
+            az1_deg=cer_az_deg,
+            zd1_deg=cer_zd_deg,
+            az2_deg=instrument_azimuth_deg,
+            zd2_deg=instrument_zenith_deg,
+        )
+        pool_statistics[i]["off_axis_deg"] = float(off_axis_deg)
+    return pool_statistics
+
+
+def _write_pool_statistics(pool_statistics, path):
+    pool_statistics_rec = pandas.DataFrame(
+        pool_statistics
+    ).to_records(index=False)
+    recarray_io.write_to_tar(recarray=pool_statistics_rec, path=path)
+
+
+def _read_pool_statistics(path):
+    pool_statistics_rec = recarray_io.read_from_tar(path=path)
+    pool_statistics_df = pandas.DataFrame(pool_statistics_rec)
+    del(pool_statistics_rec)
+    pool_statistics = pool_statistics_df.to_dict(orient="records")
+    del(pool_statistics_df)
+    return pool_statistics

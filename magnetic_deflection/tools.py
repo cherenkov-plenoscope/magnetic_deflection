@@ -10,6 +10,7 @@ import tarfile
 
 from . import spherical_coordinates
 from . import Records
+from . import recarray_io
 
 
 def sort_records_by_key(records, keys):
@@ -149,7 +150,7 @@ def read_jsonl(path):
 
 def read_statistics_site_particle(map_site_particle_dir):
     map_dir = map_site_particle_dir
-    paths = glob.glob(os.path.join(map_dir, "*_statistics.jsonl"))
+    paths = glob.glob(os.path.join(map_dir, "*_statistics.recarray.tar"))
     basenames = [os.path.basename(p) for p in paths]
     job_ids = [int(b[0:6]) for b in basenames]
     job_ids.sort()
@@ -176,30 +177,14 @@ def read_statistics_site_particle(map_site_particle_dir):
             "off_axis_deg": "f4",
         }
     )
+
     num_jobs = len(job_ids)
     for i, job_id in enumerate(job_ids):
         print("Read job: {:06d}, {: 6d} / {: 6d}".format(job_id, i, num_jobs))
+        s_path = os.path.join(
+            map_dir, "{:06d}_statistics.recarray.tar".format(job_id)
+        )
+        pools = recarray_io.read_from_tar(path=s_path)
+        stats = Records.append_numpy_recarray(stats, pool)
 
-        j_path = os.path.join(map_dir, "{:06d}_job.json".format(job_id))
-        s_path = os.path.join(map_dir, "{:06d}_statistics.jsonl".format(job_id))
-        job = read_json(j_path)
-        showers = read_jsonl(s_path)
-
-        for shower in showers:
-            shower["particle_energy_GeV"] = float(job["particle"]["energy_GeV"])
-
-            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=shower["direction_med_cx_rad"],
-                cy=shower["direction_med_cy_rad"]
-            )
-
-            off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
-                az1_deg=cer_az_deg,
-                zd1_deg=cer_zd_deg,
-                az2_deg=job["pointing"]["azimuth_deg"],
-                zd2_deg=job["pointing"]["zenith_deg"],
-            )
-            shower["off_axis_deg"] = float(off_axis_deg)
-            Records.append(recs=stats, obj=shower)
-
-    return Records.to_records(recs=stats)
+    return Records.to_numpy_recarray(stats)
