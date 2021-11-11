@@ -41,48 +41,20 @@ for skey in shower_statistics:
     for pkey in shower_statistics[skey]:
         statkeys = list(shower_statistics[skey][pkey].dtype.names)
 
-def make_off_axis_angle_deg(
-    cherenkov_direction_med_cx_rad,
-    cherenkov_direction_med_cy_rad,
-    pointing_azimuth_deg,
-    pointing_zenith_deg,
-):
-    (
-        cer_azimuth_deg,
-        cer_zenith_deg,
-    ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
-        cx=cherenkov_direction_med_cx_rad, cy=cherenkov_direction_med_cy_rad,
-    )
-
-    return mdfl.spherical_coordinates._angle_between_az_zd_deg(
-        az1_deg=cer_azimuth_deg,
-        zd1_deg=cer_zenith_deg,
-        az2_deg=pointing_azimuth_deg,
-        zd2_deg=pointing_zenith_deg,
-    )
-
 # cut on-axis
 # -----------
 on_axis_shower_statistics = {}
 for skey in shower_statistics:
     on_axis_shower_statistics[skey] = {}
     for pkey in shower_statistics[skey]:
-
         sst = shower_statistics[skey][pkey]
 
-        off_axis_deg = make_off_axis_angle_deg(
-            cherenkov_direction_med_cx_rad=sst["direction_med_cx_rad"],
-            cherenkov_direction_med_cy_rad=sst["direction_med_cy_rad"],
-            pointing_azimuth_deg=c["pointing"]["azimuth_deg"],
-            pointing_zenith_deg=c["pointing"]["zenith_deg"],
-        )
-
-        on_axis_mask = (
-            off_axis_deg
+        mask_on_axis = (
+            sst["off_axis_deg"]
             <= 2
             * c["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
         )
-        on_axis_shower_statistics[skey][pkey] = shower_statistics[skey][pkey][on_axis_mask]
+        on_axis_shower_statistics[skey][pkey] = sst[mask_on_axis]
 
 del(shower_statistics)
 
@@ -155,8 +127,8 @@ for skey in on_axis_shower_statistics:
 
 
 
-# cut on-axis and bin in energy
-# -----------------------------
+# bin in energy
+# -------------
 ooo = {}
 for fkey in ENERGY:
 
