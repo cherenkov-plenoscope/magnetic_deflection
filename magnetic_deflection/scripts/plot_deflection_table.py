@@ -1,40 +1,31 @@
 #!/usr/bin/python
 import sys
-from os.path import join as opj
 import os
-import pandas as pd
 import numpy as np
 import json
-import magnetic_deflection as mdfl
-import sebastians_matplotlib_addons as sebplt
-import plenoirf as irf
 import scipy
-
-
+import magnetic_deflection as mdfl
+import plenoirf as irf
+import sebastians_matplotlib_addons as sebplt
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 
+matplotlib.rcParams["mathtext.fontset"] = "cm"
+matplotlib.rcParams["font.family"] = "STIXGeneral"
 
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
+out_dir = os.path.join(work_dir, "plot_deflection_table")
+os.makedirs(out_dir, exist_ok=True)
 
 deflection_table = mdfl.tools.read_deflection_table(os.path.join(work_dir, "raw"))
 
-shower_statistics = mdfl.read_shower_statistics(work_dir=work_dir)
+config = mdfl.read_config(work_dir=work_dir)
 
-with open(os.path.join(work_dir, "sites.json"), "rt") as f:
-    sites = json.loads(f.read())
-
-with open(os.path.join(work_dir, "particles.json"), "rt") as f:
-    particles = json.loads(f.read())
-
-with open(os.path.join(work_dir, "pointing.json"), "rt") as f:
-    pointing = json.loads(f.read())
+FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.}
+FIGSIZE_FIT = {"rows": 720, "cols": 1280, "fontsize": 1.}
 
 PLOT_TITLE_INFO = False
 PLOT_TITLE_INFO_SKY_DOME = False
@@ -46,84 +37,56 @@ PLOT_RAW_ESTIMATES = True
 
 key_map = {
     "particle_azimuth_deg": {
-        "unit": "deg",
+        "unit": "(1$^\\circ$)",
         "name": "particle-azimuth",
-        "factor": 1,
         "start": 90.0,
-        "etend_high_energies": True,
+        "extend_high_energies": True,
+        "latex_key": "\\PrmAz{}",
     },
     "particle_zenith_deg": {
-        "unit": "deg",
+        "unit": "(1$^\\circ$)",
         "name": "particle-zenith",
-        "factor": 1,
         "start": 0.0,
-        "etend_high_energies": True,
+        "extend_high_energies": True,
+        "latex_key": "\\PrmZd{}",
     },
     "position_med_x_m": {
-        "unit": "km",
+        "unit": "m",
         "name": "Cherenkov-pool-x",
-        "factor": 1e-3,
         "start": 0.0,
-        "etend_high_energies": True,
+        "extend_high_energies": True,
+        "latex_key": "\\CerX{}",
     },
     "position_med_y_m": {
-        "unit": "km",
+        "unit": "m",
         "name": "Cherenkov-pool-y",
-        "factor": 1e-3,
         "start": 0.0,
-        "etend_high_energies": True,
+        "extend_high_energies": True,
+        "latex_key": "\\CerY{}",
     },
 }
 
-nice_site_labels = {
-    #"namibiaOff": "Gamsberg-Off",
-    "namibia": "Gamsberg",
-    "chile": "Chajnantor",
-    #"lapalma": "Roque",
-}
-
-nice_variable_keys = {
-    "particle_azimuth_deg": "$\\PrmAz{}$\\,/\\,deg",
-    "particle_zenith_deg": "$\\PrmZd{}$\\,/\\,deg",
-    "position_med_x_m": "$\\CerX{}$\\,/\\,m",
-    "position_med_y_m": "$\\CerY{}$\\,/\\,m",
-}
-
-nice_pkeys = {
-    "gamma": "Gamma-ray",
-    "electron": "Electron",
-    "proton": "Proton",
-    "helium": "Helium",
-}
-
-nice_power_law_variable_keys = {
-    "A": "$\\PowerLawA{}$",
-    "B": "$\\PowerLawB{}$",
-    "C": "$\\PowerLawC{}$",
+fit_map = {
+    "A": {"latex_key": "$\\PowerLawA{}$"},
+    "B": {"latex_key": "$\\PowerLawB{}$"},
+    "C": {"latex_key": "$\\PowerLawC{}$"},
 }
 
 
 charge_signs = {}
-for pkey in particles:
-    charge_signs[pkey] = np.sign(particles[pkey]["electric_charge_qe"])
-
-
-figsize = (16 / 2, 9 / 2)
-dpi = 240
-ax_size = (0.15, 0.12, 0.8, 0.8)
-
-figsize_fit = (9 / 2, 9 / 2)
-dpi = 240
-ax_size_fit = (0.2, 0.12, 0.75, 0.8)
+for pkey in config["particles"]:
+    charge_signs[pkey] = np.sign(
+        config["particles"][pkey]["electric_charge_qe"]
+    )
 
 
 def make_site_str(skey, site):
     return "".join(
         [
-            "{:s}, {:.1f}$\,$km$\,$a.s.l., ",
+            "{:s}, {:.1f}$\\,$km$\\,$a.s.l., ",
             "Atm.-id {:d}, ",
-            "Bx {:.1f}$\,$uT, ",
-            "Bz {:.1f}$\,$uT",
+            "Bx {:.1f}$\\,$uT, ",
+            "Bz {:.1f}$\\,$uT",
         ]
     ).format(
         skey,
@@ -132,9 +95,6 @@ def make_site_str(skey, site):
         site["earth_magnetic_field_x_muT"],
         site["earth_magnetic_field_z_muT"],
     )
-
-
-power_law_fit_table = {}
 
 
 def latex_table(matrix):
@@ -150,25 +110,21 @@ def latex_table(matrix):
     return out
 
 
-def latex_format_scientific(f):
-    pass
-
-
 def make_latex_table_with_power_law_fit(power_law_fit_table):
     matrix = []
     partile_line = ["", "", ""]
-    for pkey in nice_pkeys:
-        partile_line.append(nice_pkeys[pkey])
+    for pkey in config["plotting"]["particles"]:
+        partile_line.append(config["plotting"]["particles"][pkey]["label"])
     matrix.append(partile_line)
-    for skey in nice_site_labels:
+    for skey in power_law_fit_table:
         if "Off" in skey:
             continue
-        site_line = [nice_site_labels[skey], "", "", "", "", "", ""]
+        site_line = [config["plotting"]["sites"][skey]["label"], "", "", "", "", "", ""]
         matrix.append(site_line)
-        for variable_key in nice_variable_keys:
+        for variable_key in key_map:
             variable_line = [
                 "",
-                nice_variable_keys[variable_key],
+                key_map[variable_key]["latex_key"] + "\\,/\\," + key_map[variable_key]["unit"],
                 "",
                 "",
                 "",
@@ -177,9 +133,9 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
             ]
             matrix.append(variable_line)
 
-            for param_key in ["A", "B", "C"]:
-                value_line = ["", "", nice_power_law_variable_keys[param_key]]
-                for pkey in nice_pkeys:
+            for param_key in fit_map:
+                value_line = ["", "", fit_map[param_key]["latex_key"]]
+                for pkey in power_law_fit_table[skey]:
 
                     power_law_fit = power_law_fit_table[skey][pkey][
                         variable_key
@@ -201,12 +157,12 @@ deflection_table = mdfl.analysis.add_density_fields_to_deflection_table(
     deflection_table=deflection_table
 )
 
-
+power_law_fit_table = {}
 for skey in deflection_table:
     power_law_fit_table[skey] = {}
     for pkey in deflection_table[skey]:
         print(skey, pkey)
-        site_str = make_site_str(skey, sites[skey])
+        site_str = make_site_str(skey, config["sites"][skey])
 
         t = deflection_table[skey][pkey]
         energy_fine = np.geomspace(
@@ -239,7 +195,7 @@ for skey in deflection_table:
 
             key_start = charge_signs[pkey] * key_map[key]["start"]
 
-            if key_map[key]["etend_high_energies"]:
+            if key_map[key]["extend_high_energies"]:
                 energy_bins_ext = np.array(
                     energy_supports.tolist()
                     + np.geomspace(200, 600, 20).tolist()
@@ -270,19 +226,19 @@ for skey in deflection_table:
             )
             rec_key += key_start
 
-            fig = plt.figure(figsize=figsize_fit, dpi=dpi)
-            ax = fig.add_axes(ax_size_fit)
+            fig = sebplt.figure(FIGSIZE_FIT)
+            ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
             if PLOT_RAW_ESTIMATES:
                 ax.plot(
                     t["particle_energy_GeV"],
-                    np.array(t[key]) * key_map[key]["factor"],
+                    np.array(t[key]),
                     "ko",
                     alpha=0.05,
                 )
 
             if PLOT_ENERGY_SUPPORTS:
                 ax.plot(
-                    energy_supports, key_mean80 * key_map[key]["factor"], "kx"
+                    energy_supports, key_mean80, "kx"
                 )
                 for ibin in range(len(energy_supports)):
                     _x = energy_supports[ibin]
@@ -290,12 +246,12 @@ for skey in deflection_table:
                     _y_high = unc80_upper[ibin]
                     ax.plot(
                         [_x, _x],
-                        np.array([_y_low, _y_high]) * key_map[key]["factor"],
+                        np.array([_y_low, _y_high]),
                         "k-",
                     )
                 ax.plot(
                     energy_bins_ext,
-                    key_mean80_ext * key_map[key]["factor"],
+                    key_mean80_ext,
                     "bo",
                     alpha=0.3,
                 )
@@ -303,7 +259,7 @@ for skey in deflection_table:
             if PLOT_POWER_LAW_FIT:
                 ax.plot(
                     energy_fine,
-                    rec_key * key_map[key]["factor"],
+                    rec_key,
                     color=POWER_LAW_FIT_COLOR,
                     linestyle="-",
                 )
@@ -311,13 +267,11 @@ for skey in deflection_table:
             if PLOT_TITLE_INFO:
                 ax.set_title(info_str, alpha=0.5)
             ax.semilogx()
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
             ax.set_xlabel("energy$\,/\,$GeV")
             ax.set_xlim([0.4, 110])
 
-            y_fit_lower = key_map[key]["factor"] * np.min(unc80_lower)
-            y_fit_upper = key_map[key]["factor"] * np.max(unc80_upper)
+            y_fit_lower = np.min(unc80_lower)
+            y_fit_upper = np.max(unc80_upper)
             y_fit_range = y_fit_upper - y_fit_lower
             assert y_fit_range >= 0
             y_fit_range = np.max([y_fit_range, 1.0])
@@ -329,9 +283,8 @@ for skey in deflection_table:
                     key=key_map[key]["name"], unit=key_map[key]["unit"]
                 )
             )
-            ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
-            filepath = os.path.join(work_dir, filename)
+            filepath = os.path.join(out_dir, filename)
             fig.savefig(filepath + ".jpg")
             plt.close(fig)
 
@@ -353,68 +306,47 @@ for skey in deflection_table:
 
             power_law_fit_table[skey][pkey][key] = _fit
 
-    density_map = {
-        "num_cherenkov_photons_per_shower": {
-            "label": "size of Cherenkov-pool$\,/\,$1"
-        },
-        "spread_area_m2": {
-            "label": "Cherenkov-pool's spread in area$\,/\,$m$^{2}$"
-        },
-        "spread_solid_angle_deg2": {
-            "label": "Cherenkov-pool's spread in solid angle$\,/\,$deg$^{2}$"
-        },
-        "light_field_outer_density": {
-            "label": "density of Cherenkov-pool$\,/\,$m$^{-2}\,$deg$^{-2}$"
-        },
-    }
-
-    parmap = {"gamma": "k", "electron": "b", "proton": "r", "helium": "orange"}
-
-    for den_key in density_map:
+    for dkey in config["plotting"]["light_field"]:
         ts = deflection_table[skey]
         alpha = 0.2
-        fig = plt.figure(figsize=figsize, dpi=dpi)
-        ax = fig.add_axes(ax_size)
-        for particle_key in parmap:
+        fig = sebplt.figure(FIGSIZE)
+        ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
+        for pkey in ts:
             ax.plot(
-                ts[particle_key]["particle_energy_GeV"],
-                ts[particle_key][den_key],
+                ts[pkey]["particle_energy_GeV"],
+                ts[pkey][dkey],
                 "o",
-                color=parmap[particle_key],
+                color=config["plotting"]["particles"][pkey]["color"],
                 alpha=alpha,
-                label=particle_key,
+                label=config["plotting"]["particles"][pkey]["label"],
             )
         leg = ax.legend()
         if PLOT_TITLE_INFO:
             ax.set_title(site_str, alpha=0.5)
         ax.loglog()
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
         ax.set_xlabel("energy$\,/\,$GeV")
-        ax.set_xlim([0.4, 200.0])
-        ax.set_ylim([1e-6, 1e3])
-        ax.set_ylabel(density_map[den_key]["label"])
-        ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+        ax.set_xlim([1e-1, 1e2])
+        ax.set_ylim(config["plotting"]["light_field"][dkey]["limits"])
+        ax.set_ylabel(
+            config["plotting"]["light_field"][dkey]["label"]
+            + " / "
+            + config["plotting"]["light_field"][dkey]["unit"]
+        )
         fig.savefig(
             os.path.join(
-                work_dir, "{:s}_{:s}.jpg".format(skey, den_key)
+                out_dir, "{:s}_{:s}.jpg".format(skey, dkey)
             )
         )
         plt.close(fig)
 
 _table = make_latex_table_with_power_law_fit(power_law_fit_table)
-with open(os.path.join(work_dir, "power_law_table.tex"), "wt") as fout:
+with open(os.path.join(out_dir, "power_law_table.tex"), "wt") as fout:
     fout.write(_table)
 
+# density side by side
+# --------------------
 
-
-"""
-density by side
-"""
-den_key = "light_field_outer_density"
-
-sitemap = {"namibia": "+", "lapalma": "^", "chile": "*", "namibiaOff": "."}
-
+dkey = "light_field_outer_density"
 
 def smooth(y, box_pts):
     box = np.ones(box_pts) / box_pts
@@ -422,47 +354,41 @@ def smooth(y, box_pts):
     return y_smooth
 
 
-particle_colors = {
-    "electron": "blue",
-    "gamma": "black",
-}
 alpha = 0.2
-fig = plt.figure(figsize=figsize, dpi=dpi)
-ax = fig.add_axes(ax_size)
+fig = sebplt.figure(FIGSIZE)
+ax = sebplt.add_axes(fig, [0.2, 0.2, 0.7, 0.7])
 for pkey in ["electron", "gamma"]:
-    for skey in nice_site_labels:
+    particle_color = config["plotting"]["particles"][pkey]["color"]
+    for skey in deflection_table:
         E = deflection_table[skey][pkey]["particle_energy_GeV"]
-        V = deflection_table[skey][pkey][den_key]
+        V = deflection_table[skey][pkey][dkey]
         mask = np.arange(20, len(E), len(E) // 10)
         ax.plot(
             E,
             V,
-            sitemap[skey],
-            color=particle_colors[pkey],
+            config["plotting"]["sites"][skey]["marker"],
+            color=particle_color,
             alpha=0.1 * alpha,
         )
-        if particle_colors[pkey] == "black":
-            label = nice_site_labels[skey]
+        if particle_color == "black":
+            label = config["plotting"]["sites"][skey]["label"]
         else:
             label = None
         ax.plot(
             E[mask],
             smooth(V, 9)[mask],
-            sitemap[skey],
-            color=particle_colors[pkey],
+            config["plotting"]["sites"][skey]["marker"],
+            color=particle_color,
             label=label,
         )
 
-ax.text(1.1, 50, "gamma-ray", color=particle_colors["gamma"])
-ax.text(1.1, 25, "electron", color=particle_colors["electron"])
+ax.text(1.1, 50, config["plotting"]["particles"]["gamma"]["label"], color=config["plotting"]["particles"]["gamma"]["color"])
+ax.text(1.1, 25, config["plotting"]["particles"]["electron"]["label"], color=config["plotting"]["particles"]["electron"]["color"])
 leg = ax.legend()
 ax.loglog()
-ax.spines["right"].set_visible(False)
-ax.spines["top"].set_visible(False)
-ax.set_xlabel("energy$\,/\,$GeV")
-ax.set_xlim([0.4, 20.0])
+ax.set_xlabel("energy$\\,/\\,$GeV")
+ax.set_xlim([1e-1, 1e2])
 ax.set_ylim([1e-3, 1e2])
-ax.set_ylabel(density_map[den_key]["label"])
-ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-fig.savefig(os.path.join(work_dir, "{:s}.jpg".format(den_key)))
+ax.set_ylabel(config["plotting"]["light_field"][dkey]["label"])
+fig.savefig(os.path.join(out_dir, "{:s}.jpg".format(dkey)))
 plt.close(fig)

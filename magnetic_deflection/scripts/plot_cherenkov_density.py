@@ -25,6 +25,8 @@ c = mdfl.read_config(work_dir=work_dir)
 
 MIN_NUM_SHOWER = 11
 
+LABEL_UNIT_SEP = "$\\,/\\,$"
+
 ENERGY = {}
 ENERGY["fine"] = {}
 ENERGY["fine"]["num_bins"] = 60
@@ -85,7 +87,7 @@ for tkey in statkeys:
         ax.semilogx()
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
-        ax.set_xlabel("energy$\,/\,$GeV")
+        ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
         ax.set_ylabel(tkey)
         ax.set_xlim(
             [
@@ -117,14 +119,13 @@ for skey in on_axis_shower_statistics:
             * np.rad2deg(oasst["direction_std_major_rad"])
             * np.rad2deg(oasst["direction_std_minor_rad"])
         )
-        den["density"] = oasst["num_photons"] / (
+        den["light_field_outer_density"] = oasst["num_photons"] / (
             den["spread_solid_angle_deg2"] * den["spread_area_m2"]
         )
 
         cherenkov_density[skey][pkey] = pd.DataFrame(den).to_records(
             index=False
         )
-
 
 
 # bin in energy
@@ -211,9 +212,9 @@ for dkey in c["plotting"]["light_field"]:
         ax.loglog()
         ax.spines["right"].set_visible(False)
         ax.spines["top"].set_visible(False)
-        ax.set_xlabel("energy$\,/\,$GeV")
+        ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
         ax.set_ylabel(
-            c["plotting"]["light_field"][dkey]["label"] + " / " +
+            c["plotting"]["light_field"][dkey]["label"] + LABEL_UNIT_SEP +
             c["plotting"]["light_field"][dkey]["unit"]
         )
         ax.set_xlim(
@@ -258,8 +259,8 @@ for skey in oof:
     ax.loglog()
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
-    ax.set_xlabel("energy$\,/\,$GeV")
-    ax.set_ylabel("num. shower / 1")
+    ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
+    ax.set_ylabel("num. shower"+LABEL_UNIT_SEP+"1")
     ax.set_xlim(
         [min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])]
     )
@@ -272,7 +273,7 @@ for skey in oof:
 # density side by side
 # --------------------
 
-dkey = "density"
+dkey = "light_field_outer_density"
 
 fig = sebplt.figure(figsize)
 ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
@@ -309,12 +310,15 @@ leg = ax.legend()
 ax.loglog()
 ax.spines["right"].set_visible(False)
 ax.spines["top"].set_visible(False)
-ax.set_xlabel("energy$\,/\,$GeV")
+ax.set_xlabel("energy"+LABEL_UNIT_SEP+"GeV")
 ax.set_xlim(
     [min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])]
 )
 ax.set_ylim(c["plotting"]["light_field"][dkey]["limits"])
-ax.set_ylabel(c["plotting"]["light_field"][dkey]["label"])
+ax.set_ylabel(
+    c["plotting"]["light_field"][dkey]["label"] + LABEL_UNIT_SEP +
+    c["plotting"]["light_field"][dkey]["unit"]
+)
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
 fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))
 plt.close(fig)

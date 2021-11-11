@@ -93,9 +93,9 @@ PLOTTING = {
             "unit": "$(1^\\circ)^{2}$",
             "limits": [1e-1, 1e2],
         },
-        "density": {
+        "light_field_outer_density": {
             "label": "density",
-            "unit": "m$^{-2}\\,(1^\\circ)^{-2}$",
+            "unit": "m$^{-2} (1^\\circ)^{-2}$",
             "limits": [1e-3, 1e2],
         },
     },
