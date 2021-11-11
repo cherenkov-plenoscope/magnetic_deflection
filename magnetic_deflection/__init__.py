@@ -42,6 +42,9 @@ def A_init_work_dir(
         energy_supports_max=max_energy,
         energy_supports_num=num_energy_supports
     )
+    # write default plotting config
+    with open(os.path.join(work_dir, "plotting.json"), "wt") as f:
+        f.write(json_numpy.dumps(examples.PLOTTING, indent=4))
 
 
 def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
@@ -488,4 +491,5 @@ def read_config(work_dir):
     cf["particles"] = tools.read_json(os.path.join(work_dir, "particles.json"))
     cf["pointing"] = tools.read_json(os.path.join(work_dir, "pointing.json"))
     cf["config"] = tools.read_json(os.path.join(work_dir, "config.json"))
+    cf["plotting"] = tools.read_json(os.path.join(work_dir, "plotting.json"))
     return cf

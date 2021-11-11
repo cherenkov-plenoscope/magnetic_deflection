@@ -35,3 +35,68 @@ CORSIKA_PRIMARY_MOD_PATH = os.path.abspath(
         "corsika75600Linux_QGSII_urqmd",
     )
 )
+
+PLOTTING = {
+    "sites": {
+        "namibia": {
+            "label": "Gamsberg",
+            "marker": "+",
+            "linestyle": "--",
+        },
+        "chile": {
+            "label": "Chajnantor",
+            "marker": "*",
+            "linestyle": ":",
+        },
+        "namibiaOff": {
+            "label": "Gamsberg-Off",
+            "marker": ".",
+            "linestyle": "-.",
+        },
+        "lapalma": {
+            "label": "Roque",
+            "marker": "^",
+            "linestyle": "-",
+        },
+    },
+    "particles": {
+        "gamma": {
+            "color": "black",
+            "label": "gamma-ray",
+        },
+        "electron": {
+            "color": "blue",
+            "label": "electron",
+        },
+        "proton": {
+            "color": "red",
+            "label": "proton",
+        },
+        "helium": {
+            "color": "orange",
+            "label": "helium",
+        },
+    },
+    "light_field": {
+        "num_photons": {
+            "label": "intensity",
+            "unit": "1",
+            "limits": [1e2, 1e6],
+        },
+        "spread_area_m2": {
+            "label": "area",
+            "unit": "m$^{2}$",
+            "limits": [1e4, 1e7],
+        },
+        "spread_solid_angle_deg2": {
+            "label": "solid angle",
+            "unit": "$(1^\\circ)^{2}$",
+            "limits": [1e-1, 1e2],
+        },
+        "light_field_outer_density": {
+            "label": "density",
+            "unit": "m$^{-2}\\,(1^\\circ)^{-2}$",
+            "limits": [1e-3, 1e2],
+        },
+    },
+}
