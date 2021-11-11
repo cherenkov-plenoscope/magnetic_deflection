@@ -9,6 +9,7 @@ import io
 import tarfile
 
 from . import spherical_coordinates
+from . import Records
 
 
 def sort_records_by_key(records, keys):
@@ -153,8 +154,32 @@ def read_statistics_site_particle(map_site_particle_dir):
     job_ids = [int(b[0:6]) for b in basenames]
     job_ids.sort()
 
-    stats = []
-    for job_id in job_ids:
+    stats = Records.init(
+        dtypes={
+            "particle_azimuth_deg": "f4",
+            "particle_zenith_deg":"f4",
+            "num_photons": "f4",
+            "num_bunches": "i4",
+            "position_med_x_m": "f4",
+            "position_med_y_m": "f4",
+            "position_phi_rad": "f4",
+            "position_std_minor_m": "f4",
+            "position_std_major_m": "f4",
+            "direction_med_cx_rad": "f4",
+            "direction_med_cy_rad": "f4",
+            "direction_phi_rad": "f4",
+            "direction_std_minor_rad": "f4",
+            "direction_std_major_rad": "f4",
+            "arrival_time_mean_s": "f4",
+            "arrival_time_median_s": "f4",
+            "arrival_time_std_s": "f4",
+            "off_axis_deg": "f4",
+        }
+    )
+    num_jobs = len(job_ids)
+    for i, job_id in enumerate(job_ids):
+        print("Read job: {:06d}, {: 6d} / {: 6d}".format(job_id, i, num_jobs))
+
         j_path = os.path.join(map_dir, "{:06d}_job.json".format(job_id))
         s_path = os.path.join(map_dir, "{:06d}_statistics.jsonl".format(job_id))
         job = read_json(j_path)
@@ -175,7 +200,6 @@ def read_statistics_site_particle(map_site_particle_dir):
                 zd2_deg=job["pointing"]["zenith_deg"],
             )
             shower["off_axis_deg"] = float(off_axis_deg)
-            stats.append(shower)
+            Records.append(recs=stats, obj=shower)
 
-    stats_df = pandas.DataFrame(stats)
-    return stats_df.to_records(index=False)
+    return Records.to_records(recs=stats)
