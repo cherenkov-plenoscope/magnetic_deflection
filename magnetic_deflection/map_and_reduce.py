@@ -11,10 +11,14 @@ from . import spherical_coordinates
 
 
 def make_jobs(
+    first_job_id,
     work_dir,
-    sites,
-    particles,
+    site,
+    site_key,
+    particle,
+    particle_key,
     pointing,
+    energy_supports_min,
     energy_supports_max,
     energy_supports_num,
     energy_supports_power_law_slope,
@@ -27,6 +31,8 @@ def make_jobs(
     min_num_cherenkov_photons,
     corsika_primary_path,
 ):
+    assert energy_supports_min > 0
+    assert energy_supports_min < energy_supports_max
     assert energy_supports_max > 0
     assert energy_supports_num > 1
 
@@ -42,87 +48,79 @@ def make_jobs(
 
     abs_work_dir = os.path.abspath(work_dir)
     jobs = []
-    for site_key in sites:
-        for particle_key in particles:
-            site = sites[site_key]
-            particle = particles[particle_key]
-            min_energy = np.min(
-                particles[particle_key]["energy_bin_edges_GeV"]
-            )
-            energy_supports = tools.powerspace(
-                start=min_energy,
-                stop=energy_supports_max,
-                power_index=energy_supports_power_law_slope,
-                num=energy_supports_num,
-            )
-            for energy_idx in range(len(energy_supports)):
-                job = {}
-                job["job"] = {}
-                job["job"]["id"] = len(jobs)
-                job["job"]["map_dir"] = os.path.join(
-                    abs_work_dir, "map", site_key, particle_key
-                )
-                job["job"]["corsika_primary_path"] = corsika_primary_path
 
-                job["site"] = dict(site)
-                assert "key" not in job["site"]
-                job["site"]["key"] = site_key
-
-                job["particle"] = {}
-                job["particle"]["key"] = particle_key
-                job["particle"]["energy_GeV"] = energy_supports[energy_idx]
-                job["particle"]["corsika_id"] = particle["particle_id"]
-
-                job["pointing"] = pointing
-
-                max_total_num_showers = int(
-                    np.ceil(
-                        discovery_max_total_energy
-                        / job["particle"]["energy_GeV"]
-                    )
-                )
-                num_showers = int(
-                    np.ceil(
-                        discovery_min_energy_per_iteration
-                        / job["particle"]["energy_GeV"]
-                    )
-                )
-                num_showers = np.max(
-                    [num_showers, discovery_min_num_showers_per_iteration]
-                )
-
-                job["discovery"] = {
-                    "outlier_percentile": 100.0,
-                    "num_showers_per_iteration": num_showers,
-                    "max_num_showers": max_total_num_showers,
-                    "max_off_axis_deg": particle[
-                        "magnetic_deflection_max_off_axis_deg"
-                    ],
-                    "min_num_cherenkov_photons": min_num_cherenkov_photons,
-                }
-
-                num_showers = int(
-                    np.ceil(
-                        statistics_total_energy / job["particle"]["energy_GeV"]
-                    )
-                )
-
-                num_showers = np.max([num_showers, statistics_min_num_showers])
-
-                job["statistics"] = {
-                    "num_showers": num_showers,
-                    "outlier_percentile": outlier_percentile,
-                    "min_num_cherenkov_photons": min_num_cherenkov_photons,
-                    "off_axis_deg": 3.0 * particle[
-                        "magnetic_deflection_max_off_axis_deg"
-                    ],
-                }
-
-                jobs.append(job)
-
-    return tools.sort_records_by_key(
-        records=jobs, keys=("particle", "energy_GeV")
+    energy_supports = tools.powerspace(
+        start=energy_supports_min,
+        stop=energy_supports_max,
+        power_index=energy_supports_power_law_slope,
+        num=energy_supports_num,
     )
+    for energy_idx in range(len(energy_supports)):
+        job = {}
+        job["job"] = {}
+        job["job"]["id"] = first_job_id + len(jobs)
+        job["job"]["map_dir"] = os.path.join(
+            abs_work_dir, "map", site_key, particle_key
+        )
+        job["job"]["corsika_primary_path"] = corsika_primary_path
+
+        job["site"] = dict(site)
+        assert "key" not in job["site"]
+        job["site"]["key"] = site_key
+
+        job["particle"] = {}
+        job["particle"]["key"] = particle_key
+        job["particle"]["energy_GeV"] = energy_supports[energy_idx]
+        job["particle"]["corsika_id"] = particle["particle_id"]
+
+        job["pointing"] = pointing
+
+        max_total_num_showers = int(
+            np.ceil(
+                discovery_max_total_energy
+                / job["particle"]["energy_GeV"]
+            )
+        )
+        num_showers = int(
+            np.ceil(
+                discovery_min_energy_per_iteration
+                / job["particle"]["energy_GeV"]
+            )
+        )
+        num_showers = np.max(
+            [num_showers, discovery_min_num_showers_per_iteration]
+        )
+
+        job["discovery"] = {
+            "outlier_percentile": 100.0,
+            "num_showers_per_iteration": num_showers,
+            "max_num_showers": max_total_num_showers,
+            "max_off_axis_deg": particle[
+                "magnetic_deflection_max_off_axis_deg"
+            ],
+            "min_num_cherenkov_photons": min_num_cherenkov_photons,
+        }
+
+        num_showers = int(
+            np.ceil(
+                statistics_total_energy / job["particle"]["energy_GeV"]
+            )
+        )
+
+        num_showers = np.max([num_showers, statistics_min_num_showers])
+
+        job["statistics"] = {
+            "num_showers": num_showers,
+            "outlier_percentile": outlier_percentile,
+            "min_num_cherenkov_photons": min_num_cherenkov_photons,
+            "off_axis_deg": 3.0 * particle[
+                "magnetic_deflection_max_off_axis_deg"
+            ],
+        }
+
+        jobs.append(job)
+
+    return jobs
 
 
 def run_job(job):

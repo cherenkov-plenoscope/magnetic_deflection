@@ -72,10 +72,8 @@ out_dir = os.path.join(work_dir, "control_figures")
 os.makedirs(out_dir, exist_ok=True)
 
 for skey in sites:
-    if "Off" in skey:
-        continue
     for pkey in particles:
-        for key in mdfl.FIT_KEYS:
+        for key in mdfl.analysis.FIT_KEYS:
 
             fig = plt.figure(figsize=figsize, dpi=dpi)
             ax = fig.add_axes(ax_size)
