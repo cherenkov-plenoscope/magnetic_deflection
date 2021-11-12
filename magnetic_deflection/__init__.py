@@ -71,14 +71,11 @@ def B_make_jobs_from_work_dir(work_dir):
     pointing = tools.read_json(os.path.join(work_dir, "pointing.json"))
     config = tools.read_json(os.path.join(work_dir, "config.json"))
 
-    energy_supports_min = min(
-        [min(p["energy_bin_edges_GeV"]) for p in particles]
-    )
-
     jobs = []
     job_id = 0
     for skey in sites:
         for pkey in particles:
+            print("Make jobs ", skey, pkey)
             site_particle_jobs = map_and_reduce.make_jobs(
                 first_job_id=job_id,
                 work_dir=work_dir,
@@ -87,12 +84,13 @@ def B_make_jobs_from_work_dir(work_dir):
                 particle=particles[pkey],
                 particle_key=pkey,
                 pointing=pointing,
-                energy_supports_min=energy_supports_min,
+                energy_supports_min=min(particles[pkey]["energy_bin_edges_GeV"]),
                 **config,
             )
             job_id += len(site_particle_jobs)
             jobs += site_particle_jobs
 
+    print("Sort jobs by energy")
     return tools.sort_records_by_key(
         records=jobs, keys=("particle", "energy_GeV")
     )
