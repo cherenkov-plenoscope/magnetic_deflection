@@ -153,7 +153,7 @@ def C2_reduce_statistics_in_work_dir(work_dir):
             )
 
             ss_s_p_dir = os.path.join(ss_dir, skey, pkey)
-            os.makedirs(sp_dir, exist_ok=True)
+            os.makedirs(ss_s_p_dir, exist_ok=True)
             recarray_io.write_to_tar(
                 recarray=sp,
                 path=os.path.join(ss_s_p_dir, "shower_statistics.tar")

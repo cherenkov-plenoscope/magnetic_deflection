@@ -170,6 +170,6 @@ def read_statistics_site_particle(map_site_particle_dir):
             map_dir, "{:06d}_statistics.recarray.tar".format(job_id)
         )
         pools = recarray_io.read_from_tar(path=s_path)
-        stats = Records.append_numpy_recarray(stats, pool)
+        stats = Records.append_numpy_recarray(stats, pools)
 
     return Records.to_numpy_recarray(stats)
