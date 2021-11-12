@@ -30,3 +30,17 @@ def read_from_tar(path):
                 level_column_bytes, dtype=dtype_key
             )
     return pandas.DataFrame(out).to_records(index=False)
+
+
+def write_to_csv(recarray, path):
+    df = pandas.DataFrame(recarray)
+    csv = df.to_csv(index=False)
+    with open(path + ".tmp", "wt") as f:
+        f.write(csv)
+    shutil.move(path + ".tmp", path)
+
+
+def read_from_csv(path):
+    df = pandas.read_csv(path)
+    rec = df.to_records(index=False)
+    return rec

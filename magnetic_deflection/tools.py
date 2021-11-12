@@ -34,32 +34,20 @@ def sort_records_by_key(records, keys):
     return [records[order[i]] for i in range(len(records))]
 
 
-def write_recarray_to_csv(recarray, path):
-    df = pandas.DataFrame(recarray)
-    csv = df.to_csv(index=False)
-    with open(path + ".tmp", "wt") as f:
-        f.write(csv)
-    shutil.move(path + ".tmp", path)
-
-
-def read_csv_to_recarray(path):
-    df = pandas.read_csv(path)
-    rec = df.to_records(index=False)
-    return rec
-
-
 def read_deflection_table(path):
     paths = glob.glob(os.path.join(path, "*.csv"))
     deflection_table = {}
-    for pa in paths:
-        basename = os.path.basename(pa)
+    for path in paths:
+        basename = os.path.basename(path)
         name = basename.split(".")[0]
         split_name = name.split("_")
         assert len(split_name) == 2
         site_key, particle_key = split_name
         if site_key not in deflection_table:
             deflection_table[site_key] = {}
-        deflection_table[site_key][particle_key] = read_csv_to_recarray(pa)
+        deflection_table[site_key][particle_key] = recarray_io.read_from_csv(
+            path=path
+        )
     return deflection_table
 
 
@@ -69,7 +57,7 @@ def write_deflection_table(deflection_table, path):
             out_path = os.path.join(
                 path, "{:s}_{:s}.csv".format(site_key, particle_key)
             )
-            write_recarray_to_csv(
+            recarray_io.write_to_csv(
                 recarray=deflection_table[site_key][particle_key],
                 path=out_path,
             )
@@ -107,10 +95,6 @@ def average_std(values, weights):
     average = np.average(values, weights=weights)
     variance = np.average((values - average) ** 2, weights=weights)
     return (average, np.sqrt(variance))
-
-
-def read_csv_to_dict(path):
-    return pandas.read_csv(path).to_dict(orient="list")
 
 
 def write_json(path, obj, indent=0):
