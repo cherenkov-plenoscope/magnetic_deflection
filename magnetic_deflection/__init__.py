@@ -9,6 +9,7 @@ from . import tools
 from . import jsonl_logger
 from . import recarray_io
 from . import Records
+from . import debug
 
 import os
 import json_numpy
@@ -214,80 +215,6 @@ def D_summarize_raw_deflection(
         )
     )
     subprocess.call(["python", script_path, work_dir])
-
-
-def Z_get_incomplete_jobs(work_dir):
-    jobs_path_state = Z_get_incomplete_job_paths(work_dir)
-    jobs = []
-    for job_path_state in jobs_path_state:
-        job_path, job_state = job_path_state
-        print("job", job_path, "state:", job_state)
-        job = tools.read_json(job_path)
-        jobs.append(job)
-    return jobs
-
-
-def Z_get_incomplete_job_paths(work_dir):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-
-    incomplete_ids = []
-    for skey in sites:
-        for pkey in particles:
-            map_dir = os.path.join(work_dir, "map", skey, pkey)
-            log_wildcard = os.path.join(map_dir, "*_log.jsonl")
-            log_paths = glob.glob(log_wildcard)
-            if len(log_paths) == 0:
-                RuntimeWarning("Can't glob any log_paths.")
-
-            log_basenames = [os.path.basename(p) for p in log_paths]
-            job_ids = [int(p[0:6]) for p in log_basenames]
-
-            for job_id in job_ids:
-                log_path = os.path.join(map_dir, "{:06d}_log.jsonl".format(job_id))
-                job_path = os.path.join(map_dir, "{:06d}_job.json".format(job_id))
-                joblog = tools.read_jsonl(log_path)
-                if len(joblog) > 0:
-                    last_joblog = joblog[-1]
-                    if "m" in last_joblog:
-                        if last_joblog["m"] != "job: end":
-                            incomplete_ids.append((job_path, "no end"))
-                    else:
-                        incomplete_ids.append((job_path, "no 'm'"))
-
-                else:
-                    incomplete_ids.append((job_path, "log empty"))
-
-            not_even_log_ids = _get_incomplete_job_paths(
-                started_wildcard=os.path.join(map_dir, "*_job.json"),
-                completed_wildcard=os.path.join(map_dir, "*_log.jsonl"),
-            )
-            for not_even_log_id in not_even_log_ids:
-                job_path = os.path.join(map_dir, "{:06d}_job.json".format(not_even_log_id))
-                incomplete_ids.append((job_path, "no log"))
-
-    return incomplete_ids
-
-
-def _get_incomplete_job_paths(started_wildcard, completed_wildcard):
-    started_paths = glob.glob(started_wildcard)
-    completed_paths = glob.glob(completed_wildcard)
-    if len(started_paths) == 0:
-        RuntimeWarning("Can't glob any started_paths.")
-
-    started_basenames = [os.path.basename(p) for p in started_paths]
-    completed_basenames = [os.path.basename(p) for p in completed_paths]
-
-    started_ids = [int(p[0:6]) for p in started_basenames]
-    completed_ids = [int(p[0:6]) for p in completed_basenames]
-
-    completed_ids = set(completed_ids)
-
-    incomplete_ids = []
-    for started_id in started_ids:
-        if started_id not in completed_ids:
-            incomplete_ids.append(started_id)
-    return incomplete_ids
 
 
 def _cut_invalid(
