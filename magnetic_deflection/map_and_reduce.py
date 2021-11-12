@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas
 
 from . import corsika
 from . import examples
@@ -8,6 +9,7 @@ from . import light_field_characterization
 from . import tools
 from . import jsonl_logger
 from . import spherical_coordinates
+from . import recarray_io
 
 
 def make_jobs(
