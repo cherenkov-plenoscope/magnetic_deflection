@@ -12,7 +12,6 @@ from . import Records
 from . import debug
 
 import os
-import json_numpy
 import pandas
 import numpy as np
 import pkg_resources
@@ -56,13 +55,13 @@ def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
     }
-    with open(os.path.join(work_dir, "config.json"), "wt") as f:
-        f.write(json_numpy.dumps(cfg, indent=4))
-
+    tools.write_json(path=os.path.join(work_dir, "config.json"), obj=cfg)
 
 def _write_default_plotting_config(work_dir):
-    with open(os.path.join(work_dir, "plotting.json"), "wt") as f:
-        f.write(json_numpy.dumps(examples.PLOTTING))
+    tools.write_json(
+        path=os.path.join(work_dir, "plotting.json"),
+        obj=examples.PLOTTING,
+    )
 
 
 def B_make_jobs_from_work_dir(work_dir):
@@ -108,9 +107,7 @@ def B2_read_job_results_from_work_dir(work_dir):
             paths = glob.glob(
                 os.path.join(map_dir, skey, pkey, "*_result.json")
             )
-            job_results[skey][pkey] = [
-                json_numpy.loads(open(p, "rt").read()) for p in paths
-            ]
+            job_results[skey][pkey] = [tools.read_json(p) for p in paths]
 
     return job_results
 
