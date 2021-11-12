@@ -1,6 +1,18 @@
 import pandas
 import array
 
+MAP_NUMPY_DTYPES_ON_ARRAY_CTYPES = {
+    "i1": 'b',
+    "u1": 'B',
+    "i2": 'h',
+    "u2": 'H',
+    "i4": 'i',
+    "u4": 'I',
+    "i8": 'q',
+    "u8": 'Q',
+    "f4": 'f',
+    "f8": 'd',
+}
 
 def init(dtypes={"a": "i8"}):
     """
@@ -15,25 +27,13 @@ def init(dtypes={"a": "i8"}):
     dtypes : dict
         Maps names, i.e. keys in out-dict, to numpy dtype strings.
     """
-    arr2np = {
-        "i1": 'b',
-        "u1": 'B',
-        "i2": 'h',
-        "u2": 'H',
-        "i4": 'i',
-        "u4": 'I',
-        "i8": 'q',
-        "u8": 'Q',
-        "f4": 'f',
-        "f8": 'd',
-    }
     records = {}
     for key in dtypes:
         dtype_key = str(dtypes[key])
         dtype_key = str.replace(dtype_key, "<", "")
         dtype_key = str.replace(dtype_key, ">", "")
         dtype_key = str.replace(dtype_key, "|", "")
-        ctype = arr2np[dtype_key]
+        ctype = MAP_NUMPY_DTYPES_ON_ARRAY_CTYPES[dtype_key]
         records[key] = array.array(ctype, [])
     return records
 
