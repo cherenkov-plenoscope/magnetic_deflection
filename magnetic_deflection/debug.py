@@ -33,7 +33,7 @@ def list_incomplete_job_paths_and_states(work_dir):
 
                 if os.path.exists(log_path):
                     job_log = tools.read_jsonl(log_path)
-                    if not job_log_is_complete(job_log=job_log)
+                    if not job_log_is_complete(job_log=job_log):
                         incomplete.append((job_path, "log incomplete"))
                 else:
                     incomplete.append((job_path, "no log"))
