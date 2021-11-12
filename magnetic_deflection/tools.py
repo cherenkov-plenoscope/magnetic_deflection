@@ -143,6 +143,7 @@ def read_statistics_site_particle(map_site_particle_dir):
         dtypes={
             "particle_azimuth_deg": "f4",
             "particle_zenith_deg":"f4",
+            "particle_energy_GeV":"f4",
             "num_photons": "f4",
             "num_bunches": "i4",
             "position_med_x_m": "f4",
