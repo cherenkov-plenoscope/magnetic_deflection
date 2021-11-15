@@ -27,8 +27,6 @@ FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
 MIN_NUM_SHOWER = 11
 ON_AXIS_SCALE = 2.0
 
-LABEL_UNIT_SEP = "$\\,/\\,$"
-
 ENERGY = {}
 ENERGY["fine"] = {}
 ENERGY["fine"]["num_bins"] = 30
