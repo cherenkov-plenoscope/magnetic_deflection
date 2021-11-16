@@ -10,6 +10,7 @@ from . import jsonl_logger
 from . import recarray_io
 from . import Records
 from . import debug
+from . import work_dir as wdir
 
 import os
 import pandas
@@ -27,23 +28,26 @@ def A_init_work_dir(
     num_energy_supports,
     work_dir,
 ):
+    """
+    Make work_dir
+    """
     os.makedirs(work_dir, exist_ok=True)
+    os.makedirs(wdir.join(work_dir, "config"), exist_ok=True)
 
-    tools.write_json(os.path.join(work_dir, "sites.json"), sites)
-    tools.write_json(
-        os.path.join(work_dir, "pointing.json"), plenoscope_pointing
-    )
-    tools.write_json(os.path.join(work_dir, "particles.json"), particles)
-
+    tools.write_json(wdir.join(work_dir, "config", "sites.json"), sites)
+    tools.write_json(wdir.join(work_dir, "config", "pointing.json"), plenoscope_pointing)
+    tools.write_json(wdir.join(work_dir, "config", "particles.json"), particles)
     _write_default_config(
-        work_dir=work_dir,
+        path=wdir.join(work_dir, "config", "config.json"),
         energy_supports_max=max_energy,
         energy_supports_num=num_energy_supports,
     )
-    _write_default_plotting_config(work_dir=work_dir)
+    _write_default_plotting_config(
+        path=wdir.join(work_dir, "config", "plotting.json"),
+    )
 
 
-def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
+def _write_default_config(path, energy_supports_max, energy_supports_num):
     cfg = {
         "energy_supports_max": float(energy_supports_max),
         "energy_supports_num": int(energy_supports_num),
@@ -57,38 +61,33 @@ def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
     }
-    tools.write_json(path=os.path.join(work_dir, "config.json"), obj=cfg)
+    tools.write_json(path, obj=cfg)
 
 
-def _write_default_plotting_config(work_dir):
-    tools.write_json(
-        path=os.path.join(work_dir, "plotting.json"), obj=examples.PLOTTING,
-    )
+def _write_default_plotting_config(path):
+    tools.write_json(path=path, obj=examples.PLOTTING,)
 
 
 def B_make_jobs_from_work_dir(work_dir):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-    pointing = tools.read_json(os.path.join(work_dir, "pointing.json"))
-    config = tools.read_json(os.path.join(work_dir, "config.json"))
+    CFG = read_config(work_dir, ["sites", "particles", "pointing", "config",])
 
     jobs = []
     job_id = 0
-    for skey in sites:
-        for pkey in particles:
+    for skey in CFG["sites"]:
+        for pkey in CFG["particles"]:
             print("Make jobs ", skey, pkey)
             site_particle_jobs = map_and_reduce.make_jobs(
                 first_job_id=job_id,
                 work_dir=work_dir,
-                site=sites[skey],
+                site=CFG["sites"][skey],
                 site_key=skey,
-                particle=particles[pkey],
+                particle=CFG["particles"][pkey],
                 particle_key=pkey,
                 pointing=pointing,
                 energy_supports_min=min(
-                    particles[pkey]["energy_bin_edges_GeV"]
+                    CFG["particles"][pkey]["energy_bin_edges_GeV"]
                 ),
-                **config,
+                **CFG["config"],
             )
             job_id += len(site_particle_jobs)
             jobs += site_particle_jobs
@@ -100,80 +99,62 @@ def B_make_jobs_from_work_dir(work_dir):
 
 
 def B2_read_job_results_from_work_dir(work_dir):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-    map_dir = os.path.join(work_dir, "map")
+    CFG = read_config(work_dir, ["sites", "particles",])
 
     job_results = {}
-    for skey in sites:
+    for skey in CFG["sites"]:
         job_results[skey] = {}
-        for pkey in particles:
+        for pkey in  CFG["particles"]:
             paths = glob.glob(
-                os.path.join(map_dir, skey, pkey, "*_result.json")
+                wdir.join(work_dir, "map", skey, pkey, "*_result.json")
             )
             job_results[skey][pkey] = [tools.read_json(p) for p in paths]
-
     return job_results
 
 
 def C_reduce_job_results_in_work_dir(job_results, work_dir):
-    raw_dir = os.path.join(work_dir, "raw")
-    os.makedirs(raw_dir, exist_ok=True)
+    CFG = read_config(work_dir, ["sites", "particles",])
 
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-
-    table = {}
-    for skey in sites:
-        table[skey] = {}
-        for pkey in particles:
+    for skey in CFG["sites"]:
+        os.makedirs(wdir.join(work_dir, "reduce", skey), exist_ok=True)
+        for pkey in CFG["particles"]:
             print("Reducing shower results: ", skey, pkey)
 
             df = pandas.DataFrame(job_results[skey][pkey])
             rec = df.to_records(index=False)
             order = np.argsort(rec["particle_energy_GeV"])
             rec = rec[order]
-            table[skey][pkey] = rec
-
             recarray_io.write_to_csv(
-                recarray=table[skey][pkey],
-                path=os.path.join(raw_dir, "{:s}_{:s}.csv".format(skey, pkey)),
+                recarray=rec,
+                path=wdir.join(work_dir, "reduce", skey, pkey + "_deflection.csv"),
             )
 
 
-def C2_reduce_statistics_in_work_dir(work_dir):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-    ss_dir = os.path.join(work_dir, "shower_statistics")
+def C2_reduce_shower_statistics_in_work_dir(work_dir):
+    CFG = read_config(work_dir, ["sites", "particles",])
 
-    os.makedirs(ss_dir, exist_ok=True)
-
-    for skey in sites:
-        for pkey in particles:
+    for skey in CFG["sites"]:
+        os.makedirs(wdir.join(work_dir, "reduce", skey), exist_ok=True)
+        for pkey in CFG["particles"]:
             print("Reducing shower statistics: ", skey, pkey)
 
-            sp = tools.read_statistics_site_particle(
-                map_site_particle_dir=os.path.join(work_dir, "map", skey, pkey)
+            shower_statistics = tools.read_statistics_site_particle(
+                map_site_particle_dir=wdir.join(work_dir, "map", skey, pkey)
             )
-
-            ss_s_p_dir = os.path.join(ss_dir, skey, pkey)
-            os.makedirs(ss_s_p_dir, exist_ok=True)
             recarray_io.write_to_tar(
-                recarray=sp,
-                path=os.path.join(ss_s_p_dir, "shower_statistics.tar"),
+                recarray=shower_statistics,
+                path=wdir.join(work_dir, "reduce", skey, pkey + "_shower_statistics.recarray.tar"),
             )
 
 
 def read_shower_statistics(work_dir):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-    ss_dir = os.path.join(work_dir, "shower_statistics")
+    CFG = read_config(work_dir, ["sites", "particles",])
     out = {}
-    for skey in sites:
+    for skey in CFG["sites"]:
         out[skey] = {}
-        for pkey in particles:
+        for pkey in CFG["particles"]:
             out[skey][pkey] = recarray_io.read_from_tar(
-                path=os.path.join(ss_dir, skey, pkey, "shower_statistics.tar")
+                path=wdir.join(work_dir, "reduce", skey, pkey + "_shower_statistics.recarray.tar")
             )
     return out
 
@@ -181,24 +162,25 @@ def read_shower_statistics(work_dir):
 def D_summarize_raw_deflection(
     work_dir, min_fit_energy=0.65,
 ):
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
-    pointing = tools.read_json(os.path.join(work_dir, "pointing.json"))
+    CFG = read_config(work_dir, ["sites", "particles",])
+    PARTICLES = CFG["particles"]
+    SITES = CFG["sites"]
+
     min_particle_energy = np.min(
-        [np.min(particles[p]["energy_bin_edges_GeV"]) for p in particles]
+        [np.min(PARTICLES[p]["energy_bin_edges_GeV"]) for p in PARTICLES]
     )
     if min_particle_energy > min_fit_energy:
         min_fit_energy = 1.1 * min_particle_energy
 
-    raw_dir = os.path.join(work_dir, "raw")
+    raw_dir = wdir.join(work_dir, "raw")
 
-    raw_valid_dir = os.path.join(work_dir, "raw_valid")
+    raw_valid_dir = wdir.join(work_dir, "raw_valid")
     os.makedirs(raw_valid_dir, exist_ok=True)
 
-    raw_valid_add_dir = os.path.join(work_dir, "raw_valid_add")
+    raw_valid_add_dir = wdir.join(work_dir, "raw_valid_add")
     os.makedirs(raw_valid_add_dir, exist_ok=True)
 
-    raw_valid_add_clean_dir = os.path.join(work_dir, "raw_valid_add_clean")
+    raw_valid_add_clean_dir = wdir.join(work_dir, "raw_valid_add_clean")
     os.makedirs(raw_valid_add_clean_dir, exist_ok=True)
 
     raw_valid_add_clean_high_dir = os.path.join(
@@ -211,14 +193,14 @@ def D_summarize_raw_deflection(
     )
     os.makedirs(raw_valid_add_clean_high_power_dir, exist_ok=True)
 
-    result_dir = os.path.join(work_dir, "result")
+    result_dir = wdir.join(work_dir, "result")
     os.makedirs(result_dir, exist_ok=True)
 
-    for skey in sites:
-        for pkey in particles:
+    for skey in SITES:
+        for pkey in PARTICLES:
 
             fname = skey + "_" + pkey + ".csv"
-            charge_sign = np.sign(particles[pkey]["electric_charge_qe"])
+            charge_sign = np.sign(PARTICLES[pkey]["electric_charge_qe"])
 
             print(skey, pkey, fname)
 
@@ -304,15 +286,12 @@ def read(work_dir, style="dict"):
     """
     Reads work_dir/result/{site:s}_{particle:s}.csv into dict[site][particle].
     """
-    sites = tools.read_json(os.path.join(work_dir, "sites.json"))
-    particles = tools.read_json(os.path.join(work_dir, "particles.json"))
+    CFG = read_config(work_dir, ["sites", "particles",])
     mag = {}
-    for skey in sites:
+    for skey in CFG["sites"]:
         mag[skey] = {}
-        for pkey in particles:
-            path = os.path.join(
-                work_dir, "result", "{:s}_{:s}.csv".format(skey, pkey),
-            )
+        for pkey in CFG["particles"]:
+            path = wdir.join(work_dir, "result", "{:s}_{:s}.csv".format(skey, pkey),)
             df = pandas.read_csv(path)
             if style == "record":
                 mag[skey][pkey] = df.to_records()
@@ -323,11 +302,51 @@ def read(work_dir, style="dict"):
     return mag
 
 
-def read_config(work_dir):
-    cf = {}
-    cf["sites"] = tools.read_json(os.path.join(work_dir, "sites.json"))
-    cf["particles"] = tools.read_json(os.path.join(work_dir, "particles.json"))
-    cf["pointing"] = tools.read_json(os.path.join(work_dir, "pointing.json"))
-    cf["config"] = tools.read_json(os.path.join(work_dir, "config.json"))
-    cf["plotting"] = tools.read_json(os.path.join(work_dir, "plotting.json"))
-    return cf
+def read_config(work_dir, keys=["sites", "particles", "pointing", "config", "plotting"]):
+    CFG = {}
+    for key in keys:
+        CFG[key] = tools.read_json(wdir.join(work_dir, "config", key + ".json"))
+    return CFG
+
+
+def read_statistics_site_particle(map_site_particle_dir):
+    map_dir = map_site_particle_dir
+    paths = glob.glob(os.path.join(map_dir, "*_statistics.recarray.tar"))
+    basenames = [os.path.basename(p) for p in paths]
+    job_ids = [int(b[0:6]) for b in basenames]
+    job_ids.sort()
+
+    stats = Records.init(
+        dtypes={
+            "particle_azimuth_deg": "f4",
+            "particle_zenith_deg": "f4",
+            "particle_energy_GeV": "f4",
+            "num_photons": "f4",
+            "num_bunches": "i4",
+            "position_med_x_m": "f4",
+            "position_med_y_m": "f4",
+            "position_phi_rad": "f4",
+            "position_std_minor_m": "f4",
+            "position_std_major_m": "f4",
+            "direction_med_cx_rad": "f4",
+            "direction_med_cy_rad": "f4",
+            "direction_phi_rad": "f4",
+            "direction_std_minor_rad": "f4",
+            "direction_std_major_rad": "f4",
+            "arrival_time_mean_s": "f4",
+            "arrival_time_median_s": "f4",
+            "arrival_time_std_s": "f4",
+            "off_axis_deg": "f4",
+        }
+    )
+
+    num_jobs = len(job_ids)
+    for i, job_id in enumerate(job_ids):
+        print("Read job: {:06d}, {: 6d} / {: 6d}".format(job_id, i, num_jobs))
+        s_path = os.path.join(
+            map_dir, "{:06d}_statistics.recarray.tar".format(job_id)
+        )
+        pools = recarray_io.read_from_tar(path=s_path)
+        stats = Records.append_numpy_recarray(stats, pools)
+
+    return Records.to_numpy_recarray(stats)
