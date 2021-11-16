@@ -78,10 +78,7 @@ def make_jobs(
         job["pointing"] = pointing
 
         max_total_num_showers = int(
-            np.ceil(
-                discovery_max_total_energy
-                / job["particle"]["energy_GeV"]
-            )
+            np.ceil(discovery_max_total_energy / job["particle"]["energy_GeV"])
         )
         num_showers = int(
             np.ceil(
@@ -104,9 +101,7 @@ def make_jobs(
         }
 
         num_showers = int(
-            np.ceil(
-                statistics_total_energy / job["particle"]["energy_GeV"]
-            )
+            np.ceil(statistics_total_energy / job["particle"]["energy_GeV"])
         )
 
         num_showers = np.max([num_showers, statistics_min_num_showers])
@@ -115,9 +110,8 @@ def make_jobs(
             "num_showers": num_showers,
             "outlier_percentile": outlier_percentile,
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
-            "off_axis_deg": 3.0 * particle[
-                "magnetic_deflection_max_off_axis_deg"
-            ],
+            "off_axis_deg": 3.0
+            * particle["magnetic_deflection_max_off_axis_deg"],
         }
 
         jobs.append(job)
@@ -133,10 +127,13 @@ def run_job(job):
     log_path = os.path.join(job["job"]["map_dir"], log_filename)
     jlog = jsonl_logger.init(path=log_path)
     jlog.info("job: start")
-    jlog.info("job: site: {:s}, particle: {:s}, energy: {:f} GeV".format(
-        job["site"]["key"],
-        job["particle"]["key"],
-        job["particle"]["energy_GeV"]))
+    jlog.info(
+        "job: site: {:s}, particle: {:s}, energy: {:f} GeV".format(
+            job["site"]["key"],
+            job["particle"]["key"],
+            job["particle"]["energy_GeV"],
+        )
+    )
 
     job_filename = "{:06d}_job.json".format(job["job"]["id"])
     job_path = os.path.join(job["job"]["map_dir"], job_filename)
@@ -145,7 +142,9 @@ def run_job(job):
     estimates_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
     estimates_path = os.path.join(job["job"]["map_dir"], estimates_filename)
 
-    statistics_filename = "{:06d}_statistics.recarray.tar".format(job["job"]["id"])
+    statistics_filename = "{:06d}_statistics.recarray.tar".format(
+        job["job"]["id"]
+    )
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
 
     result_filename = "{:06d}_result.json".format(job["job"]["id"])
@@ -192,11 +191,21 @@ def run_job(job):
         else:
             cone_opening_angle_deg = job["statistics"]["off_axis_deg"]
 
-        if best_estimate["particle_zenith_deg"] + cone_opening_angle_deg > corsika.MAX_ZENITH_DEG:
-            jlog.info("job: Warning: Cone's opening angle reaches out of valid zenith-range.")
+        if (
+            best_estimate["particle_zenith_deg"] + cone_opening_angle_deg
+            > corsika.MAX_ZENITH_DEG
+        ):
+            jlog.info(
+                "job: Warning: Cone's opening is out of valid zenith-range."
+            )
 
-        if best_estimate["particle_zenith_deg"] - cone_opening_angle_deg > corsika.MAX_ZENITH_DEG:
-            jlog.info("job: Error: Cone is completely out of valid zenith-range.")
+        if (
+            best_estimate["particle_zenith_deg"] - cone_opening_angle_deg
+            > corsika.MAX_ZENITH_DEG
+        ):
+            jlog.info(
+                "job: Error: Cone is completely out of valid zenith-range."
+            )
             return 0
 
         jlog.info("job: gathering statistics")
@@ -251,14 +260,12 @@ def run_job(job):
 
 
 def add_off_axis_to_pool_statistics(
-    pool_statistics,
-    instrument_azimuth_deg,
-    instrument_zenith_deg
+    pool_statistics, instrument_azimuth_deg, instrument_zenith_deg
 ):
     for i in range(len(pool_statistics)):
         cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
             cx=pool_statistics[i]["direction_med_cx_rad"],
-            cy=pool_statistics[i]["direction_med_cy_rad"]
+            cy=pool_statistics[i]["direction_med_cy_rad"],
         )
         off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
             az1_deg=cer_az_deg,
@@ -271,16 +278,16 @@ def add_off_axis_to_pool_statistics(
 
 
 def _write_pool_statistics(pool_statistics, path):
-    pool_statistics_rec = pandas.DataFrame(
-        pool_statistics
-    ).to_records(index=False)
+    pool_statistics_rec = pandas.DataFrame(pool_statistics).to_records(
+        index=False
+    )
     recarray_io.write_to_tar(recarray=pool_statistics_rec, path=path)
 
 
 def _read_pool_statistics(path):
     pool_statistics_rec = recarray_io.read_from_tar(path=path)
     pool_statistics_df = pandas.DataFrame(pool_statistics_rec)
-    del(pool_statistics_rec)
+    del pool_statistics_rec
     pool_statistics = pool_statistics_df.to_dict(orient="records")
-    del(pool_statistics_df)
+    del pool_statistics_df
     return pool_statistics
