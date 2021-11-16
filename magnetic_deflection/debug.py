@@ -32,7 +32,7 @@ def list_incomplete_job_paths_and_states(work_dir):
                     sp_dir, "{:06d}_job.json".format(job_id)
                 )
                 log_path = os.path.join(
-                    sp_dir, "{:06d}_log.json".format(job_id)
+                    sp_dir, "{:06d}_log.jsonl".format(job_id)
                 )
 
                 if os.path.exists(log_path):
