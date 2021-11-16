@@ -21,7 +21,6 @@ def estimate_deflection(
     max_num_showers,
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
-    guesses_path=None,
 ):
     jlog = json_logger
     shift_angle_deg = 0.0
@@ -109,8 +108,6 @@ def estimate_deflection(
         )
 
         guesses.append(guess)
-        if guesses_path:
-            tools.append_jsonl_unsave(guesses_path, guess)
 
         if guess["off_axis_deg"] <= max_off_axis_deg:
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")

@@ -173,7 +173,6 @@ def run_job(job):
                 "min_num_cherenkov_photons"
             ],
             corsika_primary_path=job["job"]["corsika_primary_path"],
-            guesses_path=estimates_path,
         )
 
         tools.write_jsonl(estimates_path, estimates)

@@ -117,12 +117,6 @@ def write_jsonl(path, list_of_obj):
     shutil.move(path + ".tmp", path)
 
 
-def append_jsonl_unsave(path, obj):
-    with open(path, "at") as f:
-        f.write(json_numpy.dumps(obj, indent=None))
-        f.write("\n")
-
-
 def read_jsonl(path):
     list_of_obj = []
     with open(path, "rt") as f:
