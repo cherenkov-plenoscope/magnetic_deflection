@@ -142,7 +142,7 @@ def run_job(job):
     estimates_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
     estimates_path = os.path.join(job["job"]["map_dir"], estimates_filename)
 
-    statistics_filename = "{:06d}_statistics.recarray.tar".format(
+    statistics_filename = "{:06d}_shower_statistics.recarray.tar".format(
         job["job"]["id"]
     )
     statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)

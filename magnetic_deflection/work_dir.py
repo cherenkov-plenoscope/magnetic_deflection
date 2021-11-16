@@ -11,8 +11,11 @@ STRUCTURE = {
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_job.json": {},
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_log.jsonl": {},
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_result.json": {},
-    "config/results": {},
-    "config/results/{site_key:s}_{particle_key:s}.csv": {},
+    "map/{site_key:s}/{particle_key:s}/{job_id:06d}_shower_statistics.recarray.tar": {},
+    "reduce/{site_key:s}": {},
+    "reduce/{site_key:s}/{particle_key:s}": {},
+    "reduce/{site_key:s}/{particle_key:s}/deflection.csv": {},
+    "reduce/{site_key:s}/{particle_key:s}/shower_statistics.recarray.tar": {},
 }
 
 def join(work_dir, *args):
