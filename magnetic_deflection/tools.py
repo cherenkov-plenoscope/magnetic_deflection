@@ -34,35 +34,6 @@ def sort_records_by_key(records, keys):
     return [records[order[i]] for i in range(len(records))]
 
 
-def read_deflection_table(path):
-    paths = glob.glob(os.path.join(path, "*.csv"))
-    deflection_table = {}
-    for path in paths:
-        basename = os.path.basename(path)
-        name = basename.split(".")[0]
-        split_name = name.split("_")
-        assert len(split_name) == 2
-        site_key, particle_key = split_name
-        if site_key not in deflection_table:
-            deflection_table[site_key] = {}
-        deflection_table[site_key][particle_key] = recarray_io.read_from_csv(
-            path=path
-        )
-    return deflection_table
-
-
-def write_deflection_table(deflection_table, path):
-    for site_key in deflection_table:
-        for particle_key in deflection_table[site_key]:
-            out_path = os.path.join(
-                path, "{:s}_{:s}.csv".format(site_key, particle_key)
-            )
-            recarray_io.write_to_csv(
-                recarray=deflection_table[site_key][particle_key],
-                path=out_path,
-            )
-
-
 def powerspace(start, stop, power_index, num, iterations=10000):
     assert num >= 2
     num_points_without_start_and_end = num - 2
