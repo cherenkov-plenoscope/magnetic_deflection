@@ -1,5 +1,6 @@
 import logging
 
+
 def init(path):
     l = logging.Logger(name=path)
     file_handler = logging.FileHandler(filename=path, mode="w")

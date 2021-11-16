@@ -6,6 +6,7 @@ from . import light_field_characterization
 from . import tools
 from . import spherical_coordinates
 
+
 def estimate_deflection(
     json_logger,
     prng,
@@ -35,9 +36,9 @@ def estimate_deflection(
     guesses = []
 
     jlog.info("loop: start")
-    jlog.info("loop: {:d} shower/iteration, {:d} showers max.".format(
-            num_showers_per_iteration,
-            max_num_showers
+    jlog.info(
+        "loop: {:d} shower/iteration, {:d} showers max.".format(
+            num_showers_per_iteration, max_num_showers
         )
     )
 
@@ -114,7 +115,6 @@ def estimate_deflection(
         if guess["off_axis_deg"] <= max_off_axis_deg:
             jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
-
 
         prm_az_deg = float(guess["particle_azimuth_deg"])
         prm_zd_deg = float(guess["particle_zenith_deg"])

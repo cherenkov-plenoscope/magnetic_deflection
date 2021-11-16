@@ -8,15 +8,15 @@ import tarfile
 def write_to_tar(recarray, path):
     with tarfile.open(path + ".tmp", "w") as tarfout:
         for column_key in recarray.dtype.names:
-                dtype_key = recarray.dtype[column_key].str
-                payload_bytes = recarray[column_key].tobytes()
-                tarinfo = tarfile.TarInfo()
-                tarinfo.name = "{:s}.{:s}".format(column_key, dtype_key)
-                tarinfo.size = len(payload_bytes)
-                with io.BytesIO() as fileobj:
-                    fileobj.write(payload_bytes)
-                    fileobj.seek(0)
-                    tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
+            dtype_key = recarray.dtype[column_key].str
+            payload_bytes = recarray[column_key].tobytes()
+            tarinfo = tarfile.TarInfo()
+            tarinfo.name = "{:s}.{:s}".format(column_key, dtype_key)
+            tarinfo.size = len(payload_bytes)
+            with io.BytesIO() as fileobj:
+                fileobj.write(payload_bytes)
+                fileobj.seek(0)
+                tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
     shutil.move(path + ".tmp", path)
 
 

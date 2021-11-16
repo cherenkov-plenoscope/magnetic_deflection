@@ -30,13 +30,15 @@ def A_init_work_dir(
     os.makedirs(work_dir, exist_ok=True)
 
     tools.write_json(os.path.join(work_dir, "sites.json"), sites)
-    tools.write_json(os.path.join(work_dir, "pointing.json"), plenoscope_pointing)
+    tools.write_json(
+        os.path.join(work_dir, "pointing.json"), plenoscope_pointing
+    )
     tools.write_json(os.path.join(work_dir, "particles.json"), particles)
 
     _write_default_config(
         work_dir=work_dir,
         energy_supports_max=max_energy,
-        energy_supports_num=num_energy_supports
+        energy_supports_num=num_energy_supports,
     )
     _write_default_plotting_config(work_dir=work_dir)
 
@@ -57,10 +59,10 @@ def _write_default_config(work_dir, energy_supports_max, energy_supports_num):
     }
     tools.write_json(path=os.path.join(work_dir, "config.json"), obj=cfg)
 
+
 def _write_default_plotting_config(work_dir):
     tools.write_json(
-        path=os.path.join(work_dir, "plotting.json"),
-        obj=examples.PLOTTING,
+        path=os.path.join(work_dir, "plotting.json"), obj=examples.PLOTTING,
     )
 
 
@@ -83,7 +85,9 @@ def B_make_jobs_from_work_dir(work_dir):
                 particle=particles[pkey],
                 particle_key=pkey,
                 pointing=pointing,
-                energy_supports_min=min(particles[pkey]["energy_bin_edges_GeV"]),
+                energy_supports_min=min(
+                    particles[pkey]["energy_bin_edges_GeV"]
+                ),
                 **config,
             )
             job_id += len(site_particle_jobs)
@@ -133,7 +137,7 @@ def C_reduce_job_results_in_work_dir(job_results, work_dir):
 
             recarray_io.write_to_csv(
                 recarray=table[skey][pkey],
-                path=os.path.join(raw_dir, "{:s}_{:s}.csv".format(skey, pkey))
+                path=os.path.join(raw_dir, "{:s}_{:s}.csv".format(skey, pkey)),
             )
 
 
@@ -156,7 +160,7 @@ def C2_reduce_statistics_in_work_dir(work_dir):
             os.makedirs(ss_s_p_dir, exist_ok=True)
             recarray_io.write_to_tar(
                 recarray=sp,
-                path=os.path.join(ss_s_p_dir, "shower_statistics.tar")
+                path=os.path.join(ss_s_p_dir, "shower_statistics.tar"),
             )
 
 
@@ -197,10 +201,14 @@ def D_summarize_raw_deflection(
     raw_valid_add_clean_dir = os.path.join(work_dir, "raw_valid_add_clean")
     os.makedirs(raw_valid_add_clean_dir, exist_ok=True)
 
-    raw_valid_add_clean_high_dir = os.path.join(work_dir, "raw_valid_add_clean_high")
+    raw_valid_add_clean_high_dir = os.path.join(
+        work_dir, "raw_valid_add_clean_high"
+    )
     os.makedirs(raw_valid_add_clean_high_dir, exist_ok=True)
 
-    raw_valid_add_clean_high_power_dir = os.path.join(work_dir, "raw_valid_add_clean_high_power")
+    raw_valid_add_clean_high_power_dir = os.path.join(
+        work_dir, "raw_valid_add_clean_high_power"
+    )
     os.makedirs(raw_valid_add_clean_high_power_dir, exist_ok=True)
 
     result_dir = os.path.join(work_dir, "result")
@@ -208,7 +216,6 @@ def D_summarize_raw_deflection(
 
     for skey in sites:
         for pkey in particles:
-
 
             fname = skey + "_" + pkey + ".csv"
             charge_sign = np.sign(particles[pkey]["electric_charge_qe"])
@@ -220,8 +227,7 @@ def D_summarize_raw_deflection(
             # cut invalid
             # -----------
             raw_valid = analysis.cut_invalid_from_deflection(
-                deflection=raw,
-                min_energy=min_fit_energy,
+                deflection=raw, min_energy=min_fit_energy,
             )
             recarray_io.write_to_csv(
                 raw_valid, path=os.path.join(raw_valid_dir, fname)
@@ -243,7 +249,7 @@ def D_summarize_raw_deflection(
             )
             recarray_io.write_to_csv(
                 raw_valid_add_clean,
-                path=os.path.join(raw_valid_add_clean_dir, fname)
+                path=os.path.join(raw_valid_add_clean_dir, fname),
             )
 
             # add_high_energies
@@ -257,14 +263,13 @@ def D_summarize_raw_deflection(
             )
             recarray_io.write_to_csv(
                 raw_valid_add_clean_high,
-                path=os.path.join(raw_valid_add_clean_high_dir, fname)
+                path=os.path.join(raw_valid_add_clean_high_dir, fname),
             )
 
             # fit_power_law
             # -------------
             power_law_fit = analysis.fit_power_law_to_deflection(
-                deflection=raw_valid_add_clean_high,
-                charge_sign=charge_sign,
+                deflection=raw_valid_add_clean_high, charge_sign=charge_sign,
             )
             tools.write_json(
                 path=os.path.join(

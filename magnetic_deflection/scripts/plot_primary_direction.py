@@ -116,7 +116,9 @@ for skey in shower_statistics:
             mask_on_axis = (
                 showers["off_axis_deg"]
                 <= ON_AXIS_SCALE
-                * CFG["particles"][pkey]["magnetic_deflection_max_off_axis_deg"]
+                * CFG["particles"][pkey][
+                    "magnetic_deflection_max_off_axis_deg"
+                ]
             )
 
             rgbas = cmap_mappable.to_rgba(

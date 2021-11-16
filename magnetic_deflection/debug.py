@@ -28,8 +28,12 @@ def list_incomplete_job_paths_and_states(work_dir):
             print("Search ", len(job_ids), " jobs in ", sp_dir)
 
             for job_id in job_ids:
-                job_path = os.path.join(sp_dir, "{:06d}_job.json".format(job_id))
-                log_path = os.path.join(sp_dir, "{:06d}_log.json".format(job_id))
+                job_path = os.path.join(
+                    sp_dir, "{:06d}_job.json".format(job_id)
+                )
+                log_path = os.path.join(
+                    sp_dir, "{:06d}_log.json".format(job_id)
+                )
 
                 if os.path.exists(log_path):
                     job_log = tools.read_jsonl(log_path)

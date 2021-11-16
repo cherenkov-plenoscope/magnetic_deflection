@@ -2,17 +2,18 @@ import pandas
 import array
 
 MAP_NUMPY_DTYPES_ON_ARRAY_CTYPES = {
-    "i1": 'b',
-    "u1": 'B',
-    "i2": 'h',
-    "u2": 'H',
-    "i4": 'i',
-    "u4": 'I',
-    "i8": 'q',
-    "u8": 'Q',
-    "f4": 'f',
-    "f8": 'd',
+    "i1": "b",
+    "u1": "B",
+    "i2": "h",
+    "u2": "H",
+    "i4": "i",
+    "u4": "I",
+    "i8": "q",
+    "u8": "Q",
+    "f4": "f",
+    "f8": "d",
 }
+
 
 def init(dtypes={"a": "i8"}):
     """

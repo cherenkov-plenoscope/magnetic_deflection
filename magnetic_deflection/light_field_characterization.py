@@ -118,8 +118,7 @@ def inspect_pools(
     )
 
     w_off = make_weights_off_axis(
-        off_axis_deg=cer_off_axis_deg,
-        off_axis_pivot_deg=off_axis_pivot_deg
+        off_axis_deg=cer_off_axis_deg, off_axis_pivot_deg=off_axis_pivot_deg
     )
     w_nph = make_weights_num_photons(num_photons=cers["num_photons"])
 
@@ -140,11 +139,11 @@ def inspect_pools(
 
     if False:
         print("---")
-        #print(json_numpy.dumps(out, indent=4))
+        # print(json_numpy.dumps(out, indent=4))
         asw = np.argsort(weights)
         for i in range(len(asw)):
             j = asw[len(asw) - 1 - i]
-            w_percent = int(100 * weights[j]/np.sum(weights))
+            w_percent = int(100 * weights[j] / np.sum(weights))
             if w_percent > 1:
                 print(
                     "weight {:03d} %, off-axis {:.2f} deg".format(
@@ -162,7 +161,7 @@ def make_weights_num_photons(num_photons):
     These might create strong outliers.
     """
     med = np.median(num_photons)
-    weights = (num_photons / med)
+    weights = num_photons / med
     weights[weights > 1.0] = 1.0
     return weights
 

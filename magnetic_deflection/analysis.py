@@ -54,8 +54,7 @@ def smooth_deflection_and_reject_outliers(deflection):
     sm = {}
     for key in FIT_KEYS:
         sres = smooth(
-            energies=deflection["particle_energy_GeV"],
-            values=deflection[key]
+            energies=deflection["particle_energy_GeV"], values=deflection[key]
         )
         if "particle_energy_GeV" in sm:
             np.testing.assert_array_almost_equal(
@@ -71,19 +70,13 @@ def smooth_deflection_and_reject_outliers(deflection):
 
 
 def add_high_energy_to_deflection(
-    deflection,
-    charge_sign,
-    energy_start=200,
-    energy_stop=600,
-    num_points=20,
+    deflection, charge_sign, energy_start=200, energy_stop=600, num_points=20,
 ):
     sm = {}
     for key in FIT_KEYS:
         sm["particle_energy_GeV"] = np.array(
             deflection["particle_energy_GeV"].tolist()
-            + np.geomspace(
-                energy_start, energy_stop, num_points
-            ).tolist()
+            + np.geomspace(energy_start, energy_stop, num_points).tolist()
         )
         key_start = charge_sign * FIT_KEYS[key]["start"]
         sm[key] = np.array(
@@ -96,8 +89,7 @@ def add_high_energy_to_deflection(
 
 
 def fit_power_law_to_deflection(
-    deflection,
-    charge_sign,
+    deflection, charge_sign,
 ):
     t = deflection
     fits = {}
@@ -147,6 +139,7 @@ def make_fit_deflection(power_law_fit, particle, num_supports=1024):
     df = pandas.DataFrame(out)
     df = df[df["particle_zenith_deg"] <= corsika.MAX_ZENITH_DEG]
     return df.to_records(index=False)
+
 
 """
 Reject outliers, smooth

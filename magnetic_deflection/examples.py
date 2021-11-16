@@ -38,44 +38,20 @@ CORSIKA_PRIMARY_MOD_PATH = os.path.abspath(
 
 PLOTTING = {
     "sites": {
-        "namibia": {
-            "label": "Gamsberg",
-            "marker": "+",
-            "linestyle": "--",
-        },
-        "chile": {
-            "label": "Chajnantor",
-            "marker": "*",
-            "linestyle": ":",
-        },
+        "namibia": {"label": "Gamsberg", "marker": "+", "linestyle": "--",},
+        "chile": {"label": "Chajnantor", "marker": "*", "linestyle": ":",},
         "namibiaOff": {
             "label": "Gamsberg-Off",
             "marker": ".",
             "linestyle": "-.",
         },
-        "lapalma": {
-            "label": "Roque",
-            "marker": "^",
-            "linestyle": "-",
-        },
+        "lapalma": {"label": "Roque", "marker": "^", "linestyle": "-",},
     },
     "particles": {
-        "gamma": {
-            "color": "black",
-            "label": "gamma-ray",
-        },
-        "electron": {
-            "color": "blue",
-            "label": "electron",
-        },
-        "proton": {
-            "color": "red",
-            "label": "proton",
-        },
-        "helium": {
-            "color": "orange",
-            "label": "helium",
-        },
+        "gamma": {"color": "black", "label": "gamma-ray",},
+        "electron": {"color": "blue", "label": "electron",},
+        "proton": {"color": "red", "label": "proton",},
+        "helium": {"color": "orange", "label": "helium",},
     },
     "light_field": {
         "num_photons": {
@@ -100,8 +76,5 @@ PLOTTING = {
         },
     },
     "label_unit_seperator": "$\\,/\\,$",
-    "rcParams": {
-        "mathtext.fontset": "cm",
-        "font.family": "STIXGeneral",
-    },
+    "rcParams": {"mathtext.fontset": "cm", "font.family": "STIXGeneral",},
 }

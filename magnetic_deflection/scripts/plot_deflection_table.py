@@ -75,9 +75,7 @@ fit_map = {
 
 charge_signs = {}
 for pkey in CFG["particles"]:
-    charge_signs[pkey] = np.sign(
-        CFG["particles"][pkey]["electric_charge_qe"]
-    )
+    charge_signs[pkey] = np.sign(CFG["particles"][pkey]["electric_charge_qe"])
 
 
 def make_site_str(skey, site):
@@ -274,7 +272,7 @@ for skey in deflection_table:
             if PLOT_TITLE_INFO:
                 ax.set_title(info_str, alpha=0.5)
             ax.semilogx()
-            ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
+            ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
             ax.set_xlim([0.4, 110])
 
             y_fit_lower = np.min(unc80_lower)
@@ -331,7 +329,7 @@ for skey in deflection_table:
         if PLOT_TITLE_INFO:
             ax.set_title(site_str, alpha=0.5)
         ax.loglog()
-        ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
+        ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
         ax.set_xlim([1e-1, 1e2])
         ax.set_ylim(PLT["light_field"][dkey]["limits"])
         ax.set_ylabel(
@@ -400,7 +398,7 @@ ax.text(
 )
 leg = ax.legend()
 ax.loglog()
-ax.set_xlabel("energy"+PLT["label_unit_seperator"]+"GeV")
+ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 ax.set_xlim([1e-1, 1e2])
 ax.set_ylim([1e-3, 1e2])
 ax.set_ylabel(
