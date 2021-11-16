@@ -39,7 +39,7 @@ def make_steering(
             max_scatter_opening_angle_rad=np.deg2rad(
                 particle_cone_opening_angle_deg
             ),
-            max_zenith_rad=np.deg2rad(90),
+            max_iterations=1000,
         )
         prm = {
             "particle_id": int(particle_id),

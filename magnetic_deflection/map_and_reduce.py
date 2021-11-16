@@ -192,6 +192,13 @@ def run_job(job):
         else:
             cone_opening_angle_deg = job["statistics"]["off_axis_deg"]
 
+        if best_estimate["particle_zenith_deg"] + cone_opening_angle_deg > corsika.MAX_ZENITH_DEG:
+            jlog.info("job: Warning: Cone's opening angle reaches out of valid zenith-range.")
+
+        if best_estimate["particle_zenith_deg"] - cone_opening_angle_deg > corsika.MAX_ZENITH_DEG:
+            jlog.info("job: Error: Cone is completely out of valid zenith-range.")
+            return 0
+
         jlog.info("job: gathering statistics")
         if not os.path.exists(statistics_path):
             jlog.info("job: simulate new showers")
