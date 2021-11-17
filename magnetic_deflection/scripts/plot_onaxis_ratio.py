@@ -31,7 +31,7 @@ ENERGY = {}
 ENERGY["num_bins"] = 15
 ENERGY["bin_edges"] = np.geomspace(1e-1, 1e2, ENERGY["num_bins"] + 1)
 
-shower_statistics = mdfl.read_shower_statistics(work_dir=work_dir)
+shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
 instrument_azimuth_deg = CFG["pointing"]["azimuth_deg"]
 instrument_zenith_deg = CFG["pointing"]["zenith_deg"]

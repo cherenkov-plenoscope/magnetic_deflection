@@ -39,7 +39,7 @@ ENERGY["coarse"]["bin_edges"] = np.geomspace(
     1e-1, 1e2, ENERGY["coarse"]["num_bins"] + 1
 )
 
-shower_statistics = mdfl.read_shower_statistics(work_dir=work_dir)
+shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
 for skey in shower_statistics:
     for pkey in shower_statistics[skey]:

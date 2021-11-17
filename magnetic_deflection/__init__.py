@@ -109,7 +109,7 @@ def reduce(work_dir):
     analyse_raw_deflection(
         work_dir=work_dir, min_fit_energy=0.65,
     )
-    reduce_shower_statistics(work_dir=work_dir)
+    reduce_statistics(work_dir=work_dir)
 
 
 def reduce_raw_deflection(work_dir):
@@ -154,7 +154,7 @@ def _reduce_raw_deflection_site_particle(paths):
     return raw_rec
 
 
-def reduce_shower_statistics(work_dir):
+def reduce_statistics(work_dir):
     CFG = read_config(work_dir, ["sites", "particles",])
     map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
     reduce_basenames = work_dir_structure.reduce_basenames()
@@ -188,7 +188,7 @@ def reduce_shower_statistics(work_dir):
             )
 
 
-def read_shower_statistics(work_dir):
+def read_statistics(work_dir):
     CFG = read_config(work_dir, ["sites", "particles",])
     out = {}
     for skey in CFG["sites"]:

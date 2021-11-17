@@ -47,7 +47,7 @@ cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 plt.close(cmap_fig)
 
-shower_statistics = mdfl.read_shower_statistics(work_dir=work_dir)
+shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
 # hemisphere showing deflections
 # ------------------------------
