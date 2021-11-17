@@ -1,14 +1,16 @@
 import numpy as np
 import pandas
 from . import corsika
+import scipy
+from scipy.optimize import curve_fit
 
-from scipy.optimize import curve_fit as scipy_optimize_curve_fit
 
-
-"""
-prepare deflection_table
-========================
-"""
+FIT_KEYS = {
+    "particle_azimuth_deg": {"start": 90.0,},
+    "particle_zenith_deg": {"start": 0.0,},
+    "position_med_x_m": {"start": 0.0,},
+    "position_med_y_m": {"start": 0.0,},
+}
 
 
 def deflection_add_density_fields(deflection):
@@ -40,14 +42,6 @@ def deflection_cut_invalid(deflection, min_energy):
     mask_en = deflection["particle_energy_GeV"] >= min_energy
     valid = np.logical_and(mask_en, mask_az)
     return deflection[valid]
-
-
-FIT_KEYS = {
-    "particle_azimuth_deg": {"start": 90.0,},
-    "particle_zenith_deg": {"start": 0.0,},
-    "position_med_x_m": {"start": 0.0,},
-    "position_med_y_m": {"start": 0.0,},
-}
 
 
 def deflection_smooth_when_possible(deflection):
@@ -109,7 +103,7 @@ def deflection_fit_power_law(
             sig = 1
 
         try:
-            expy, _ = scipy_optimize_curve_fit(
+            expy, _ = scipy.optimize.curve_fit(
                 power_law,
                 t["particle_energy_GeV"],
                 t[key] - key_start,
@@ -147,12 +141,6 @@ def power_law_fit_evaluate(power_law_fit, particle, num_supports=1024):
     df = pandas.DataFrame(out)
     df = df[df["particle_zenith_deg"] <= corsika.MAX_ZENITH_DEG]
     return df.to_records(index=False)
-
-
-"""
-Reject outliers, smooth
-=======================
-"""
 
 
 def percentile_indices(values, target_value, percentile=90):
@@ -199,12 +187,6 @@ def smooth(energies, values):
         "key_std80": np.array(key_std80),
         "key_mean80": np.array(key_mean80),
     }
-
-
-"""
-Fitting power-laws
-==================
-"""
 
 
 def power_law(energy, scale, index):
