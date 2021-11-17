@@ -89,7 +89,7 @@ def make_jobs(work_dir):
                 site_key=skey,
                 particle=CFG["particles"][pkey],
                 particle_key=pkey,
-                pointing=pointing,
+                pointing=CFG["pointing"],
                 energy_supports_min=min(
                     CFG["particles"][pkey]["energy_bin_edges_GeV"]
                 ),
