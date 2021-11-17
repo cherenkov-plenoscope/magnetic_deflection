@@ -21,12 +21,12 @@ import glob
 
 
 def init(
-    particles,
-    sites,
-    plenoscope_pointing,
-    max_energy,
-    num_energy_supports,
     work_dir,
+    particles=examples.PARTICLES,
+    sites=examples.SITES,
+    pointing=examples.POINTING,
+    max_energy=64.0,
+    num_energy_supports=16,
 ):
     """
     Make work_dir
@@ -35,7 +35,7 @@ def init(
     os.makedirs(wdir.join(work_dir, "config"), exist_ok=True)
 
     tools.write_json(wdir.join(work_dir, "config", "sites.json"), sites)
-    tools.write_json(wdir.join(work_dir, "config", "pointing.json"), plenoscope_pointing)
+    tools.write_json(wdir.join(work_dir, "config", "pointing.json"), pointing)
     tools.write_json(wdir.join(work_dir, "config", "particles.json"), particles)
     _write_default_config(
         path=wdir.join(work_dir, "config", "config.json"),
