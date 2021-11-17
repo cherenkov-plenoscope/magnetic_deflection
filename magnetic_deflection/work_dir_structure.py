@@ -32,7 +32,7 @@ def map_basenames_wildcard():
     """
     This is not a regular expression. This is shell style glob.
     """
-    formats = make_job_basenames_format()
+    formats = map_basenames_format()
     out = {}
     for key in formats:
         b = formats[key]
@@ -42,7 +42,7 @@ def map_basenames_wildcard():
 
 def map_basenames(job_id):
     assert job_id >= 0
-    formats = make_job_basenames_format()
+    formats = map_basenames_format()
     out = {}
     for key in formats:
         out[key] = formats[key].format(job_id=job_id)
@@ -50,7 +50,7 @@ def map_basenames(job_id):
 
 
 def map_paths(map_dir, job_id):
-    basenames = make_job_basenames(job_id)
+    basenames = map_basenames(job_id)
     out = {}
     for key in basenames:
         out[key] = os.path.join(map_dir, basenames[key])
