@@ -68,7 +68,7 @@ def average_std(values, weights):
     return (average, np.sqrt(variance))
 
 
-def write_json(path, obj, indent=0):
+def write_json(path, obj, indent=4):
     with open(path + ".tmp", "wt") as f:
         f.write(json_numpy.dumps(obj, indent=indent))
     shutil.move(path + ".tmp", path)
