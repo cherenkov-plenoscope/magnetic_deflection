@@ -56,16 +56,26 @@ def smooth_deflection_and_reject_outliers(deflection):
         sres = smooth(
             energies=deflection["particle_energy_GeV"], values=deflection[key]
         )
+        if len(sres["energy_supports"]) < 3:
+            print("Not enough statistics to smooth.")
+            energy_supports = deflection["particle_energy_GeV"]
+            key_std80 = np.zeros(len(deflection[key]))
+            key_mean80 = deflection[key]
+        else:
+            energy_supports = sres["energy_supports"]
+            key_std80 = sres["key_std80"]
+            key_mean80 = sres["key_mean80"]
+
         if "particle_energy_GeV" in sm:
             np.testing.assert_array_almost_equal(
                 x=sm["particle_energy_GeV"],
-                y=sres["energy_supports"],
+                y=energy_supports,
                 decimal=3,
             )
         else:
-            sm["particle_energy_GeV"] = sres["energy_supports"]
-        sm[key] = sres["key_mean80"]
-        sm[key + "_std"] = sres["key_std80"]
+            sm["particle_energy_GeV"] = energy_supports
+        sm[key] = key_mean80
+        sm[key + "_std"] = key_std80
     return pandas.DataFrame(sm)
 
 
