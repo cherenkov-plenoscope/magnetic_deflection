@@ -10,6 +10,7 @@ from . import tools
 from . import jsonl_logger
 from . import spherical_coordinates
 from . import recarray_io
+from . import work_dir as work_dir_structure
 
 
 def make_jobs(
@@ -120,12 +121,11 @@ def make_jobs(
 
 
 def run_job(job):
-
     os.makedirs(job["job"]["map_dir"], exist_ok=True)
-
-    log_filename = "{:06d}_log.jsonl".format(job["job"]["id"])
-    log_path = os.path.join(job["job"]["map_dir"], log_filename)
-    jlog = jsonl_logger.init(path=log_path)
+    map_paths = work_dir_structure.map_paths(
+        map_dir=job["job"]["map_dir"], job_id=job["job"]["id"]
+    )
+    jlog = jsonl_logger.init(path=map_paths["log"])
     jlog.info("job: start")
     jlog.info(
         "job: site: {:s}, particle: {:s}, energy: {:f} GeV".format(
@@ -135,25 +135,11 @@ def run_job(job):
         )
     )
 
-    job_filename = "{:06d}_job.json".format(job["job"]["id"])
-    job_path = os.path.join(job["job"]["map_dir"], job_filename)
-    tools.write_json(job_path, job, indent=4)
-
-    estimates_filename = "{:06d}_discovery.jsonl".format(job["job"]["id"])
-    estimates_path = os.path.join(job["job"]["map_dir"], estimates_filename)
-
-    statistics_filename = "{:06d}_shower_statistics.recarray.tar".format(
-        job["job"]["id"]
-    )
-    statistics_path = os.path.join(job["job"]["map_dir"], statistics_filename)
-
-    result_filename = "{:06d}_result.json".format(job["job"]["id"])
-    result_path = os.path.join(job["job"]["map_dir"], result_filename)
-
+    tools.write_json(map_paths["job"], job, indent=4)
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
     jlog.info("job: discovering deflection")
-    if not os.path.exists(estimates_path):
+    if not os.path.exists(map_paths["discovery"]):
         jlog.info("job: estimate new guess for deflection")
         estimates = discovery.estimate_deflection(
             json_logger=jlog,
@@ -175,10 +161,10 @@ def run_job(job):
             corsika_primary_path=job["job"]["corsika_primary_path"],
         )
 
-        tools.write_jsonl(estimates_path, estimates)
+        tools.write_jsonl(map_paths["discovery"], estimates)
     else:
         jlog.info("job: use existing guess for deflection")
-        estimates = tools.read_jsonl(estimates_path)
+        estimates = tools.read_jsonl(map_paths["discovery"])
 
     if len(estimates) > 0:
         best_estimate = estimates[-1]
@@ -208,7 +194,7 @@ def run_job(job):
             return 0
 
         jlog.info("job: gathering statistics")
-        if not os.path.exists(statistics_path):
+        if not os.path.exists(map_paths["statistics"]):
             jlog.info("job: simulate new showers")
 
             pools = corsika.make_cherenkov_pools_statistics(
@@ -236,23 +222,27 @@ def run_job(job):
                 instrument_zenith_deg=job["pointing"]["zenith_deg"],
             )
 
-            _write_pool_statistics(pool_statistics=pools, path=statistics_path)
+            _write_pool_statistics(
+                pool_statistics=pools, path=map_paths["statistics"]
+            )
         else:
             jlog.info("job: use existing showers")
-            pools = _read_pool_statistics(path=statistics_path)
+            pools = _read_pool_statistics(path=map_paths["statistics"])
 
         jlog.info("job: estimate statistics of showers")
-        result = light_field_characterization.inspect_pools(
+        deflection = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1 / 2) * (job["statistics"]["off_axis_deg"]),
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
         )
-        result["outlier_percentile"] = job["statistics"]["outlier_percentile"]
-        result["particle_energy_GeV"] = job["particle"]["energy_GeV"]
+        deflection["outlier_percentile"] = job["statistics"][
+            "outlier_percentile"
+        ]
+        deflection["particle_energy_GeV"] = job["particle"]["energy_GeV"]
 
         jlog.info("job: write results")
-        tools.write_json(result_path, result)
+        tools.write_json(map_paths["deflection"], deflection)
 
     jlog.info("job: end")
     return 0

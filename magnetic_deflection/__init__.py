@@ -10,7 +10,7 @@ from . import jsonl_logger
 from . import recarray_io
 from . import Records
 from . import debug
-from . import work_dir as wdir
+from . import work_dir as work_dir_structure
 
 import os
 import pandas
@@ -32,18 +32,22 @@ def init(
     Make work_dir
     """
     os.makedirs(work_dir, exist_ok=True)
-    os.makedirs(wdir.join(work_dir, "config"), exist_ok=True)
+    os.makedirs(os.path.join(work_dir, "config"), exist_ok=True)
 
-    tools.write_json(wdir.join(work_dir, "config", "sites.json"), sites)
-    tools.write_json(wdir.join(work_dir, "config", "pointing.json"), pointing)
-    tools.write_json(wdir.join(work_dir, "config", "particles.json"), particles)
+    tools.write_json(os.path.join(work_dir, "config", "sites.json"), sites)
+    tools.write_json(
+        os.path.join(work_dir, "config", "pointing.json"), pointing
+    )
+    tools.write_json(
+        os.path.join(work_dir, "config", "particles.json"), particles
+    )
     _write_default_config(
-        path=wdir.join(work_dir, "config", "config.json"),
+        path=os.path.join(work_dir, "config", "config.json"),
         energy_supports_max=max_energy,
         energy_supports_num=num_energy_supports,
     )
     _write_default_plotting_config(
-        path=wdir.join(work_dir, "config", "plotting.json"),
+        path=os.path.join(work_dir, "config", "plotting.json"),
     )
 
 
@@ -65,7 +69,9 @@ def _write_default_config(path, energy_supports_max, energy_supports_num):
 
 
 def _write_default_plotting_config(path):
-    tools.write_json(path=path, obj=examples.PLOTTING,)
+    tools.write_json(
+        path=path, obj=examples.PLOTTING,
+    )
 
 
 def make_jobs(work_dir):
@@ -98,55 +104,87 @@ def make_jobs(work_dir):
     )
 
 
-def read_job_results(work_dir):
+def reduce(work_dir):
+    reduce_raw_deflection(work_dir=work_dir)
+    analyse_raw_deflection(
+        work_dir=work_dir, min_fit_energy=0.65,
+    )
+    reduce_shower_statistics(work_dir=work_dir)
+
+
+def reduce_raw_deflection(work_dir):
     CFG = read_config(work_dir, ["sites", "particles",])
-
-    job_results = {}
-    for skey in CFG["sites"]:
-        job_results[skey] = {}
-        for pkey in  CFG["particles"]:
-            print("Read job results: ", skey, pkey)
-            paths = glob.glob(
-                wdir.join(work_dir, "map", skey, pkey, "*_result.json")
-            )
-            job_results[skey][pkey] = []
-            for path in paths:
-                job_results[skey][pkey].append(tools.read_json(path))
-    return job_results
-
-
-def reduce_job_results(work_dir, job_results):
-    CFG = read_config(work_dir, ["sites", "particles",])
+    map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
 
     for skey in CFG["sites"]:
         for pkey in CFG["particles"]:
-            os.makedirs(wdir.join(work_dir, "reduce", skey, pkey), exist_ok=True)
-            print("Reducing job results: ", skey, pkey)
-
-            df = pandas.DataFrame(job_results[skey][pkey])
-            rec = df.to_records(index=False)
-            order = np.argsort(rec["particle_energy_GeV"])
-            rec = rec[order]
-            recarray_io.write_to_csv(
-                recarray=rec,
-                path=wdir.join(work_dir, "reduce", skey, pkey, "deflection_raw.csv"),
+            os.makedirs(
+                os.path.join(work_dir, "reduce", skey, pkey, ".deflection"),
+                exist_ok=True,
             )
+            print("Reducing deflection: ", skey, pkey)
+
+            paths = glob.glob(
+                os.path.join(
+                    work_dir,
+                    "map",
+                    skey,
+                    pkey,
+                    map_basenames_wildcard["deflection"],
+                )
+            )
+            raw = _reduce_raw_deflection_site_particle(paths=paths)
+            recarray_io.write_to_csv(
+                recarray=raw,
+                path=os.path.join(
+                    work_dir, "reduce", skey, pkey, ".deflection", "raw.csv"
+                ),
+            )
+
+
+def _reduce_raw_deflection_site_particle(paths):
+    raw = []
+    for path in paths:
+        raw.append(tools.read_json(path))
+    raw_df = pandas.DataFrame(raw)
+    raw_rec = raw_df.to_records(index=False)
+    del raw_df
+    order = np.argsort(raw_rec["particle_energy_GeV"])
+    raw_rec = raw_rec[order]
+    return raw_rec
 
 
 def reduce_shower_statistics(work_dir):
     CFG = read_config(work_dir, ["sites", "particles",])
+    map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
+    reduce_basenames = work_dir_structure.reduce_basenames()
 
     for skey in CFG["sites"]:
         for pkey in CFG["particles"]:
-            os.makedirs(wdir.join(work_dir, "reduce", skey, pkey), exist_ok=True)
-            print("Reducing shower statistics: ", skey, pkey)
-
-            shower_statistics = tools._reduce_shower_statistics_site_particle(
-                paths=glob.glob(wdir.join(work_dir, "map", skey, pkey, "*_shower_statistics.recarray.tar")),
+            os.makedirs(
+                os.path.join(work_dir, "reduce", skey, pkey), exist_ok=True
             )
+            print("Reducing statistics: ", skey, pkey)
+
+            paths = glob.glob(
+                os.path.join(
+                    work_dir,
+                    "map",
+                    skey,
+                    pkey,
+                    map_basenames_wildcard["statistics"],
+                )
+            )
+            shower_statistics = _reduce_statistics_site_particle(paths=paths)
             recarray_io.write_to_tar(
                 recarray=shower_statistics,
-                path=wdir.join(work_dir, "reduce", skey, pkey, "shower_statistics.recarray.tar"),
+                path=os.path.join(
+                    work_dir,
+                    "reduce",
+                    skey,
+                    pkey,
+                    reduce_basenames["statistics"],
+                ),
             )
 
 
@@ -157,12 +195,16 @@ def read_shower_statistics(work_dir):
         out[skey] = {}
         for pkey in CFG["particles"]:
             out[skey][pkey] = recarray_io.read_from_tar(
-                path=wdir.join(work_dir, "reduce", skey, pkey, "shower_statistics.recarray.tar")
+                path=os.path.join(
+                    work_dir, "reduce", skey, pkey, "statistics.recarray.tar"
+                )
             )
     return out
 
 
-def analyse_deflection(work_dir, min_fit_energy=0.65,):
+def analyse_raw_deflection(
+    work_dir, min_fit_energy=0.65,
+):
     CFG = read_config(work_dir, ["sites", "particles",])
     PARTICLES = CFG["particles"]
     SITES = CFG["sites"]
@@ -175,16 +217,24 @@ def analyse_deflection(work_dir, min_fit_energy=0.65,):
 
     for skey in SITES:
         for pkey in PARTICLES:
-            wrsp = wdir.join(work_dir, "reduce", skey, pkey)
+            wrsp = os.path.join(work_dir, "reduce", skey, pkey, ".deflection")
 
             stages = {
-                "raw": wdir.join(wrsp, "deflection_raw.csv"),
-                "raw_valid": wdir.join(wrsp, "deflection_raw_valid.csv"),
-                "raw_valid_add": wdir.join(wrsp, "deflection_raw_valid_add.csv")
-                "raw_valid_add_clean": wdir.join(wrsp, "deflection_raw_valid_add_clean.csv"),
-                "raw_valid_add_clean_high": wdir.join(wrsp, "deflection_raw_valid_add_clean_high.csv"),
-                "raw_valid_add_clean_high_power": wdir.join(wrsp, "deflection_raw_valid_add_clean_high_power.json"),
-                "result": wdir.join(wrsp, "deflection.csv"),
+                "raw": os.path.join(wrsp, "raw.csv"),
+                "raw_valid": os.path.join(wrsp, "raw_valid.csv"),
+                "raw_valid_add": os.path.join(wrsp, "raw_valid_add.csv"),
+                "raw_valid_add_clean": os.path.join(
+                    wrsp, "raw_valid_add_clean.csv"
+                ),
+                "raw_valid_add_clean_high": os.path.join(
+                    wrsp, "raw_valid_add_clean_high.csv"
+                ),
+                "raw_valid_add_clean_high_power": os.path.join(
+                    wrsp, "raw_valid_add_clean_high_power.json"
+                ),
+                "result": os.path.join(
+                    work_dir, "reduce", skey, pkey, "deflection.csv"
+                ),
             }
 
             charge_sign = np.sign(PARTICLES[pkey]["electric_charge_qe"])
@@ -215,8 +265,7 @@ def analyse_deflection(work_dir, min_fit_energy=0.65,):
                 deflection=raw_valid_add
             )
             recarray_io.write_to_csv(
-                raw_valid_add_clean,
-                path=stages["raw_valid_add_clean"],
+                raw_valid_add_clean, path=stages["raw_valid_add_clean"],
             )
 
             # add_high_energies
@@ -251,8 +300,7 @@ def analyse_deflection(work_dir, min_fit_energy=0.65,):
                 num_supports=1024,
             )
             recarray_io.write_to_csv(
-                recarray=interpolated_deflection,
-                path=stages["result"],
+                recarray=interpolated_deflection, path=stages["result"],
             )
 
     script_path = os.path.abspath(
@@ -270,7 +318,9 @@ def read_deflection(work_dir, style="dict"):
     for skey in CFG["sites"]:
         mag[skey] = {}
         for pkey in CFG["particles"]:
-            path = wdir.join(work_dir, "reduce", skey, pkey, "deflection.csv",)
+            path = os.path.join(
+                work_dir, "reduce", skey, pkey, "deflection.csv",
+            )
             df = pandas.read_csv(path)
             if style == "record":
                 mag[skey][pkey] = df.to_records()
@@ -281,14 +331,18 @@ def read_deflection(work_dir, style="dict"):
     return mag
 
 
-def read_config(work_dir, keys=["sites", "particles", "pointing", "config", "plotting"]):
+def read_config(
+    work_dir, keys=["sites", "particles", "pointing", "config", "plotting"]
+):
     CFG = {}
     for key in keys:
-        CFG[key] = tools.read_json(wdir.join(work_dir, "config", key + ".json"))
+        CFG[key] = tools.read_json(
+            os.path.join(work_dir, "config", key + ".json")
+        )
     return CFG
 
 
-def _reduce_shower_statistics_site_particle(paths):
+def _reduce_statistics_site_particle(paths):
     stats = Records.init(
         dtypes={
             "particle_azimuth_deg": "f4",
