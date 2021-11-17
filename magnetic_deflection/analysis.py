@@ -68,9 +68,7 @@ def smooth_deflection_and_reject_outliers(deflection):
 
         if "particle_energy_GeV" in sm:
             np.testing.assert_array_almost_equal(
-                x=sm["particle_energy_GeV"],
-                y=energy_supports,
-                decimal=3,
+                x=sm["particle_energy_GeV"], y=energy_supports, decimal=3,
             )
         else:
             sm["particle_energy_GeV"] = energy_supports

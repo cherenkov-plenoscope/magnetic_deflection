@@ -163,7 +163,14 @@ for skey in CFG["sites"]:
     deflection_table[skey] = {}
     for pkey in CFG["particles"]:
         deflection_table[skey][pkey] = mdfl.recarray_io.read_from_csv(
-            path=os.path.join(work_dir, "reduce", skey, pkey, ".deflection", "raw_valid_add.csv")
+            path=os.path.join(
+                work_dir,
+                "reduce",
+                skey,
+                pkey,
+                ".deflection",
+                "raw_valid_add.csv",
+            )
         )
 
 power_law_fit_table = {}

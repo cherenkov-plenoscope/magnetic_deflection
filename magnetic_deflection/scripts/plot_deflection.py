@@ -51,16 +51,26 @@ for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
         d = {}
         ddir = os.path.join(work_dir, "reduce", skey, pkey, ".deflection")
-        d["raw"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw.csv"))
-        d["raw_valid"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid.csv"))
-        d["raw_valid_add"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add.csv"))
-        d["raw_valid_add_clean"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add_clean.csv"))
-        d["raw_valid_add_clean_high"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add_clean_high.csv"))
-        d["raw_valid_add_clean_high_power"] = mdfl.tools.read_json(os.path.join(ddir, "raw_valid_add_clean_high_power.json"))
+        d["raw"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(ddir, "raw.csv")
+        )
+        d["raw_valid"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(ddir, "raw_valid.csv")
+        )
+        d["raw_valid_add"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(ddir, "raw_valid_add.csv")
+        )
+        d["raw_valid_add_clean"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(ddir, "raw_valid_add_clean.csv")
+        )
+        d["raw_valid_add_clean_high"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(ddir, "raw_valid_add_clean_high.csv")
+        )
+        d["raw_valid_add_clean_high_power"] = mdfl.tools.read_json(
+            os.path.join(ddir, "raw_valid_add_clean_high_power.json")
+        )
         d["result"] = mdfl.recarray_io.read_from_csv(
-            os.path.join(
-                work_dir, "reduce", skey, pkey, "deflection.csv"
-            )
+            os.path.join(work_dir, "reduce", skey, pkey, "deflection.csv")
         )
         defl[skey][pkey] = d
 
@@ -80,15 +90,20 @@ for skey in CFG["sites"]:
 
             ax.plot(
                 defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"],
-                defl[skey][pkey]["raw_valid_add_clean"][key] * key_map[key]["factor"],
+                defl[skey][pkey]["raw_valid_add_clean"][key]
+                * key_map[key]["factor"],
                 "kx",
             )
-            num_e = len(defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"])
+            num_e = len(
+                defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"]
+            )
             for ibin in range(num_e):
-                _x = defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"][
+                _x = defl[skey][pkey]["raw_valid_add_clean"][
+                    "particle_energy_GeV"
+                ][ibin]
+                _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][
                     ibin
                 ]
-                _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][ibin]
                 _y = defl[skey][pkey]["raw_valid_add_clean"][key][ibin]
                 _y_low = _y - _y_std
                 _y_high = _y + _y_std
@@ -99,7 +114,9 @@ for skey in CFG["sites"]:
                 )
 
             ax.plot(
-                defl[skey][pkey]["raw_valid_add_clean_high"]["particle_energy_GeV"],
+                defl[skey][pkey]["raw_valid_add_clean_high"][
+                    "particle_energy_GeV"
+                ],
                 defl[skey][pkey]["raw_valid_add_clean_high"][key]
                 * key_map[key]["factor"],
                 "bo",
