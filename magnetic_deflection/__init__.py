@@ -306,7 +306,7 @@ def analyse_raw_deflection(
     script_path = os.path.abspath(
         pkg_resources.resource_filename(
             "magnetic_deflection",
-            os.path.join("scripts", "make_control_figures.py"),
+            os.path.join("scripts", "plot_deflection.py"),
         )
     )
     subprocess.call(["python", script_path, work_dir])

@@ -14,7 +14,7 @@ from matplotlib import colors as plt_colors
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
-out_dir = os.path.join(work_dir, "plot_deflection_table")
+out_dir = os.path.join(work_dir, "plot", "additional_fit_for_deflection")
 os.makedirs(out_dir, exist_ok=True)
 
 

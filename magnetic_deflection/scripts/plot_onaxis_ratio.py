@@ -14,7 +14,7 @@ from matplotlib import colors as plt_colors
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
-out_dir = os.path.join(work_dir, "plot_onaxis_ratio")
+out_dir = os.path.join(work_dir, "plot", "onaxis_ratio")
 os.makedirs(out_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
