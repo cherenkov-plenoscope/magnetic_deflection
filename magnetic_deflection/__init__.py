@@ -296,7 +296,7 @@ def analyse_raw_deflection(
             # ------------
             interpolated_deflection = analysis.make_fit_deflection(
                 power_law_fit=power_law_fit,
-                particle=particles[pkey],
+                particle=CFG["particles"][pkey],
                 num_supports=1024,
             )
             recarray_io.write_to_csv(
