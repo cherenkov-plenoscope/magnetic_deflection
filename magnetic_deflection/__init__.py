@@ -243,7 +243,7 @@ def analyse_raw_deflection(
 
             # cut invalid
             # -----------
-            raw_valid = analysis.cut_invalid_from_deflection(
+            raw_valid = analysis.deflection_cut_invalid(
                 deflection=raw, min_energy=min_fit_energy,
             )
             recarray_io.write_to_csv(
@@ -252,7 +252,7 @@ def analyse_raw_deflection(
 
             # add density fields
             # ------------------
-            raw_valid_add = analysis.add_density_fields_to_deflection(
+            raw_valid_add = analysis.deflection_add_density_fields(
                 deflection=raw_valid
             )
             recarray_io.write_to_csv(
@@ -261,7 +261,7 @@ def analyse_raw_deflection(
 
             # smooth_and_reject_outliers
             # --------------------------
-            raw_valid_add_clean = analysis.smooth_deflection_and_reject_outliers(
+            raw_valid_add_clean = analysis.deflection_smooth_when_possible(
                 deflection=raw_valid_add
             )
             recarray_io.write_to_csv(
@@ -270,7 +270,7 @@ def analyse_raw_deflection(
 
             # add_high_energies
             # -----------------
-            raw_valid_add_clean_high = analysis.add_high_energy_to_deflection(
+            raw_valid_add_clean_high = analysis.deflection_extend_to_high_energy(
                 deflection=raw_valid_add_clean,
                 charge_sign=charge_sign,
                 energy_start=200,
@@ -284,7 +284,7 @@ def analyse_raw_deflection(
 
             # fit_power_law
             # -------------
-            power_law_fit = analysis.fit_power_law_to_deflection(
+            power_law_fit = analysis.deflection_fit_power_law(
                 deflection=raw_valid_add_clean_high, charge_sign=charge_sign,
             )
             tools.write_json(
@@ -294,7 +294,7 @@ def analyse_raw_deflection(
 
             # export table
             # ------------
-            interpolated_deflection = analysis.make_fit_deflection(
+            interpolated_deflection = analysis.power_law_fit_evaluate(
                 power_law_fit=power_law_fit,
                 particle=CFG["particles"][pkey],
                 num_supports=1024,

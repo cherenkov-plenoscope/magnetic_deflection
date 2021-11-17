@@ -11,7 +11,7 @@ prepare deflection_table
 """
 
 
-def add_density_fields_to_deflection(deflection):
+def deflection_add_density_fields(deflection):
     t = deflection
     dicout = pandas.DataFrame(t).to_dict(orient="list")
 
@@ -35,7 +35,7 @@ def add_density_fields_to_deflection(deflection):
     return pandas.DataFrame(dicout).to_records(index=False)
 
 
-def cut_invalid_from_deflection(deflection, min_energy):
+def deflection_cut_invalid(deflection, min_energy):
     mask_az = deflection["particle_azimuth_deg"] != 0.0
     mask_en = deflection["particle_energy_GeV"] >= min_energy
     valid = np.logical_and(mask_en, mask_az)
@@ -50,7 +50,7 @@ FIT_KEYS = {
 }
 
 
-def smooth_deflection_and_reject_outliers(deflection):
+def deflection_smooth_when_possible(deflection):
     sm = {}
     for key in FIT_KEYS:
         sres = smooth(
@@ -77,7 +77,7 @@ def smooth_deflection_and_reject_outliers(deflection):
     return pandas.DataFrame(sm)
 
 
-def add_high_energy_to_deflection(
+def deflection_extend_to_high_energy(
     deflection, charge_sign, energy_start=200, energy_stop=600, num_points=20,
 ):
     sm = {}
@@ -96,7 +96,7 @@ def add_high_energy_to_deflection(
     return df.to_records(index=False)
 
 
-def fit_power_law_to_deflection(
+def deflection_fit_power_law(
     deflection, charge_sign,
 ):
     t = deflection
@@ -128,7 +128,7 @@ def fit_power_law_to_deflection(
     return fits
 
 
-def make_fit_deflection(power_law_fit, particle, num_supports=1024):
+def power_law_fit_evaluate(power_law_fit, particle, num_supports=1024):
     out = {}
     out["particle_energy_GeV"] = np.geomspace(
         np.min(particle["energy_bin_edges_GeV"]),
