@@ -1,28 +1,26 @@
 #!/usr/bin/python
 import sys
-from os.path import join as opj
 import os
-import pandas as pd
 import numpy as np
-import json
 import magnetic_deflection as mdfl
 import plenoirf as irf
-
-
+import sebastians_matplotlib_addons as sebplt
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib import patches as plt_patches
-from matplotlib import colors as plt_colors
 
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
+out_dir = os.path.join(work_dir, "plot", "deflection")
+os.makedirs(out_dir, exist_ok=True)
 
-figsize = (16 / 2, 9 / 2)
-dpi = 240
-ax_size = (0.15, 0.12, 0.8, 0.8)
+CFG = mdfl.read_config(work_dir=work_dir)
+PLT = CFG["plotting"]
+
+matplotlib.rcParams["mathtext.fontset"] = PLT["rcParams"]["mathtext.fontset"]
+matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
+
+FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
+AXSPAN = [0.15, 0.2, 0.8, 0.75]
 
 key_map = {
     "particle_azimuth_deg": {
@@ -47,56 +45,51 @@ key_map = {
     },
 }
 
-with open(os.path.join(work_dir, "sites.json"), "rt") as f:
-    sites = json.loads(f.read())
-with open(os.path.join(work_dir, "particles.json"), "rt") as f:
-    particles = json.loads(f.read())
-with open(os.path.join(work_dir, "pointing.json"), "rt") as f:
-    pointing = json.loads(f.read())
+defl = {}
+for skey in CFG["sites"]:
+    defl[skey] = {}
+    for pkey in CFG["particles"]:
+        d = {}
+        ddir = os.path.join(work_dir, "reduce", skey, pkey, ".deflection")
+        d["raw"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw.csv"))
+        d["raw_valid"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid.csv"))
+        d["raw_valid_add"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add.csv"))
+        d["raw_valid_add_clean"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add_clean.csv"))
+        d["raw_valid_add_clean_high"] = mdfl.recarray_io.read_from_csv(os.path.join(ddir, "raw_valid_add_clean_high.csv"))
+        d["raw_valid_add_clean_high_power"] = mdfl.tools.read_json(os.path.join(ddir, "raw_valid_add_clean_high_power.json"))
+        d["result"] = mdfl.recarray_io.read_from_csv(
+            os.path.join(
+                work_dir, "reduce", skey, pkey, "deflection.csv"
+            )
+        )
+        defl[skey][pkey] = d
 
-raw = mdfl.tools.read_deflection_table(path=os.path.join(work_dir, "raw"))
-
-raw_valid_add_clean = mdfl.tools.read_deflection_table(
-    path=os.path.join(work_dir, "raw_valid_add_clean")
-)
-
-raw_valid_add_clean_high = mdfl.tools.read_deflection_table(
-    path=os.path.join(work_dir, "raw_valid_add_clean_high")
-)
-
-result = mdfl.tools.read_deflection_table(
-    path=os.path.join(work_dir, "result")
-)
-
-out_dir = os.path.join(work_dir, "control_figures")
-os.makedirs(out_dir, exist_ok=True)
-
-for skey in sites:
-    for pkey in particles:
+for skey in CFG["sites"]:
+    for pkey in CFG["particles"]:
         for key in mdfl.analysis.FIT_KEYS:
 
-            fig = plt.figure(figsize=figsize, dpi=dpi)
-            ax = fig.add_axes(ax_size)
+            fig = sebplt.figure(FIGSIZE)
+            ax = sebplt.add_axes(fig, AXSPAN)
 
             ax.plot(
-                raw[skey][pkey]["particle_energy_GeV"],
-                raw[skey][pkey][key] * key_map[key]["factor"],
+                defl[skey][pkey]["raw"]["particle_energy_GeV"],
+                defl[skey][pkey]["raw"][key] * key_map[key]["factor"],
                 "ko",
                 alpha=0.05,
             )
 
             ax.plot(
-                raw_valid_add_clean[skey][pkey]["particle_energy_GeV"],
-                raw_valid_add_clean[skey][pkey][key] * key_map[key]["factor"],
+                defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"],
+                defl[skey][pkey]["raw_valid_add_clean"][key] * key_map[key]["factor"],
                 "kx",
             )
-            num_e = len(raw_valid_add_clean[skey][pkey]["particle_energy_GeV"])
+            num_e = len(defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"])
             for ibin in range(num_e):
-                _x = raw_valid_add_clean[skey][pkey]["particle_energy_GeV"][
+                _x = defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"][
                     ibin
                 ]
-                _y_std = raw_valid_add_clean[skey][pkey][key + "_std"][ibin]
-                _y = raw_valid_add_clean[skey][pkey][key][ibin]
+                _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][ibin]
+                _y = defl[skey][pkey]["raw_valid_add_clean"][key][ibin]
                 _y_low = _y - _y_std
                 _y_high = _y + _y_std
                 ax.plot(
@@ -106,32 +99,29 @@ for skey in sites:
                 )
 
             ax.plot(
-                raw_valid_add_clean_high[skey][pkey]["particle_energy_GeV"],
-                raw_valid_add_clean_high[skey][pkey][key]
+                defl[skey][pkey]["raw_valid_add_clean_high"]["particle_energy_GeV"],
+                defl[skey][pkey]["raw_valid_add_clean_high"][key]
                 * key_map[key]["factor"],
                 "bo",
                 alpha=0.3,
             )
 
             ax.plot(
-                result[skey][pkey]["particle_energy_GeV"],
-                result[skey][pkey][key] * key_map[key]["factor"],
+                defl[skey][pkey]["result"]["particle_energy_GeV"],
+                defl[skey][pkey]["result"][key] * key_map[key]["factor"],
                 color="k",
                 linestyle="-",
             )
 
             ax.semilogx()
-            ax.spines["right"].set_visible(False)
-            ax.spines["top"].set_visible(False)
             ax.set_xlabel("energy$\,/\,$GeV")
-            ax.set_xlim([0.4, 110])
+            ax.set_xlim([0.1, 100])
 
             ax.set_ylabel(
                 "{key:s}$\,/\,${unit:s}".format(
                     key=key_map[key]["name"], unit=key_map[key]["unit"]
                 )
             )
-            ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
             filepath = os.path.join(out_dir, filename)
             fig.savefig(filepath + ".jpg")

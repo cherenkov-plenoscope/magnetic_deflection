@@ -158,16 +158,13 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
     return latex_table(matrix)
 
 
-deflection_table = mdfl.tools.read_deflection_table(
-    os.path.join(work_dir, "raw")
-)
-
-deflection_table = mdfl.analysis.cut_invalid_from_deflection_table(
-    deflection_table=deflection_table, but_keep_site="Off"
-)
-deflection_table = mdfl.analysis.add_density_fields_to_deflection_table(
-    deflection_table=deflection_table
-)
+deflection_table = {}
+for skey in CFG["sites"]:
+    deflection_table[skey] = {}
+    for pkey in CFG["particles"]:
+        deflection_table[skey][pkey] = mdfl.recarray_io.read_from_csv(
+            path=os.path.join(work_dir, "reduce", skey, pkey, ".deflection", "raw_valid_add.csv")
+        )
 
 power_law_fit_table = {}
 for skey in deflection_table:
@@ -191,9 +188,15 @@ for skey in deflection_table:
             sres = mdfl.analysis.smooth(
                 energies=t["particle_energy_GeV"], values=t[key]
             )
-            energy_supports = sres["energy_supports"]
-            key_std80 = sres["key_std80"]
-            key_mean80 = sres["key_mean80"]
+            if len(sres["energy_supports"]) < 3:
+                print("Not enough statistics to smooth.")
+                energy_supports = t["particle_energy_GeV"]
+                key_std80 = np.zeros(len(t[key]))
+                key_mean80 = t[key]
+            else:
+                energy_supports = sres["energy_supports"]
+                key_std80 = sres["key_std80"]
+                key_mean80 = sres["key_mean80"]
             unc80_upper = key_mean80 + key_std80
             unc80_lower = key_mean80 - key_std80
 
@@ -359,7 +362,7 @@ def smooth(y, box_pts):
 alpha = 0.2
 fig = sebplt.figure(FIGSIZE)
 ax = sebplt.add_axes(fig, AXSPAN)
-for pkey in ["electron", "gamma"]:
+for pkey in CFG["particles"]:
     particle_color = PLT["particles"][pkey]["color"]
     for skey in deflection_table:
         E = deflection_table[skey][pkey]["particle_energy_GeV"]
@@ -383,20 +386,6 @@ for pkey in ["electron", "gamma"]:
             color=particle_color,
             label=label,
         )
-
-ax.text(
-    1.1,
-    50,
-    PLT["particles"]["gamma"]["label"],
-    color=PLT["particles"]["gamma"]["color"],
-)
-ax.text(
-    1.1,
-    25,
-    PLT["particles"]["electron"]["label"],
-    color=PLT["particles"]["electron"]["color"],
-)
-leg = ax.legend()
 ax.loglog()
 ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 ax.set_xlim([1e-1, 1e2])
