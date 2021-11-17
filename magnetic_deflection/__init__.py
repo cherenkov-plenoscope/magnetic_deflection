@@ -10,7 +10,7 @@ from . import jsonl_logger
 from . import recarray_io
 from . import Records
 from . import debug
-from . import work_dir as work_dir_structure
+from . import work_dir_structure
 
 import os
 import pandas

@@ -10,7 +10,7 @@ from . import tools
 from . import jsonl_logger
 from . import spherical_coordinates
 from . import recarray_io
-from . import work_dir as work_dir_structure
+from . import work_dir_structure
 
 
 def make_jobs(
