@@ -30,7 +30,7 @@ def make_jobs(
     discovery_min_num_showers_per_iteration,
     statistics_total_energy,
     statistics_min_num_showers,
-    outlier_percentile,
+    density_cut,
     min_num_cherenkov_photons,
     corsika_primary_path,
 ):
@@ -39,7 +39,6 @@ def make_jobs(
     assert energy_supports_max > 0
     assert energy_supports_num > 1
 
-    assert 0 < outlier_percentile <= 100
     assert min_num_cherenkov_photons > 0
 
     assert statistics_min_num_showers > 0
@@ -92,7 +91,7 @@ def make_jobs(
         )
 
         job["discovery"] = {
-            "outlier_percentile": 100.0,
+            "density_cut": None,
             "num_showers_per_iteration": num_showers,
             "max_num_showers": max_total_num_showers,
             "max_off_axis_deg": particle[
@@ -109,7 +108,7 @@ def make_jobs(
 
         job["statistics"] = {
             "num_showers": num_showers,
-            "outlier_percentile": outlier_percentile,
+            "density_cut": density_cut,
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
             "off_axis_deg": 3.0
             * particle["magnetic_deflection_max_off_axis_deg"],
@@ -151,7 +150,7 @@ def run_job(job):
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
-            outlier_percentile=job["discovery"]["outlier_percentile"],
+            density_cut=job["discovery"]["density_cut"],
             num_showers_per_iteration=job["discovery"][
                 "num_showers_per_iteration"
             ],
@@ -217,7 +216,7 @@ def run_job(job):
                 min_num_cherenkov_photons=job["statistics"][
                     "min_num_cherenkov_photons"
                 ],
-                outlier_percentile=job["statistics"]["outlier_percentile"],
+                density_cut=job["statistics"]["density_cut"],
                 corsika_primary_path=job["job"]["corsika_primary_path"],
                 run_id=job["job"]["id"],
                 prng=prng,

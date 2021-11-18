@@ -58,7 +58,7 @@ def estimate_cherenkov_pool(
     corsika_primary_steering,
     corsika_primary_path,
     min_num_cherenkov_photons,
-    outlier_percentile,
+    density_cut,
 ):
     pools = []
 
@@ -76,12 +76,14 @@ def estimate_cherenkov_pool(
             all_light_field = init_light_field_from_corsika(
                 bunches=photon_bunches
             )
+            num_all_bunches = len(all_light_field)
 
-            mask_inlier = lfc.mask_inlier_in_light_field_geometry(
-                light_field=all_light_field, percentile=outlier_percentile,
+            mask_inlier = lfc.light_field_density_cut(
+                light_field=all_light_field, density_cut=density_cut,
             )
 
             light_field = all_light_field[mask_inlier]
+            del(all_light_field)
 
             num_bunches = light_field.shape[0]
             ceh = corsika_event_header
@@ -99,6 +101,7 @@ def estimate_cherenkov_pool(
                 pool["particle_energy_GeV"] = ceh[cpw.I_EVTH_TOTAL_ENERGY_GEV]
                 pool["num_photons"] = np.sum(light_field["size"])
                 pool["num_bunches"] = num_bunches
+                pool["num_all_bunches"] = int(num_all_bunches)
 
                 c = lfc.parameterize_light_field(light_field=light_field)
                 pool.update(c)
@@ -116,7 +119,7 @@ def make_cherenkov_pools_statistics(
     particle_cone_opening_angle_deg,
     num_showers,
     min_num_cherenkov_photons,
-    outlier_percentile,
+    density_cut,
     corsika_primary_path,
     run_id,
     prng,
@@ -137,7 +140,7 @@ def make_cherenkov_pools_statistics(
         corsika_primary_steering=steering,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons,
-        outlier_percentile=outlier_percentile,
+        density_cut=density_cut,
     )
 
 

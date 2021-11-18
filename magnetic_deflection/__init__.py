@@ -61,7 +61,7 @@ def _write_default_config(path, energy_supports_max, energy_supports_num):
         "discovery_min_num_showers_per_iteration": 32,
         "statistics_total_energy": 8e3,
         "statistics_min_num_showers": 500,
-        "outlier_percentile": 50.0,
+        "density_cut": examples.DENSITY_CUT_NUM_NEIGHBORS,
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
     }
@@ -377,6 +377,7 @@ def _reduce_statistics_site_particle(paths):
             "particle_energy_GeV": "f4",
             "num_photons": "f4",
             "num_bunches": "i4",
+            "num_all_bunches": "i4",
             "position_med_x_m": "f4",
             "position_med_y_m": "f4",
             "position_phi_rad": "f4",

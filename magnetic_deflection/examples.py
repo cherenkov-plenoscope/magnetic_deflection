@@ -1,5 +1,5 @@
 import os
-
+import numpy as np
 
 SITES = {
     "namibia": {
@@ -110,4 +110,25 @@ PLOTTING = {
     },
     "label_unit_seperator": "$\\,/\\,$",
     "rcParams": {"mathtext.fontset": "cm", "font.family": "STIXGeneral",},
+}
+
+TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S = 5e11
+
+CM_OPENING_ANGLE_DEG = 0.05
+CM_OPENING_ANGLE_RAD = np.deg2rad(CM_OPENING_ANGLE_DEG)
+CM_APERTURE_RADIUS_M = 35.5
+CM_APERTURE_AREA_M2 = np.pi *CM_APERTURE_RADIUS_M ** 2
+CM_SOLID_ANGLE_SR = np.pi * CM_OPENING_ANGLE_RAD ** 2
+CM_ACCEPTANCE_M2_SR = CM_APERTURE_AREA_M2 * CM_SOLID_ANGLE_SR
+
+CM_NSB_RATE = TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S * CM_ACCEPTANCE_M2_SR
+CM_NSB_INTENSITY_IN_1NS = CM_NSB_RATE / 1e9
+
+DENSITY_CUT_MEDIAN = {"median": {"percentile": 50.0},}
+DENSITY_CUT_NUM_NEIGHBORS = {
+    "num_neighbors": {
+        "xy_radius": CM_APERTURE_RADIUS_M,
+        "cxcy_radius": CM_OPENING_ANGLE_RAD,
+        "min_num_neighbors": int(CM_NSB_INTENSITY_IN_1NS)
+    }
 }

@@ -2,6 +2,9 @@ import numpy as np
 import os
 import json_numpy
 import pandas
+import scipy
+from scipy.spatial import KDTree
+import time
 
 from . import spherical_coordinates as sphcords
 from . import tools
@@ -35,6 +38,7 @@ def percentile_indices(values, target_value, percentile):
     Return a mask indicating the percentile of elements which are
     closest to the target_value.
     """
+    assert 0.0 <= percentile <= 100.0
     factor = percentile / 100.0
     delta = np.abs(values - target_value)
     argsort_delta = np.argsort(delta)
@@ -57,6 +61,32 @@ def percentile_indices_wrt_median(values, percentile):
     return percentile_indices(
         values=values, target_value=np.median(values), percentile=percentile
     )
+
+
+def light_field_density_cut(light_field, density_cut):
+    if density_cut is None:
+        return np.ones(len(light_field["x"]), dtype=np.int32)
+
+    keys = list(density_cut.keys())
+    assert len(keys) == 1
+    key = keys[0]
+    config = density_cut[key]
+
+    if key == "median":
+        return mask_inlier_in_light_field_geometry(
+            light_field=light_field,
+            percentile=config["percentile"],
+        )
+    elif key == "num_neighbors":
+        num_neighbors = estimate_num_neighbors_in_light_field(
+            light_field=light_field,
+            xy_radius=config["xy_radius"],
+            cxcy_radius=config["cxcy_radius"],
+        )
+        mask = num_neighbors >= config["min_num_neighbors"]
+        return mask
+    else:
+        raise KeyError("Don't know density_cut '{:s}'.".format(key))
 
 
 def mask_inlier_in_light_field_geometry(light_field, percentile):
@@ -180,3 +210,50 @@ def limit_strong_weights(weights, max_relative_weight):
         w_relative = w_relative / np.sum(w_relative)
 
     return w_relative
+
+
+def estimate_num_neighbors_in_light_field(light_field, xy_radius, cxcy_radius):
+    t0 = time.time()
+
+    x = light_field["x"]
+    y = light_field["y"]
+    num = len(x)
+
+    cx = light_field["cx"]
+    cy = light_field["cy"]
+    cz = np.sqrt(1 - cx**2 - cy**2)
+
+    lf_xy = np.array(np.c_[x, y])
+    lf_cxcycz = np.array(np.c_[cx, cy, cz])
+
+    t1 = time.time()
+    print("Init {:f}s".format(t1 - t0))
+
+    tree_xy = scipy.spatial.cKDTree(data=lf_xy)
+    tree_hemisphere = scipy.spatial.cKDTree(data=lf_cxcycz)
+
+    t2 = time.time()
+    print("Make trees {:f}s".format(t2 - t1))
+
+    num_neighbors = np.zeros(num, dtype=np.uint32)
+
+    for i in range(num):
+        xy = np.c_[x[i], y[i]]
+        near_xy_idx = tree_xy.query_ball_point(
+            x=lf_xy[i],
+            r=xy_radius
+        )
+        cxcy = np.c_[cx[i], cy[i]]
+        near_he_idx = tree_hemisphere.query_ball_point(
+            x=lf_cxcycz[i],
+            r=cxcy_radius
+        )
+
+        near = set(near_xy_idx)
+        near.update(near_he_idx)
+        num_neighbors[i] = len(near)
+    t3 = time.time()
+    print("query trees {:f}s".format(t3 - t2))
+
+    return num_neighbors
+
