@@ -50,7 +50,7 @@ def estimate_deflection(
 
         total_num_showers += num_showers_per_iteration
 
-        new_pools = corsika.make_cherenkov_pools_statistics(
+        new_pools, _ = corsika.make_cherenkov_pools_statistics(
             site=site,
             particle_id=particle_id,
             particle_energy=particle_energy,

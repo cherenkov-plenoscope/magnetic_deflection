@@ -78,7 +78,7 @@ def make_jobs(work_dir):
     CFG = read_config(work_dir, ["sites", "particles", "pointing", "config",])
 
     jobs = []
-    job_id = 0
+    job_id = 1  # start at 1
     for skey in CFG["sites"]:
         for pkey in CFG["particles"]:
             print("Make jobs ", skey, pkey)
@@ -164,8 +164,33 @@ def reduce_statistics(work_dir):
             os.makedirs(
                 os.path.join(work_dir, "reduce", skey, pkey), exist_ok=True
             )
-            print("Reducing statistics: ", skey, pkey)
+            print("Reducing statistics_steering: ", skey, pkey)
+            # steering
+            # --------
+            paths = glob.glob(
+                os.path.join(
+                    work_dir,
+                    "map",
+                    skey,
+                    pkey,
+                    map_basenames_wildcard["statistics_steering"],
+                )
+            )
+            shower_statistics_steering = _reduce_statistics_steering_site_particle(
+                paths=paths
+            )
+            expl = corsika.cpw.steering_io.write_explicit_steerings(
+                explicit_steerings=shower_statistics_steering,
+                path=os.path.join(
+                    work_dir,
+                    "reduce",
+                    skey,
+                    pkey,
+                    reduce_basenames["statistics_steering"],
+                ),
+            )
 
+            print("Reducing statistics: ", skey, pkey)
             paths = glob.glob(
                 os.path.join(
                     work_dir,
@@ -345,6 +370,8 @@ def read_config(
 def _reduce_statistics_site_particle(paths):
     stats = Records.init(
         dtypes={
+            "run": "i4",
+            "event": "i4",
             "particle_azimuth_deg": "f4",
             "particle_zenith_deg": "f4",
             "particle_energy_GeV": "f4",
@@ -375,3 +402,15 @@ def _reduce_statistics_site_particle(paths):
         stats = Records.append_numpy_recarray(stats, pools)
 
     return Records.to_numpy_recarray(stats)
+
+
+def _reduce_statistics_steering_site_particle(paths):
+    bundle = {}
+    num = len(paths)
+    for i, path in enumerate(paths):
+        basename = os.path.basename(path)
+        job_id = int(basename[0:6])
+        print("Read job: {:06d}, {: 6d} / {: 6d}".format(job_id, i, num))
+        expl = corsika.cpw.steering_io.read_explicit_steerings(path)
+        bundle[job_id] = expl[job_id]
+    return bundle

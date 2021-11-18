@@ -12,8 +12,10 @@ STRUCTURE = {
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_discovery.jsonl": {},
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_deflection.json": {},
     "map/{site_key:s}/{particle_key:s}/{job_id:06d}_statistics.recarray.tar": {},
+    "map/{site_key:s}/{particle_key:s}/{job_id:06d}_statistics_steering.tar": {},
     "reduce/{site_key:s}/{particle_key:s}/deflection.csv": {},
     "reduce/{site_key:s}/{particle_key:s}/statistics.recarray.tar": {},
+    "reduce/{site_key:s}/{particle_key:s}/statistics_steering.tar": {},
 }
 
 

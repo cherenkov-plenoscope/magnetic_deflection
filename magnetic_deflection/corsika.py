@@ -20,6 +20,7 @@ def make_steering(
     num_showers,
     prng,
 ):
+    assert run_id > 0
     steering = {}
     steering["run"] = {
         "run_id": int(run_id),
@@ -68,6 +69,7 @@ def estimate_cherenkov_pool(
             stdout_path=os.path.join(tmp_dir, "corsika.stdout"),
             stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
         )
+        explicit_steering = extract_explicit_steering(corsika_run=corsika_run)
 
         for idx, shower in enumerate(corsika_run):
             corsika_event_header, photon_bunches = shower
@@ -86,6 +88,8 @@ def estimate_cherenkov_pool(
 
             if num_bunches >= min_num_cherenkov_photons:
                 pool = {}
+                pool["run"] = int(ceh[cpw.I_EVTH_RUN_NUMBER])
+                pool["event"] = int(ceh[cpw.I_EVTH_EVENT_NUMBER])
                 pool["particle_azimuth_deg"] = np.rad2deg(
                     ceh[cpw.I_EVTH_AZIMUTH_RAD]
                 )
@@ -100,7 +104,7 @@ def estimate_cherenkov_pool(
                 pool.update(c)
                 pools.append(pool)
 
-        return pools
+        return pools, explicit_steering
 
 
 def make_cherenkov_pools_statistics(
@@ -147,3 +151,13 @@ def init_light_field_from_corsika(bunches):
     lf["size"] = bunches[:, cpw.IBSIZE]
     lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
     return pandas.DataFrame(lf).to_records(index=False)
+
+
+def extract_explicit_steering(corsika_run):
+    """
+    This can be used to reproduce the events bit by bit.
+    """
+    explicit_steering = {}
+    explicit_steering["steering_card"] = str(corsika_run.steering_card)
+    explicit_steering["primary_bytes"] = bytes(corsika_run.primary_bytes)
+    return explicit_steering

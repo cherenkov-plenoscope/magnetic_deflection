@@ -136,6 +136,7 @@ def run_job(job):
     )
 
     tools.write_json(map_paths["job"], job, indent=4)
+    jlog.info("job: init prng for discovery with seed=job_id")
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
     jlog.info("job: discovering deflection")
@@ -194,10 +195,16 @@ def run_job(job):
             return 0
 
         jlog.info("job: gathering statistics")
+        jlog.info("job: re-init prng for statistics with seed=job_id")
+        prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
+
         if not os.path.exists(map_paths["statistics"]):
             jlog.info("job: simulate new showers")
 
-            pools = corsika.make_cherenkov_pools_statistics(
+            (
+                pools,
+                pools_explicit_steering,
+            ) = corsika.make_cherenkov_pools_statistics(
                 site=job["site"],
                 particle_id=job["particle"]["corsika_id"],
                 particle_energy=job["particle"]["energy_GeV"],
@@ -212,7 +219,7 @@ def run_job(job):
                 ],
                 outlier_percentile=job["statistics"]["outlier_percentile"],
                 corsika_primary_path=job["job"]["corsika_primary_path"],
-                run_id=1 + job["job"]["id"],
+                run_id=job["job"]["id"],
                 prng=prng,
             )
 
@@ -222,6 +229,10 @@ def run_job(job):
                 instrument_zenith_deg=job["pointing"]["zenith_deg"],
             )
 
+            corsika.cpw.steering_io.write_explicit_steerings(
+                explicit_steerings={job["job"]["id"]: pools_explicit_steering},
+                path=map_paths["statistics_steering"],
+            )
             _write_pool_statistics(
                 pool_statistics=pools, path=map_paths["statistics"]
             )
