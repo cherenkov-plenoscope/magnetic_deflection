@@ -246,9 +246,6 @@ def run_job(job):
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
         )
-        deflection["outlier_percentile"] = job["statistics"][
-            "outlier_percentile"
-        ]
         deflection["particle_energy_GeV"] = job["particle"]["energy_GeV"]
 
         jlog.info("job: write results")
