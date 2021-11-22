@@ -52,17 +52,6 @@ def percentile_indices(values, target_value, percentile):
     return mask
 
 
-def percentile_indices_wrt_median(values, percentile):
-    """
-    Rejecting outliers.
-    Return a mask indicating the percentile of values which are
-    closest to median(values)
-    """
-    return percentile_indices(
-        values=values, target_value=np.median(values), percentile=percentile
-    )
-
-
 def light_field_density_cut(light_field, density_cut):
     if density_cut is None:
         return np.ones(len(light_field["x"]), dtype=np.int32)
@@ -74,6 +63,11 @@ def light_field_density_cut(light_field, density_cut):
 
     if key == "median":
         return mask_inlier_in_light_field_geometry(
+            light_field=light_field,
+            percentile=config["percentile"],
+        )
+    elif key == "median_radial":
+        return mask_inlier_in_light_field_geometry_radial(
             light_field=light_field,
             percentile=config["percentile"],
         )
@@ -98,6 +92,42 @@ def mask_inlier_in_light_field_geometry(light_field, percentile):
     valid_cy = percentile_indices_wrt_median(values=lf["cy"], percentile=pc)
     return np.logical_and(
         np.logical_and(valid_cx, valid_cy), np.logical_and(valid_x, valid_y)
+    )
+
+
+def percentile_indices_wrt_median(values, percentile):
+    """
+    Rejecting outliers.
+    Return a mask indicating the percentile of values which are
+    closest to median(values)
+    """
+    return percentile_indices(
+        values=values, target_value=np.median(values), percentile=percentile
+    )
+
+
+def mask_inlier_in_light_field_geometry_radial(light_field, percentile):
+    valid_cx_cy = percentile_indices_wrt_median_radial(
+        value_dim0=light_field["cx"],
+        value_dim1=light_field["cy"],
+        percentile=percentile,
+    )
+    valid_x_y = percentile_indices_wrt_median_radial(
+        value_dim0=light_field["x"],
+        value_dim1=light_field["y"],
+        percentile=percentile,
+    )
+    return np.logical_and(valid_cx_cy, valid_x_y)
+
+
+def percentile_indices_wrt_median_radial(value_dim0, value_dim1, percentile):
+    med0 = np.median(value_dim0)
+    med1 = np.median(value_dim1)
+    radius_square = (value_dim0 - med0) ** 2 + (value_dim1 - med1) ** 2
+    return percentile_indices(
+        values=radius_square,
+        target_value=0.0,
+        percentile=percentile
     )
 
 

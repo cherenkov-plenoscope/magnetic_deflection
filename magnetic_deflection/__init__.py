@@ -65,7 +65,7 @@ def _write_default_config(path, energy_supports_max, energy_supports_num):
         "discovery_min_num_showers_per_iteration": 32,
         "statistics_total_energy": 8e3,
         "statistics_min_num_showers": 500,
-        "density_cut": examples.DENSITY_CUT_NUM_NEIGHBORS,
+        "density_cut": examples.DENSITY_CUT_MEDIAN_RADIAL,
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
     }

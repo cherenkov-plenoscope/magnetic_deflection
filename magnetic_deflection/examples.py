@@ -125,6 +125,7 @@ CM_NSB_RATE = TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S * CM_ACCEPTANCE_M2_SR
 CM_NSB_INTENSITY_IN_1NS = CM_NSB_RATE / 1e9
 
 DENSITY_CUT_MEDIAN = {"median": {"percentile": 50.0},}
+DENSITY_CUT_MEDIAN_RADIAL = {"median_radial": {"percentile": 50.0},}
 DENSITY_CUT_NUM_NEIGHBORS = {
     "num_neighbors": {
         "xy_radius": CM_APERTURE_RADIUS_M,
