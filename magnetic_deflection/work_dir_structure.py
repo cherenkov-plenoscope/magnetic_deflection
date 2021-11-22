@@ -1,5 +1,5 @@
 import os
-import tools
+from . import tools
 
 
 STRUCTURE = {
