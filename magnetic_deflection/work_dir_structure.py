@@ -26,7 +26,7 @@ def all_config_keys():
         dirname = os.path.dirname(path)
         basename = os.path.basename(path)
         key, ext = os.path.splitext(basename)
-        if path == "config" and ext == ".json":
+        if dirname == "config" and ext == ".json":
             out.append(key)
     return out
 
