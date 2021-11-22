@@ -20,15 +20,6 @@ STRUCTURE = {
 }
 
 
-def read_config(work_dir, keys=all_config_keys()):
-    CFG = {}
-    for key in keys:
-        CFG[key] = tools.read_json(
-            os.path.join(work_dir, "config", key + ".json")
-        )
-    return CFG
-
-
 def all_config_keys():
     out = []
     for path in STRUCTURE:
@@ -38,6 +29,15 @@ def all_config_keys():
         if path == "config" and ext == ".json":
             out.append(key)
     return out
+
+
+def read_config(work_dir, keys=all_config_keys()):
+    CFG = {}
+    for key in keys:
+        CFG[key] = tools.read_json(
+            os.path.join(work_dir, "config", key + ".json")
+        )
+    return CFG
 
 
 def map_basenames_format():
