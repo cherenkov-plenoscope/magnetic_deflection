@@ -1,4 +1,5 @@
 import os
+import tools
 
 
 STRUCTURE = {
@@ -17,6 +18,26 @@ STRUCTURE = {
     "reduce/{site_key:s}/{particle_key:s}/statistics.recarray.tar": {},
     "reduce/{site_key:s}/{particle_key:s}/statistics_steering.tar": {},
 }
+
+
+def read_config(work_dir, keys=all_config_keys()):
+    CFG = {}
+    for key in keys:
+        CFG[key] = tools.read_json(
+            os.path.join(work_dir, "config", key + ".json")
+        )
+    return CFG
+
+
+def all_config_keys():
+    out = []
+    for path in STRUCTURE:
+        dirname = os.path.dirname(path)
+        basename = os.path.basename(path)
+        key, ext = os.path.splitext(basename)
+        if path == "config" and ext == ".json":
+            out.append(key)
+    return out
 
 
 def map_basenames_format():

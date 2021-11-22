@@ -51,6 +51,10 @@ def init(
     )
 
 
+def read_config(work_dir, keys=work_dir_structure.all_config_keys()):
+    return work_dir_structure.read_config(work_dir=work_dir, keys=keys)
+
+
 def _write_default_config(path, energy_supports_max, energy_supports_num):
     cfg = {
         "energy_supports_max": float(energy_supports_max),
@@ -354,17 +358,6 @@ def read_deflection(work_dir, style="dict"):
             else:
                 raise KeyError("Unknown style: '{:s}'.".format(style))
     return mag
-
-
-def read_config(
-    work_dir, keys=["sites", "particles", "pointing", "config", "plotting"]
-):
-    CFG = {}
-    for key in keys:
-        CFG[key] = tools.read_json(
-            os.path.join(work_dir, "config", key + ".json")
-        )
-    return CFG
 
 
 def _reduce_statistics_site_particle(paths):
