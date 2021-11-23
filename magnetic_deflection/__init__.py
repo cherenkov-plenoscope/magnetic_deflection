@@ -219,15 +219,29 @@ def reduce_statistics(work_dir):
 
 def read_statistics(work_dir):
     CFG = read_config(work_dir, ["sites", "particles",])
+    reduce_basenames = work_dir_structure.reduce_basenames()
     out = {}
     for skey in CFG["sites"]:
         out[skey] = {}
         for pkey in CFG["particles"]:
-            out[skey][pkey] = recarray_io.read_from_tar(
-                path=os.path.join(
-                    work_dir, "reduce", skey, pkey, "statistics.recarray.tar"
-                )
+            path = os.path.join(
+                work_dir, "reduce", skey, pkey, reduce_basenames["statistics"],
             )
+            out[skey][pkey] = recarray_io.read_from_tar(path=path)
+    return out
+
+
+def read_explicit_steerings(work_dir):
+    CFG = read_config(work_dir, ["sites", "particles",])
+    reduce_basenames = work_dir_structure.reduce_basenames()
+    out = {}
+    for skey in CFG["sites"]:
+        out[skey] = {}
+        for pkey in CFG["particles"]:
+            path = os.path.join(
+                work_dir, "reduce", skey, pkey, reduce_basenames["statistics_steering"],
+            )
+            out[skey][pkey] = corsika.cpw.steering_io.read_explicit_steerings(path)
     return out
 
 
