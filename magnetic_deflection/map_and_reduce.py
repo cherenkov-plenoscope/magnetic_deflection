@@ -255,8 +255,8 @@ def add_off_axis_to_pool_statistics(
 ):
     for i in range(len(pool_statistics)):
         cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=pool_statistics[i]["direction_median_cx_rad"],
-            cy=pool_statistics[i]["direction_median_cy_rad"],
+            cx=pool_statistics[i]["cherenkov_cx_rad"],
+            cy=pool_statistics[i]["cherenkov_cy_rad"],
         )
         off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
             az1_deg=cer_az_deg,

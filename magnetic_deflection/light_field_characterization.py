@@ -12,48 +12,47 @@ def parameterize_light_field(light_field):
     lf = light_field
     out = {}
 
-    out["position_median_x_m"] = np.median(lf["x"])
-    out["position_median_y_m"] = np.median(lf["y"])
-    rel_x = lf["x"] - out["position_median_x_m"]
-    rel_y = lf["y"] - out["position_median_y_m"]
+    out["cherenkov_x_m"] = np.median(lf["x"])
+    out["cherenkov_y_m"] = np.median(lf["y"])
+    rel_x = lf["x"] - out["cherenkov_x_m"]
+    rel_y = lf["y"] - out["cherenkov_y_m"]
     rel_r_square = rel_x ** 2 + rel_y ** 2
     del(rel_x)
     del(rel_y)
     rel_r_pivot = np.sqrt(np.percentile(a=rel_r_square, q=percentile))
     del(rel_r_square)
-    out["position_radius50_m"] = rel_r_pivot
+    out["cherenkov_radius50_m"] = rel_r_pivot
 
 
-    out["direction_median_cx_rad"] = np.median(lf["cx"])
-    out["direction_median_cy_rad"] = np.median(lf["cy"])
-    direction_median_cz_rad = np.sqrt(
+    out["cherenkov_cx_rad"] = np.median(lf["cx"])
+    out["cherenkov_cy_rad"] = np.median(lf["cy"])
+    cherenkov_cz_rad = np.sqrt(
         1.0
-        - out["direction_median_cx_rad"] ** 2
-        - out["direction_median_cy_rad"] ** 2
+        - out["cherenkov_cx_rad"] ** 2
+        - out["cherenkov_cy_rad"] ** 2
     )
-
-    direction_median = np.array([
-        out["direction_median_cx_rad"],
-        out["direction_median_cy_rad"],
-        direction_median_cz_rad
+    cherenkov_direction_median = np.array([
+        out["cherenkov_cx_rad"],
+        out["cherenkov_cy_rad"],
+        cherenkov_cz_rad
     ])
-    cz = np.sqrt(1.0 - lf["cx"] ** 2 - lf["cy"] ** 2)
+
+    lf_cz = np.sqrt(1.0 - lf["cx"] ** 2 - lf["cy"] ** 2)
 
     dot_product = np.array([
-        lf["cx"] * direction_median[0],
-        lf["cy"] * direction_median[1],
-        cz * direction_median[2],
+        lf["cx"] * cherenkov_direction_median[0],
+        lf["cy"] * cherenkov_direction_median[1],
+        lf_cz * cherenkov_direction_median[2],
     ])
     cos_theta = np.sum(dot_product, axis=1)
     del(dot_product)
     cos_theta_pivot = np.percentile(a=cos_theta, q=percentile)
     del(cos_theta)
     theta_pivot = np.arccos(cos_theta_pivot)
-    out["direction_angle50_rad"] = theta_pivot
+    out["cherenkov_angle50_rad"] = theta_pivot
 
-    out["arrival_time_mean_s"] = float(np.mean(lf["t"]))
-    out["arrival_time_median_s"] = float(np.median(lf["t"]))
-    out["arrival_time_std_s"] = float(np.std(lf["t"]))
+    out["cherenkov_t_s"] = np.median(lf["t"])
+    out["cherenkov_t_std_s"] = np.std(lf["t"])
     return out
 
 
@@ -67,7 +66,7 @@ def inspect_pools(
     cers = cers.to_records(index=False)
 
     cer_azimuth_deg, cer_zenith_deg = sphcords._cx_cy_to_az_zd_deg(
-        cx=cers["direction_median_cx_rad"], cy=cers["direction_median_cy_rad"],
+        cx=cers["cherenkov_cx_rad"], cy=cers["cherenkov_cy_rad"],
     )
 
     cer_off_axis_deg = sphcords._angle_between_az_zd_deg(
@@ -80,7 +79,7 @@ def inspect_pools(
     w_off = make_weights_off_axis(
         off_axis_deg=cer_off_axis_deg, off_axis_pivot_deg=off_axis_pivot_deg
     )
-    w_nph = make_weights_num_photons(num_photons=cers["num_photons"])
+    w_nph = make_weights_num_photons(num_photons=cers["cherenkov_num_photons"])
 
     weights = w_off * w_nph
 
@@ -93,9 +92,6 @@ def inspect_pools(
         _avg, _std = tools.average_std(cers[pkey], weights=weights)
         out[pkey] = _avg
         out[pkey + "_std"] = _std
-
-    out["total_num_photons"] = np.sum(cers["num_photons"])
-    out["total_num_showers"] = len(cers)
 
     if False:
         print("---")

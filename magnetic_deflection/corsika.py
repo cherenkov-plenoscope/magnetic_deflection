@@ -100,8 +100,8 @@ def estimate_cherenkov_pool(
                     ceh[cpw.I_EVTH_ZENITH_RAD]
                 )
                 pool["particle_energy_GeV"] = ceh[cpw.I_EVTH_TOTAL_ENERGY_GEV]
-                pool["num_photons"] = np.sum(light_field["size"])
-                pool["num_bunches"] = num_bunches
+                pool["cherenkov_num_photons"] = np.sum(light_field["size"])
+                pool["cherenkov_num_bunches"] = num_bunches
 
                 c = lfc.parameterize_light_field(light_field=light_field)
                 pool.update(c)

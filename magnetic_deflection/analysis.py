@@ -8,8 +8,8 @@ from scipy.optimize import curve_fit
 FIT_KEYS = {
     "particle_azimuth_deg": {"start": 90.0,},
     "particle_zenith_deg": {"start": 0.0,},
-    "position_median_x_m": {"start": 0.0,},
-    "position_median_y_m": {"start": 0.0,},
+    "cherenkov_x_m": {"start": 0.0,},
+    "cherenkov_y_m": {"start": 0.0,},
 }
 
 
@@ -20,14 +20,15 @@ def deflection_add_density_fields(deflection):
     dicout["num_cherenkov_photons_per_shower"] = (
         t["total_num_photons"] / t["total_num_showers"]
     )
-    dicout["spread_area_m2"] = np.pi * t["position_radius50_m"] ** 2
-    dicout["spread_solid_angle_deg2"] = spherical_coordinates.cone_solid_angle(
+    dicout["cherenkov_area_m2"] = np.pi * t["cherenkov_radius50_m"] ** 2
+    dicout["cherenkov_solid_angle_sr"] = spherical_coordinates.cone_solid_angle(
         cone_radial_opening_angle=t["diraction_angle50_rad"]
     )
 
-    dicout["light_field_outer_density"] = dicout[
-        "num_cherenkov_photons_per_shower"
-    ] / (dicout["spread_solid_angle_deg2"] * dicout["spread_area_m2"])
+    dicout["cherenkov_density_per_m2_per_sr"] = (
+        t["cherenkov_num_photons"]
+        / (dicout["cherenkov_solid_angle_sr"] * dicout["cherenkov_area_m2"])
+    )
     return pandas.DataFrame(dicout).to_records(index=False)
 
 
