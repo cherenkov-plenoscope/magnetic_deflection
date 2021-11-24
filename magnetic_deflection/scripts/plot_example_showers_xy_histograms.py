@@ -104,17 +104,36 @@ def get_event_id_of_first_event_in_run(steering_card):
             val = str.replace(line, "EVTNR", "")
             val = str.strip(val)
             return int(val)
-    raise ValueError("Steering-card has no line 'EVTNR'.")
+    raise ValueError("steering_card has no 'EVTNR'.")
 
 
 def replace_EVTNR_in_steering_card(steering_card, evtnr):
     assert evtnr > 0
+    replaced = False
     out = ""
     for line in str.splitlines(steering_card):
         if "EVTNR" in line:
             out += "EVTNR" + " " + "{:d}".format(evtnr) + "\n"
+            replaced = True
         else:
             out += line + "\n"
+    if not replaced:
+        raise ValueError("steering_card has no 'EVTNR'")
+    return out
+
+
+def replace_NSHOW_in_steering_card(steering_card, nshow):
+    assert nshow > 0
+    replaced = False
+    out = ""
+    for line in str.splitlines(steering_card):
+        if "NSHOW" in line:
+            out += "NSHOW" + " " + "{:d}".format(nshow) + "\n"
+            replaced = True
+        else:
+            out += line + "\n"
+    if not replaced:
+        raise ValueError("steering_card has no 'NSHOW'")
     return out
 
 
@@ -138,11 +157,13 @@ for skey in CFG["sites"]:
             )
             event_idx = event_id - first_event_id_in_run
             assert event_idx >= 0
-            steering["primary_bytes"] = mdfl.corsika.cpw._primaries_slice(
-                primary_bytes=shower_explicit_steerings[skey][pkey][run_id][
-                    "primary_bytes"
-                ],
-                i=event_idx,
+            steering["primary_bytes"] = bytes(
+                mdfl.corsika.cpw._primaries_slice(
+                    primary_bytes=shower_explicit_steerings[skey][pkey][run_id][
+                        "primary_bytes"
+                    ],
+                    i=event_idx,
+                )
             )
             evtkey = (run_id, event_id)
             example_steerings[skey][ckey][evtkey] = steering
@@ -193,10 +214,14 @@ for skey in CFG["sites"]:
 
             steer = example_steerings[skey][ckey][evtkey]
             job = {}
+            job["steering_card"] = str(steer["steering_card"])
             job["steering_card"] = replace_EVTNR_in_steering_card(
-                steering_card=steer["steering_card"], evtnr=event_id,
+                steering_card=job["steering_card"], evtnr=event_id,
             )
-            job["primary_bytes"] = steer["primary_bytes"]
+            job["steering_card"] = replace_NSHOW_in_steering_card(
+                steering_card=job["steering_card"], nshow=1,
+            )
+            job["primary_bytes"] = bytes(steer["primary_bytes"])
             job["skey"] = skey
             job["pkey"] = pkey
             job["ckey"] = ckey
@@ -242,17 +267,44 @@ def run_job(job):
     # -------------------------------------------------------------
     if True:  # not os.path.exists(hist_path):
         run_handle = mdfl.corsika.cpw.Tario(path=pool_path)
-        corsika_runh = run_handle.runh
-        corsika_evth, corsika_bunches = next(run_handle)
+        evth, bunches = next(run_handle)
         all_light_field = mdfl.corsika.init_light_field_from_corsika(
-            bunches=corsika_bunches
+            bunches=bunches
         )
+
+        evth[mdfl.corsika.cpw.I_EVTH_RUN_NUMBER] == job["run"]
+        evth[mdfl.corsika.cpw.I_EVTH_EVENT_NUMBER] == job["event"]
+        prm_dict = mdfl.corsika.cpw._primaries_to_dict(
+            primary_bytes=job["primary_bytes"]
+        )[0]
+        evth[mdfl.corsika.cpw.I_EVTH_PARTICLE_ID] == prm_dict["particle_id"]
+        evth[mdfl.corsika.cpw.I_EVTH_TOTAL_ENERGY_GEV] == prm_dict["energy_GeV"]
+        evth[mdfl.corsika.cpw.I_EVTH_ZENITH_RAD] == prm_dict["zenith_rad"]
+        evth[mdfl.corsika.cpw.I_EVTH_AZIMUTH_RAD] == prm_dict["azimuth_rad"]
+        evth[mdfl.corsika.cpw.I_EVTH_STARTING_DEPTH_G_PER_CM2] == prm_dict["depth_g_per_cm2"]
+        evth[mdfl.corsika.cpw.I_EVTH_NUM_DIFFERENT_RANDOM_SEQUENCES] == 4
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(1)] == prm_dict["random_seed"][0]["SEED"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(2)] == prm_dict["random_seed"][1]["SEED"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(3)] == prm_dict["random_seed"][2]["SEED"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(4)] == prm_dict["random_seed"][3]["SEED"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(1)] == prm_dict["random_seed"][0]["CALLS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(2)] == prm_dict["random_seed"][1]["CALLS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(3)] == prm_dict["random_seed"][2]["CALLS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(4)] == prm_dict["random_seed"][3]["CALLS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(1)] == prm_dict["random_seed"][0]["BILLIONS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(2)] == prm_dict["random_seed"][1]["BILLIONS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(3)] == prm_dict["random_seed"][2]["BILLIONS"]
+        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(4)] == prm_dict["random_seed"][3]["BILLIONS"]
+        evth[mdfl.corsika.cpw.I_EVTH_NUM_OBSERVATION_LEVELS] == 1
+        # print("obslev", evth[mdfl.corsika.cpw.I_EVTH_HEIGHT_OBSERVATION_LEVEL(1)]*1e-2, "m")
+        evth[mdfl.corsika.cpw.I_EVTH_NUM_REUSES_OF_CHERENKOV_EVENT] == 1
 
         mask_inlier = mdfl.light_field_characterization.light_field_density_cut(
             light_field=all_light_field, density_cut=job["density_cut"]
         )
 
         light_field = all_light_field[mask_inlier]
+        del(all_light_field)
 
         stats_on_the_fly = mdfl.light_field_characterization.parameterize_light_field(
             light_field=light_field
@@ -277,13 +329,15 @@ def run_job(job):
         )[0]
         hist = hist.astype(np.float32)
 
-        print(job["run"], job["event"], "---------------")
+        print(job["run"], job["event"], job["skey"], job["ckey"], cmap)
+        """
         for statkey in stats_on_the_fly:
             print(
                 statkey,
                 stats_on_the_fly[statkey],
                 job["shower_statistic"][statkey][0],
             )
+        """
 
         ell_maj = job["shower_statistic"]["position_std_major_m"]
         ell_min = job["shower_statistic"]["position_std_minor_m"]
@@ -299,16 +353,19 @@ def run_job(job):
             alpha=0.5,
         )
 
-        fig = sebplt.figure({"rows": 1280, "cols": 1280, "fontsize": 1.5})
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+        fig = sebplt.figure({"rows": 1080, "cols": 1920, "fontsize": 1.5})
+        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.15, 0.8*(9/16), 0.8))
+        ax_cb = sebplt.add_axes(fig=fig, span=[0.85, 0.15, 0.02, 0.8])
         ax.plot(
             stats_on_the_fly["position_med_x_m"],
             stats_on_the_fly["position_med_y_m"],
             "xr",
         )
-        ax.pcolormesh(
-            job["xy_bin_edges"], job["xy_bin_edges"], hist.T, cmap=cmap
+        pcm = ax.pcolormesh(
+            job["xy_bin_edges"], job["xy_bin_edges"], hist.T, cmap=cmap,
+            norm=sebplt.plt_colors.PowerNorm(gamma=0.5),
         )
+        sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
         ax.set_xlabel("x" + CFG["plotting"]["label_unit_seperator"] + "m")
         ax.set_ylabel("y" + CFG["plotting"]["label_unit_seperator"] + "m")
         ax.add_artist(ell)
