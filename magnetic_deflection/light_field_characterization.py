@@ -44,8 +44,10 @@ def parameterize_light_field(light_field):
         lf["cy"] * cherenkov_direction_median[1],
         lf_cz * cherenkov_direction_median[2],
     ])
-    cos_theta = np.sum(dot_product, axis=1)
+    cos_theta = np.sum(dot_product, axis=0)
     del(dot_product)
+    assert len(cos_theta) == len(lf["cx"])
+
     cos_theta_pivot = np.percentile(a=cos_theta, q=percentile)
     del(cos_theta)
     theta_pivot = np.arccos(cos_theta_pivot)
