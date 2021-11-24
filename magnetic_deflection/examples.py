@@ -87,25 +87,25 @@ PLOTTING = {
         "helium": {"color": "orange", "label": "helium",},
     },
     "light_field": {
-        "num_photons": {
+        "cherenkov_num_photons": {
             "label": "intensity",
             "unit": "1",
-            "limits": [1e2, 1e6],
+            "limits": [1e3, 1e7],
         },
-        "spread_area_m2": {
+        "cherenkov_area_m2": {
             "label": "area",
             "unit": "m$^{2}$",
             "limits": [1e4, 1e7],
         },
-        "spread_solid_angle_deg2": {
+        "cherenkov_solid_angle_sr": {
             "label": "solid angle",
-            "unit": "$(1^\\circ)^{2}$",
-            "limits": [1e-1, 1e2],
+            "unit": "sr",
+            "limits": [1e-3, 1e1],
         },
-        "light_field_outer_density": {
+        "cherenkov_density_per_m2_per_sr": {
             "label": "density",
-            "unit": "m$^{-2} (1^\\circ)^{-2}$",
-            "limits": [1e-3, 1e2],
+            "unit": "m$^{-2}$ sr$^{-1}$",
+            "limits": [1e-2, 1e3],
         },
     },
     "label_unit_seperator": "$\\,/\\,$",

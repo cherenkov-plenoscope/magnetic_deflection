@@ -1,6 +1,7 @@
 import numpy as np
 import pandas
 from . import corsika
+from . import spherical_coordinates
 import scipy
 from scipy.optimize import curve_fit
 
@@ -17,12 +18,9 @@ def deflection_add_density_fields(deflection):
     t = deflection
     dicout = pandas.DataFrame(t).to_dict(orient="list")
 
-    dicout["num_cherenkov_photons_per_shower"] = (
-        t["total_num_photons"] / t["total_num_showers"]
-    )
     dicout["cherenkov_area_m2"] = np.pi * t["cherenkov_radius50_m"] ** 2
     dicout["cherenkov_solid_angle_sr"] = spherical_coordinates.cone_solid_angle(
-        cone_radial_opening_angle=t["diraction_angle50_rad"]
+        cone_radial_opening_angle=t["cherenkov_angle50_rad"]
     )
 
     dicout["cherenkov_density_per_m2_per_sr"] = (

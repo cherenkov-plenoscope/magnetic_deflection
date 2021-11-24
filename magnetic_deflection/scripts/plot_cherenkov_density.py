@@ -116,19 +116,16 @@ for skey in on_axis_shower_statistics:
         oasst = on_axis_shower_statistics[skey][pkey]
 
         den = {}
-        den["num_photons"] = oasst["num_photons"]
-        den["spread_area_m2"] = (
-            np.pi
-            * oasst["position_std_major_m"]
-            * oasst["position_std_minor_m"]
+        den["cherenkov_num_photons"] = oasst["cherenkov_num_photons"]
+        den["cherenkov_area_m2"] = np.pi * oasst["cherenkov_radius50_m"] ** 2
+
+        den["cherenkov_solid_angle_sr"] = mdfl.spherical_coordinates.cone_solid_angle(
+            cone_radial_opening_angle=oasst["cherenkov_angle50_rad"]
         )
-        den["spread_solid_angle_deg2"] = (
-            np.pi
-            * np.rad2deg(oasst["direction_std_major_rad"])
-            * np.rad2deg(oasst["direction_std_minor_rad"])
-        )
-        den["light_field_outer_density"] = oasst["num_photons"] / (
-            den["spread_solid_angle_deg2"] * den["spread_area_m2"]
+
+        den["cherenkov_density_per_m2_per_sr"] = (
+            oasst["cherenkov_num_photons"]
+            / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
         )
 
         cherenkov_density[skey][pkey] = pd.DataFrame(den).to_records(
@@ -278,7 +275,7 @@ for skey in oof:
 # density side by side
 # --------------------
 
-dkey = "light_field_outer_density"
+dkey = "cherenkov_density_per_m2_per_sr"
 
 fig = sebplt.figure(FIGSIZE)
 ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))

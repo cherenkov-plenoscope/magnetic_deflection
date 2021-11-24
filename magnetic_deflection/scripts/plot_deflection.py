@@ -33,12 +33,12 @@ key_map = {
         "name": "particle-zenith",
         "factor": 1,
     },
-    "position_med_x_m": {
+    "cherenkov_x_m": {
         "unit": "km",
         "name": "Cherenkov-pool-x",
         "factor": 1e-3,
     },
-    "position_med_y_m": {
+    "cherenkov_y_m": {
         "unit": "km",
         "name": "Cherenkov-pool-y",
         "factor": 1e-3,

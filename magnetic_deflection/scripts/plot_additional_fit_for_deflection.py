@@ -50,14 +50,14 @@ key_map = {
         "extend_high_energies": True,
         "latex_key": "\\PrmZd{}",
     },
-    "position_med_x_m": {
+    "cherenkov_x_m": {
         "unit": "m",
         "name": "Cherenkov-pool-x",
         "start": 0.0,
         "extend_high_energies": True,
         "latex_key": "\\CerX{}",
     },
-    "position_med_y_m": {
+    "cherenkov_y_m": {
         "unit": "m",
         "name": "Cherenkov-pool-y",
         "start": 0.0,
@@ -357,7 +357,7 @@ with open(os.path.join(out_dir, "power_law_table.tex"), "wt") as fout:
 # density side by side
 # --------------------
 
-dkey = "light_field_outer_density"
+dkey = "cherenkov_density_per_m2_per_sr"
 
 
 def smooth(y, box_pts):
