@@ -21,6 +21,10 @@ def make_steering(
     prng,
 ):
     assert run_id > 0
+    seed_maker_and_checker = cpw.random_seed.CorsikaRandomSeed(
+        NUM_DIGITS_RUN_ID=4,
+        NUM_DIGITS_AIRSHOWER_ID=5,
+    )
     steering = {}
     steering["run"] = {
         "run_id": int(run_id),
@@ -31,7 +35,7 @@ def make_steering(
         "atmosphere_id": site["atmosphere_id"],
     }
     steering["primaries"] = []
-    for shower_id in range(num_showers):
+    for airshower_id in np.arange(1, num_showers + 1):
         az, zd = cpw.random_distributions.draw_azimuth_zenith_in_viewcone(
             prng=prng,
             azimuth_rad=np.deg2rad(particle_cone_azimuth_deg),
@@ -48,9 +52,16 @@ def make_steering(
             "zenith_rad": zd,
             "azimuth_rad": az,
             "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(shower_id + run_id * num_showers),
+            "random_seed": cpw.simple_seed(
+                seed=seed_maker_and_checker.random_seed_based_on(
+                    run_id=run_id,
+                    airshower_id=airshower_id,
+                ),
+            ),
         }
         steering["primaries"].append(prm)
+
+    assert len(steering["primaries"]) == num_showers
     return steering
 
 
