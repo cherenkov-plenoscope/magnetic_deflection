@@ -68,3 +68,8 @@ def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
         + np.cos(phi_alt1) * np.cos(phi_alt2) * np.cos(delta_lam)
     )
     return delta_sigma
+
+
+def cone_solid_angle(cone_radial_opening_angle):
+    cap_hight = (1.0 - np.cos(cone_radial_opening_angle))
+    return 2.0*np.pi*cap_hight

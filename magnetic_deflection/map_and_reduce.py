@@ -30,7 +30,6 @@ def make_jobs(
     discovery_min_num_showers_per_iteration,
     statistics_total_energy,
     statistics_min_num_showers,
-    density_cut,
     min_num_cherenkov_photons,
     corsika_primary_path,
 ):
@@ -91,7 +90,6 @@ def make_jobs(
         )
 
         job["discovery"] = {
-            "density_cut": None,
             "num_showers_per_iteration": num_showers,
             "max_num_showers": max_total_num_showers,
             "max_off_axis_deg": particle[
@@ -108,7 +106,6 @@ def make_jobs(
 
         job["statistics"] = {
             "num_showers": num_showers,
-            "density_cut": density_cut,
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
             "off_axis_deg": 3.0
             * particle["magnetic_deflection_max_off_axis_deg"],
@@ -150,7 +147,6 @@ def run_job(job):
             instrument_azimuth_deg=job["pointing"]["azimuth_deg"],
             instrument_zenith_deg=job["pointing"]["zenith_deg"],
             max_off_axis_deg=job["discovery"]["max_off_axis_deg"],
-            density_cut=job["discovery"]["density_cut"],
             num_showers_per_iteration=job["discovery"][
                 "num_showers_per_iteration"
             ],
@@ -216,7 +212,6 @@ def run_job(job):
                 min_num_cherenkov_photons=job["statistics"][
                     "min_num_cherenkov_photons"
                 ],
-                density_cut=job["statistics"]["density_cut"],
                 corsika_primary_path=job["job"]["corsika_primary_path"],
                 run_id=job["job"]["id"],
                 prng=prng,
@@ -260,8 +255,8 @@ def add_off_axis_to_pool_statistics(
 ):
     for i in range(len(pool_statistics)):
         cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=pool_statistics[i]["direction_med_cx_rad"],
-            cy=pool_statistics[i]["direction_med_cy_rad"],
+            cx=pool_statistics[i]["direction_median_cx_rad"],
+            cy=pool_statistics[i]["direction_median_cy_rad"],
         )
         off_axis_deg = spherical_coordinates._angle_between_az_zd_deg(
             az1_deg=cer_az_deg,

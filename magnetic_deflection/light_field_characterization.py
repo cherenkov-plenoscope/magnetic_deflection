@@ -2,154 +2,54 @@ import numpy as np
 import os
 import json_numpy
 import pandas
-import scipy
-from scipy.spatial import KDTree
-import time
 
 from . import spherical_coordinates as sphcords
 from . import tools
 
 
-def estimate_ellipse(a, b):
-    cov_matrix = np.cov(np.c_[a, b].T)
-    eigen_vals, eigen_vecs = np.linalg.eig(cov_matrix)
-    major_idx = np.argmax(eigen_vals)
-    if major_idx == 0:
-        minor_idx = 1
-    else:
-        minor_idx = 0
-    major_axis = eigen_vecs[:, major_idx]
-    phi = np.arctan2(major_axis[1], major_axis[0])
-    major_std = np.sqrt(eigen_vals[major_idx])
-    minor_std = np.sqrt(eigen_vals[minor_idx])
-
-    return {
-        "median_a": np.median(a),
-        "median_b": np.median(b),
-        "phi_rad": phi,
-        "major_std": major_std,
-        "minor_std": minor_std,
-    }
-
-
-def percentile_indices(values, target_value, percentile):
-    """
-    Rejecting outliers.
-    Return a mask indicating the percentile of elements which are
-    closest to the target_value.
-    """
-    assert 0.0 <= percentile <= 100.0
-    factor = percentile / 100.0
-    delta = np.abs(values - target_value)
-    argsort_delta = np.argsort(delta)
-    num_values = len(values)
-    idxs = np.arange(num_values)
-    idxs_sorted = idxs[argsort_delta]
-    idx_limit = int(np.ceil(num_values * factor))
-    valid_indices = idxs_sorted[0:idx_limit]
-    mask = np.zeros(values.shape[0], dtype=np.bool)
-    mask[valid_indices] = True
-    return mask
-
-
-def light_field_density_cut(light_field, density_cut):
-    if density_cut is None:
-        return np.ones(len(light_field["x"]), dtype=np.int32)
-
-    keys = list(density_cut.keys())
-    assert len(keys) == 1
-    key = keys[0]
-    config = density_cut[key]
-
-    if key == "median":
-        return mask_inlier_in_light_field_geometry(
-            light_field=light_field,
-            percentile=config["percentile"],
-        )
-    elif key == "median_radial":
-        return mask_inlier_in_light_field_geometry_radial(
-            light_field=light_field,
-            percentile=config["percentile"],
-        )
-    elif key == "num_neighbors":
-        num_neighbors = estimate_num_neighbors_in_light_field(
-            light_field=light_field,
-            xy_radius=config["xy_radius"],
-            cxcy_radius=config["cxcy_radius"],
-        )
-        mask = num_neighbors >= config["min_num_neighbors"]
-        return mask
-    else:
-        raise KeyError("Don't know density_cut '{:s}'.".format(key))
-
-
-def mask_inlier_in_light_field_geometry(light_field, percentile):
-    pc = percentile
-    lf = light_field
-    valid_x = percentile_indices_wrt_median(values=lf["x"], percentile=pc)
-    valid_y = percentile_indices_wrt_median(values=lf["y"], percentile=pc)
-    valid_cx = percentile_indices_wrt_median(values=lf["cx"], percentile=pc)
-    valid_cy = percentile_indices_wrt_median(values=lf["cy"], percentile=pc)
-    return np.logical_and(
-        np.logical_and(valid_cx, valid_cy), np.logical_and(valid_x, valid_y)
-    )
-
-
-def percentile_indices_wrt_median(values, percentile):
-    """
-    Rejecting outliers.
-    Return a mask indicating the percentile of values which are
-    closest to median(values)
-    """
-    return percentile_indices(
-        values=values, target_value=np.median(values), percentile=percentile
-    )
-
-
-def mask_inlier_in_light_field_geometry_radial(light_field, percentile):
-    valid_cx_cy = percentile_indices_wrt_median_radial(
-        value_dim0=light_field["cx"],
-        value_dim1=light_field["cy"],
-        percentile=percentile,
-    )
-    valid_x_y = percentile_indices_wrt_median_radial(
-        value_dim0=light_field["x"],
-        value_dim1=light_field["y"],
-        percentile=percentile,
-    )
-    return np.logical_and(valid_cx_cy, valid_x_y)
-
-
-def percentile_indices_wrt_median_radial(value_dim0, value_dim1, percentile):
-    med0 = np.median(value_dim0)
-    med1 = np.median(value_dim1)
-    radius_square = (value_dim0 - med0) ** 2 + (value_dim1 - med1) ** 2
-    return percentile_indices(
-        values=radius_square,
-        target_value=0.0,
-        percentile=percentile
-    )
-
-
 def parameterize_light_field(light_field):
+    percentile = 50
     lf = light_field
     out = {}
 
-    xy_ellipse = estimate_ellipse(a=lf["x"], b=lf["y"])
-    out["position_med_x_m"] = xy_ellipse["median_a"]
-    out["position_med_y_m"] = xy_ellipse["median_b"]
-    out["position_phi_rad"] = xy_ellipse["phi_rad"]
-    out["position_std_minor_m"] = xy_ellipse["minor_std"]
-    out["position_std_major_m"] = xy_ellipse["major_std"]
-    del xy_ellipse
+    out["position_median_x_m"] = np.median(lf["x"])
+    out["position_median_y_m"] = np.median(lf["y"])
+    rel_x = lf["x"] - out["position_median_x_m"]
+    rel_y = lf["y"] - out["position_median_y_m"]
+    rel_r_square = rel_x ** 2 + rel_y ** 2
+    del(rel_x)
+    del(rel_y)
+    rel_r_pivot = np.sqrt(np.percentile(a=rel_r_square, q=percentile))
+    del(rel_r_square)
+    out["position_radius50_m"] = rel_r_pivot
 
-    cxcy_ellipse = estimate_ellipse(a=lf["cx"], b=lf["cy"])
-    out["direction_med_cx_rad"] = cxcy_ellipse["median_a"]
-    out["direction_med_cy_rad"] = cxcy_ellipse["median_b"]
-    out["direction_phi_rad"] = cxcy_ellipse["phi_rad"]
-    out["direction_std_minor_rad"] = cxcy_ellipse["minor_std"]
-    out["direction_std_major_rad"] = cxcy_ellipse["major_std"]
-    del cxcy_ellipse
+
+    out["direction_median_cx_rad"] = np.median(lf["cx"])
+    out["direction_median_cy_rad"] = np.median(lf["cy"])
+    direction_median_cz_rad = np.sqrt(
+        1.0
+        - out["direction_median_cx_rad"] ** 2
+        - out["direction_median_cy_rad"] ** 2
+    )
+
+    direction_median = np.array([
+        out["direction_median_cx_rad"],
+        out["direction_median_cy_rad"],
+        direction_median_cz_rad
+    ])
+    cz = np.sqrt(1.0 - lf["cx"] ** 2 - lf["cy"] ** 2)
+
+    dot_product = np.array([
+        lf["cx"] * direction_median[0],
+        lf["cy"] * direction_median[1],
+        cz * direction_median[2],
+    ])
+    cos_theta = np.sum(dot_product, axis=1)
+    del(dot_product)
+    cos_theta_pivot = np.percentile(a=cos_theta, q=percentile)
+    del(cos_theta)
+    theta_pivot = np.arccos(cos_theta_pivot)
+    out["direction_angle50_rad"] = theta_pivot
 
     out["arrival_time_mean_s"] = float(np.mean(lf["t"]))
     out["arrival_time_median_s"] = float(np.median(lf["t"]))
@@ -167,7 +67,7 @@ def inspect_pools(
     cers = cers.to_records(index=False)
 
     cer_azimuth_deg, cer_zenith_deg = sphcords._cx_cy_to_az_zd_deg(
-        cx=cers["direction_med_cx_rad"], cy=cers["direction_med_cy_rad"],
+        cx=cers["direction_median_cx_rad"], cy=cers["direction_median_cy_rad"],
     )
 
     cer_off_axis_deg = sphcords._angle_between_az_zd_deg(
@@ -240,50 +140,3 @@ def limit_strong_weights(weights, max_relative_weight):
         w_relative = w_relative / np.sum(w_relative)
 
     return w_relative
-
-
-def estimate_num_neighbors_in_light_field(light_field, xy_radius, cxcy_radius):
-    t0 = time.time()
-
-    x = light_field["x"]
-    y = light_field["y"]
-    num = len(x)
-
-    cx = light_field["cx"]
-    cy = light_field["cy"]
-    cz = np.sqrt(1 - cx**2 - cy**2)
-
-    lf_xy = np.array(np.c_[x, y])
-    lf_cxcycz = np.array(np.c_[cx, cy, cz])
-
-    t1 = time.time()
-    print("Init {:f}s".format(t1 - t0))
-
-    tree_xy = scipy.spatial.cKDTree(data=lf_xy)
-    tree_hemisphere = scipy.spatial.cKDTree(data=lf_cxcycz)
-
-    t2 = time.time()
-    print("Make trees {:f}s".format(t2 - t1))
-
-    num_neighbors = np.zeros(num, dtype=np.uint32)
-
-    for i in range(num):
-        xy = np.c_[x[i], y[i]]
-        near_xy_idx = tree_xy.query_ball_point(
-            x=lf_xy[i],
-            r=xy_radius
-        )
-        cxcy = np.c_[cx[i], cy[i]]
-        near_he_idx = tree_hemisphere.query_ball_point(
-            x=lf_cxcycz[i],
-            r=cxcy_radius
-        )
-
-        near = set(near_xy_idx)
-        near.update(near_he_idx)
-        num_neighbors[i] = len(near)
-    t3 = time.time()
-    print("query trees {:f}s".format(t3 - t2))
-
-    return num_neighbors
-
