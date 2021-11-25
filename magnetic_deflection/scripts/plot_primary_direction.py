@@ -49,6 +49,11 @@ plt.close(cmap_fig)
 
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
+for skey in shower_statistics:
+    for pkey in shower_statistics[skey]:
+        sort_args = np.argsort(shower_statistics[skey][pkey]["particle_energy_GeV"])
+        shower_statistics[skey][pkey] = shower_statistics[skey][pkey][sort_args]
+
 # hemisphere showing deflections
 # ------------------------------
 FIELD_OF_VIEW = {
