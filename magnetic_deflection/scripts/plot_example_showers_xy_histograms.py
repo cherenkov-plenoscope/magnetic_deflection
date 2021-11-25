@@ -15,8 +15,10 @@ from matplotlib import colors as plt_colors
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
-out_dir = os.path.join(work_dir, "plot", "plot_example_showers_xy_histograms")
+out_dir = os.path.join(work_dir, "plot", "example_showers_xy_histograms")
 os.makedirs(out_dir, exist_ok=True)
+cache_dir = os.path.join(out_dir, "cache")
+os.makedirs(cache_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
@@ -56,7 +58,7 @@ shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 shower_explicit_steerings = mdfl.read_explicit_steerings(work_dir=work_dir)
 
 
-example_events_path = os.path.join(out_dir, "example_events.pkl")
+example_events_path = os.path.join(cache_dir, "example_events.pkl")
 if not os.path.exists(example_events_path):
     print("Find example_events")
     example_events = {}
@@ -238,6 +240,8 @@ for skey in CFG["sites"]:
 
             steer = example_steerings[skey][ckey][evtkey]
             job = {}
+            job["out_dir"] = str(out_dir)
+            job["cache_dir"] = str(cache_dir)
             job["steering_card"] = str(steer["steering_card"])
             job["steering_card"] = replace_EVTNR_in_steering_card(
                 steering_card=job["steering_card"], evtnr=event_id,
@@ -264,7 +268,7 @@ for skey in CFG["sites"]:
 
 def run_job(job):
     job_dir = os.path.join(
-        out_dir, "cherenkov_pools", job["skey"], job["pkey"], job["ckey"],
+        job["cache_dir"], "cherenkov_pools", job["skey"], job["pkey"], job["ckey"],
     )
     os.makedirs(job_dir, exist_ok=True)
     job_key = "{:06d}_{:06d}".format(
@@ -274,7 +278,7 @@ def run_job(job):
 
     pool_path = os.path.join(job_dir, job_key + "_cherenkov_pool.tar")
     hist_path = os.path.join(
-        out_dir,
+        job["out_dir"],
         "{:s}_{:s}_{:s}".format(
             job["skey"],
             job["pkey"],
