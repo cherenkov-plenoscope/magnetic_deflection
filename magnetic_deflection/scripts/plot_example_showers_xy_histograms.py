@@ -362,18 +362,9 @@ def run_job(job):
         else:
             reproduction_valid = False
 
-        _seed_int64 = np.int64(
-            np.int64(job["run"]) * 100 * 1000 + np.int64(job["event"])
-        )
-        _seed_int32 = np.int32(
-            np.int32(job["run"]) * 100 * 1000 + np.int32(job["event"])
-        )
-        _seed_float32 = np.float32(_seed_int64)
-        _seed_diff = _seed_int64 - _seed_float32
-
         print(
-            "run {: 6d}, event {: 6d}, site {:>16s}, case {:>16s}, valid {:d}, D {:f}".format(
-                job["run"], job["event"], job["skey"], job["ckey"], reproduction_valid, _seed_diff
+            "run {: 6d}, event {: 6d}, site {:<20s}, case {:<20s}, valid {:d}".format(
+                job["run"], job["event"], job["skey"], job["ckey"], reproduction_valid,
             )
         )
 
@@ -387,7 +378,6 @@ def run_job(job):
             weights=light_field["size"],
         )[0]
         hist = hist.astype(np.float32)
-
 
         dkey = "cherenkov_area_m2"
 
@@ -437,7 +427,7 @@ def run_job(job):
             ax=ax,
             x=0,
             y=0,
-            r=job["shower_statistic"]["cherenkov_radius50_m"],
+            r=job["shower_statistic"]["cherenkov_radius50_m"]*1e-3,
             linewidth=0.5,
             linestyle="-",
             color="green",
@@ -445,12 +435,12 @@ def run_job(job):
             num_steps=128,
         )
         pcm = ax.pcolormesh(
-            job["xy_bin_edges"], job["xy_bin_edges"], hist.T, cmap=cmap,
-            norm=sebplt.plt_colors.PowerNorm(gamma=0.333, vmin=0.0, vmax=1e3),
+            job["xy_bin_edges"]*1e-3, job["xy_bin_edges"]*1e-3, (hist.T + 1), cmap=cmap,
+            norm=sebplt.plt_colors.LogNorm(vmin=1e0, vmax=1e4),
         )
         sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
-        ax.set_xlabel("rel. x" + CFG["plotting"]["label_unit_seperator"] + "m")
-        ax.set_ylabel("rel. y" + CFG["plotting"]["label_unit_seperator"] + "m")
+        ax.set_xlabel("$x$ - median($x$)" + CFG["plotting"]["label_unit_seperator"] + "km")
+        ax.set_ylabel("$y$ - median($y$)" + CFG["plotting"]["label_unit_seperator"] + "km")
         fig.savefig(hist_path)
         sebplt.close_figure(fig)
         return 1
