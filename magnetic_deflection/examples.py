@@ -95,17 +95,17 @@ PLOTTING = {
         "cherenkov_area_m2": {
             "label": "area",
             "unit": "m$^{2}$",
-            "limits": [1e4, 1e7],
+            "limits": [1e5, 1e8],
         },
         "cherenkov_solid_angle_sr": {
             "label": "solid angle",
             "unit": "sr",
-            "limits": [1e-3, 1e1],
+            "limits": [1e-4, 1e0],
         },
         "cherenkov_density_per_m2_per_sr": {
             "label": "density",
             "unit": "m$^{-2}$ sr$^{-1}$",
-            "limits": [1e-2, 1e3],
+            "limits": [1e-3, 1e4],
         },
     },
     "label_unit_seperator": "$\\,/\\,$",

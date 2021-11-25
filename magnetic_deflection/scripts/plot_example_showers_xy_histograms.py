@@ -6,8 +6,10 @@ import magnetic_deflection as mdfl
 import plenoirf as irf
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
+import pickle
 from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
+
 
 
 argv = irf.summary.argv_since_py(sys.argv)
@@ -24,63 +26,83 @@ matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
 
 prng = np.random.Generator(np.random.PCG64(seed=1))
 
-FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 1.5}
-CMAP_FIGSIZE = {"rows": 240, "cols": 1280, "fontsize": 1.5}
-
 pkey = "helium"
+dkey = "cherenkov_area_m2"
 
 cases = {
-    "low_energy": {
-        "energy": {"start": 10, "stop": 16},
-        "area": {"start": 1e5, "stop": 5e5},
+    "LowEnergySmallArea": {
+        "energy": {"start": 8, "stop": 16},
+        dkey: {"start": 1e6, "stop": 5e6},
     },
-    "high_energy": {
+    "HighEnergyLargeArea": {
         "energy": {"start": 32, "stop": 64},
-        "area": {"start": 2e6, "stop": 1e7},
+        dkey: {"start": 1e7, "stop": 1e8},
     },
 }
 
-XY_BIN_EDGES = np.linspace(-1e4, 1e4, 201)
+XY_BIN_EDGES = np.linspace(-1e4, 1e4, 401)
 ON_AXIS_SCALE = 1.0
 MAX_NUM_EXAMPLES = 8
+
+def margin(a, b, epsilon):
+    match = np.abs(a - b) < epsilon
+    if not match:
+        print("a", a, "b", b, "abs(a-b)", np.abs(a - b), "epsilon", epsilon)
+    return match
 
 # find example events
 # -------------------
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 shower_explicit_steerings = mdfl.read_explicit_steerings(work_dir=work_dir)
 
-example_events = {}
 
+example_events_path = os.path.join(out_dir, "example_events.pkl")
+if not os.path.exists(example_events_path):
+    print("Find example_events")
+    example_events = {}
+    for skey in CFG["sites"]:
+        example_events[skey] = {}
+        for ckey in cases:
+            example_events[skey][ckey] = {}
+            sp_stats = shower_statistics[skey][pkey]
+            E_cut = cases[ckey]["energy"]
+            A_cut = cases[ckey][dkey]
+
+            for i in range(len(sp_stats)):
+                E = sp_stats["particle_energy_GeV"][i]
+                A = np.pi * sp_stats["cherenkov_radius50_m"][i] ** 2
+                e = E_cut["start"] <= E < E_cut["stop"]
+                a = A_cut["start"] <= A < A_cut["stop"]
+                on_axis = (
+                    sp_stats["off_axis_deg"][i]
+                    <= ON_AXIS_SCALE
+                    * CFG["particles"][pkey][
+                        "magnetic_deflection_max_off_axis_deg"
+                    ]
+                )
+
+                if on_axis and e and a:
+                    evtkey = (sp_stats["run"][i], sp_stats["event"][i])
+                    example_events[skey][ckey][evtkey] = sp_stats[i : i + 1]
+    with open(example_events_path, "wb") as f:
+        f.write(pickle.dumps(example_events))
+else:
+    print("Load existing example_events")
+    with open(example_events_path, "rb") as f:
+        example_events = pickle.loads(f.read())
+
+
+print("Found example candidates:")
 for skey in CFG["sites"]:
-    example_events[skey] = {}
     for ckey in cases:
-        example_events[skey][ckey] = {}
-        sp_stats = shower_statistics[skey][pkey]
-        E_cut = cases[ckey]["energy"]
-        A_cut = cases[ckey]["area"]
-
-        for i in range(len(sp_stats)):
-            E = sp_stats["particle_energy_GeV"][i]
-            A = (
-                sp_stats["position_std_major_m"][i]
-                * sp_stats["position_std_minor_m"][i]
-                * np.pi
+        print(
+            "{:>20s} {:>20s}, num: {: 6d}".format(
+                skey, ckey, len(example_events[skey][ckey])
             )
-            e = E_cut["start"] <= E < E_cut["stop"]
-            a = A_cut["start"] <= A < A_cut["stop"]
-            on_axis = (
-                sp_stats["off_axis_deg"][i]
-                <= ON_AXIS_SCALE
-                * CFG["particles"][pkey][
-                    "magnetic_deflection_max_off_axis_deg"
-                ]
-            )
-
-            if on_axis and e and a:
-                evtkey = (sp_stats["run"][i], sp_stats["event"][i])
-                example_events[skey][ckey][evtkey] = sp_stats[i : i + 1]
+        )
 
 
+print("Limit number example events:")
 # limit number example events
 # ---------------------------
 for skey in CFG["sites"]:
@@ -137,6 +159,7 @@ def replace_NSHOW_in_steering_card(steering_card, nshow):
     return out
 
 
+print("Get steering for example events:")
 # get explicit steering
 # ---------------------
 example_steerings = {}
@@ -202,6 +225,7 @@ for skey in CFG["sites"]:
             )
 
 
+print("Reproduce example events:")
 # reproduce cherenkov pools
 # -------------------------
 jobs = []
@@ -243,11 +267,19 @@ def run_job(job):
         out_dir, "cherenkov_pools", job["skey"], job["pkey"], job["ckey"],
     )
     os.makedirs(job_dir, exist_ok=True)
-    job_key = "{:06d}_{:06d}".format(job["run"], job["event"])
+    job_key = "{:06d}_{:06d}".format(
+        job["run"],
+        job["event"],
+    )
 
     pool_path = os.path.join(job_dir, job_key + "_cherenkov_pool.tar")
     hist_path = os.path.join(
-        job_dir, job_key + "_cherenkov_pool_histogram_xy.jpg"
+        out_dir,
+        "{:s}_{:s}_{:s}".format(
+            job["skey"],
+            job["pkey"],
+            job["ckey"],
+        ) + "_" + job_key + "_cherenkov_pool_histogram_xy.jpg"
     )
 
     # reproduce Cherenkov-pool
@@ -268,43 +300,42 @@ def run_job(job):
     if True:  # not os.path.exists(hist_path):
         run_handle = mdfl.corsika.cpw.Tario(path=pool_path)
         evth, bunches = next(run_handle)
-        all_light_field = mdfl.corsika.init_light_field_from_corsika(
+        light_field = mdfl.corsika.init_light_field_from_corsika(
             bunches=bunches
         )
 
-        evth[mdfl.corsika.cpw.I_EVTH_RUN_NUMBER] == job["run"]
-        evth[mdfl.corsika.cpw.I_EVTH_EVENT_NUMBER] == job["event"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RUN_NUMBER] == job["run"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_EVENT_NUMBER] == job["event"]
         prm_dict = mdfl.corsika.cpw._primaries_to_dict(
             primary_bytes=job["primary_bytes"]
         )[0]
-        evth[mdfl.corsika.cpw.I_EVTH_PARTICLE_ID] == prm_dict["particle_id"]
-        evth[mdfl.corsika.cpw.I_EVTH_TOTAL_ENERGY_GEV] == prm_dict["energy_GeV"]
-        evth[mdfl.corsika.cpw.I_EVTH_ZENITH_RAD] == prm_dict["zenith_rad"]
-        evth[mdfl.corsika.cpw.I_EVTH_AZIMUTH_RAD] == prm_dict["azimuth_rad"]
-        evth[mdfl.corsika.cpw.I_EVTH_STARTING_DEPTH_G_PER_CM2] == prm_dict["depth_g_per_cm2"]
-        evth[mdfl.corsika.cpw.I_EVTH_NUM_DIFFERENT_RANDOM_SEQUENCES] == 4
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(1)] == prm_dict["random_seed"][0]["SEED"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(2)] == prm_dict["random_seed"][1]["SEED"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(3)] == prm_dict["random_seed"][2]["SEED"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(4)] == prm_dict["random_seed"][3]["SEED"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(1)] == prm_dict["random_seed"][0]["CALLS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(2)] == prm_dict["random_seed"][1]["CALLS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(3)] == prm_dict["random_seed"][2]["CALLS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(4)] == prm_dict["random_seed"][3]["CALLS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(1)] == prm_dict["random_seed"][0]["BILLIONS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(2)] == prm_dict["random_seed"][1]["BILLIONS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(3)] == prm_dict["random_seed"][2]["BILLIONS"]
-        evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(4)] == prm_dict["random_seed"][3]["BILLIONS"]
-        evth[mdfl.corsika.cpw.I_EVTH_NUM_OBSERVATION_LEVELS] == 1
+        assert evth[mdfl.corsika.cpw.I_EVTH_PARTICLE_ID] == prm_dict["particle_id"]
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_TOTAL_ENERGY_GEV], prm_dict["energy_GeV"], 1e-3)
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_ZENITH_RAD], prm_dict["zenith_rad"], 1e-3)
+
+        # assert margin(evth[mdfl.corsika.cpw.I_EVTH_AZIMUTH_RAD], prm_dict["azimuth_rad"], 1e-3)
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_STARTING_DEPTH_G_PER_CM2], prm_dict["depth_g_per_cm2"], 1e-3)
+        assert evth[mdfl.corsika.cpw.I_EVTH_NUM_DIFFERENT_RANDOM_SEQUENCES] == 4
+        assert prm_dict["random_seed"][0]["SEED"] == job["run"] * 100000 + job["event"]
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(1)], prm_dict["random_seed"][0]["SEED"], 35)
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(2)], prm_dict["random_seed"][1]["SEED"], 35)
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(3)], prm_dict["random_seed"][2]["SEED"], 35)
+        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(4)], prm_dict["random_seed"][3]["SEED"], 35)
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(1)] == prm_dict["random_seed"][0]["CALLS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(2)] == prm_dict["random_seed"][1]["CALLS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(3)] == prm_dict["random_seed"][2]["CALLS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(4)] == prm_dict["random_seed"][3]["CALLS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(1)] == prm_dict["random_seed"][0]["BILLIONS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(2)] == prm_dict["random_seed"][1]["BILLIONS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(3)] == prm_dict["random_seed"][2]["BILLIONS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(4)] == prm_dict["random_seed"][3]["BILLIONS"]
+        assert evth[mdfl.corsika.cpw.I_EVTH_NUM_OBSERVATION_LEVELS] == 1
         # print("obslev", evth[mdfl.corsika.cpw.I_EVTH_HEIGHT_OBSERVATION_LEVEL(1)]*1e-2, "m")
-        evth[mdfl.corsika.cpw.I_EVTH_NUM_REUSES_OF_CHERENKOV_EVENT] == 1
+        assert evth[mdfl.corsika.cpw.I_EVTH_NUM_REUSES_OF_CHERENKOV_EVENT] == 1
 
-        mask_inlier = mdfl.light_field_characterization.light_field_density_cut(
-            light_field=all_light_field, density_cut=job["density_cut"]
-        )
-
-        light_field = all_light_field[mask_inlier]
-        del(all_light_field)
+        if len(light_field["x"]) < 100:
+            reproduction_valid = False
+            return 0
 
         stats_on_the_fly = mdfl.light_field_characterization.parameterize_light_field(
             light_field=light_field
@@ -312,65 +343,113 @@ def run_job(job):
 
         if (
             np.abs(
-                stats_on_the_fly["position_med_x_m"]
-                - job["shower_statistic"]["position_med_x_m"][0]
+                stats_on_the_fly["cherenkov_x_m"]
+                - job["shower_statistic"]["cherenkov_x_m"][0]
             )
-            < 1
+            < 1e0
+            and
+            np.abs(
+                stats_on_the_fly["cherenkov_y_m"]
+                - job["shower_statistic"]["cherenkov_y_m"][0]
+            )
+            < 1e0
         ):
-            cmap = "inferno"
+            reproduction_valid = True
         else:
-            cmap = "Greys"
+            reproduction_valid = False
+
+        _seed_int64 = np.int64(
+            np.int64(job["run"]) * 100 * 1000 + np.int64(job["event"])
+        )
+        _seed_int32 = np.int32(
+            np.int32(job["run"]) * 100 * 1000 + np.int32(job["event"])
+        )
+        _seed_float32 = np.float32(_seed_int64)
+        _seed_diff = _seed_int64 - _seed_float32
+
+        print(
+            "run {: 6d}, event {: 6d}, site {:>16s}, case {:>16s}, valid {:d}, D {:f}".format(
+                job["run"], job["event"], job["skey"], job["ckey"], reproduction_valid, _seed_diff
+            )
+        )
+
+        if not reproduction_valid:
+            return 0
 
         hist = np.histogram2d(
-            x=light_field["x"],
-            y=light_field["y"],
+            x=light_field["x"] - job["shower_statistic"]["cherenkov_x_m"][0],
+            y=light_field["y"] - job["shower_statistic"]["cherenkov_y_m"][0],
             bins=(job["xy_bin_edges"], job["xy_bin_edges"]),
             weights=light_field["size"],
         )[0]
         hist = hist.astype(np.float32)
 
-        print(job["run"], job["event"], job["skey"], job["ckey"], cmap)
-        """
-        for statkey in stats_on_the_fly:
-            print(
-                statkey,
-                stats_on_the_fly[statkey],
-                job["shower_statistic"][statkey][0],
-            )
-        """
 
-        ell_maj = job["shower_statistic"]["position_std_major_m"]
-        ell_min = job["shower_statistic"]["position_std_minor_m"]
-        ell_x = job["shower_statistic"]["position_med_x_m"]
-        ell_y = job["shower_statistic"]["position_med_y_m"]
-        ell_phi = job["shower_statistic"]["position_phi_rad"]
+        dkey = "cherenkov_area_m2"
 
-        ell = plt_patches.Ellipse(
-            xy=[ell_x, ell_y],
-            width=ell_maj,
-            height=ell_min,
-            angle=np.rad2deg(ell_phi),
-            alpha=0.5,
+        fig = sebplt.figure({"rows": 1080, "cols": 2560, "fontsize": 1.5})
+        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.15, 0.8*(1080/2560), 0.8))
+        ax_cb = sebplt.add_axes(fig=fig, span=[0.5, 0.15, 0.015, 0.8])
+        ax_cut = sebplt.add_axes(fig=fig, span=[0.65, 0.15, 0.3, 0.8])
+
+        ax_cut.set_xlabel(
+            "energy"
+            + CFG["plotting"]["label_unit_seperator"]
+            + "GeV"
+        )
+        ax_cut.set_ylabel(
+            CFG["plotting"]["light_field"][dkey]["label"]
+            + CFG["plotting"]["label_unit_seperator"]
+            + CFG["plotting"]["light_field"][dkey]["unit"]
+        )
+        ax_cut.set_xlim(1e-1, 1e2)
+        ax_cut.set_ylim(CFG["plotting"]["light_field"][dkey]["limits"])
+        ax_cut.loglog()
+        sebplt.ax_add_box(
+            ax=ax_cut,
+            xlim=[cases[job["ckey"]]["energy"]["start"], cases[job["ckey"]]["energy"]["stop"]],
+            ylim=[cases[job["ckey"]][dkey]["start"], cases[job["ckey"]][dkey]["stop"]],
+            color="k",
+            linewidth=None
+        )
+        cherenkov_area_m2 = np.pi * job["shower_statistic"]["cherenkov_radius50_m"][0] ** 2
+        ax_cut.plot(
+            prm_dict["energy_GeV"],
+            cherenkov_area_m2,
+            "xk",
         )
 
-        fig = sebplt.figure({"rows": 1080, "cols": 1920, "fontsize": 1.5})
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.15, 0.8*(9/16), 0.8))
-        ax_cb = sebplt.add_axes(fig=fig, span=[0.85, 0.15, 0.02, 0.8])
-        ax.plot(
-            stats_on_the_fly["position_med_x_m"],
-            stats_on_the_fly["position_med_y_m"],
-            "xr",
+        if reproduction_valid:
+            cmap = "inferno"
+        else:
+            cmap = "Greys"
+            ax.plot(
+                0,
+                0,
+                "xr",
+                markersize=4,
+            )
+        sebplt.ax_add_circle(
+            ax=ax,
+            x=0,
+            y=0,
+            r=job["shower_statistic"]["cherenkov_radius50_m"],
+            linewidth=0.5,
+            linestyle="-",
+            color="green",
+            alpha=1,
+            num_steps=128,
         )
         pcm = ax.pcolormesh(
             job["xy_bin_edges"], job["xy_bin_edges"], hist.T, cmap=cmap,
-            norm=sebplt.plt_colors.PowerNorm(gamma=0.5),
+            norm=sebplt.plt_colors.PowerNorm(gamma=0.333, vmin=0.0, vmax=1e3),
         )
         sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
-        ax.set_xlabel("x" + CFG["plotting"]["label_unit_seperator"] + "m")
-        ax.set_ylabel("y" + CFG["plotting"]["label_unit_seperator"] + "m")
-        ax.add_artist(ell)
+        ax.set_xlabel("rel. x" + CFG["plotting"]["label_unit_seperator"] + "m")
+        ax.set_ylabel("rel. y" + CFG["plotting"]["label_unit_seperator"] + "m")
         fig.savefig(hist_path)
         sebplt.close_figure(fig)
+        return 1
 
 
 for job in jobs:
