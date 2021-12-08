@@ -179,11 +179,11 @@ def reduce_statistics(work_dir):
                     map_basenames_wildcard["statistics_steering"],
                 )
             )
-            shower_statistics_steering = _reduce_statistics_steering_site_particle(
+            steerings_and_seeds = _reduce_statistics_steering_site_particle(
                 paths=paths
             )
-            expl = corsika.cpw.steering_io.write_explicit_steerings(
-                explicit_steerings=shower_statistics_steering,
+            expl = corsika.cpw.steering.write_steerings_and_seeds(
+                runs=steerings_and_seeds,
                 path=os.path.join(
                     work_dir,
                     "reduce",
@@ -410,8 +410,8 @@ def _reduce_statistics_steering_site_particle(paths):
     num = len(paths)
     for i, path in enumerate(paths):
         basename = os.path.basename(path)
-        job_id = int(basename[0:6])
-        print("Read job: {:06d}, {: 6d} / {: 6d}".format(job_id, i, num))
-        expl = corsika.cpw.steering_io.read_explicit_steerings(path)
-        bundle[job_id] = expl[job_id]
+        run_id = int(basename[0:6])
+        print("Read job: {:06d}, {: 6d} / {: 6d}".format(run_id, i, num))
+        runs = corsika.cpw.steering.read_steerings_and_seeds(path=path)
+        bundle[run_id] = runs[run_id]
     return bundle

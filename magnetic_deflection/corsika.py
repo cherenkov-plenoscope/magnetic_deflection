@@ -1,4 +1,4 @@
-import corsika_primary_wrapper as cpw
+import corsika_primary as cpw
 import tempfile
 import pandas
 import numpy as np
@@ -21,18 +21,22 @@ def make_steering(
     prng,
 ):
     assert run_id > 0
-    seed_maker_and_checker = cpw.random_seed.CorsikaRandomSeed(
-        NUM_DIGITS_RUN_ID=4,
-        NUM_DIGITS_AIRSHOWER_ID=5,
-    )
+    i8 = np.int64
+    f8 = np.float64
+
     steering = {}
     steering["run"] = {
-        "run_id": int(run_id),
-        "event_id_of_first_event": 1,
-        "observation_level_asl_m": site["observation_level_asl_m"],
-        "earth_magnetic_field_x_muT": site["earth_magnetic_field_x_muT"],
-        "earth_magnetic_field_z_muT": site["earth_magnetic_field_z_muT"],
-        "atmosphere_id": site["atmosphere_id"],
+        "run_id": i8(run_id),
+        "event_id_of_first_event": i8(1),
+        "observation_level_asl_m": f8(site["observation_level_asl_m"]),
+        "earth_magnetic_field_x_muT": f8(site["earth_magnetic_field_x_muT"]),
+        "earth_magnetic_field_z_muT": f8(ite["earth_magnetic_field_z_muT"]),
+        "atmosphere_id": i8(site["atmosphere_id"]),
+        "energy_range": {
+            "start_GeV": f8(particle_energy*0.99),
+            "stop_GeV": f8(particle_energy*1.01)
+        },
+        "random_seed": cpw.simple_seed(seed=run_id),
     }
     steering["primaries"] = []
     for airshower_id in np.arange(1, num_showers + 1):
@@ -47,17 +51,11 @@ def make_steering(
             max_iterations=1000,
         )
         prm = {
-            "particle_id": int(particle_id),
-            "energy_GeV": float(particle_energy),
-            "zenith_rad": zd,
-            "azimuth_rad": az,
-            "depth_g_per_cm2": 0.0,
-            "random_seed": cpw.simple_seed(
-                seed=seed_maker_and_checker.random_seed_based_on(
-                    run_id=run_id,
-                    airshower_id=airshower_id,
-                ),
-            ),
+            "particle_id": f8(particle_id),
+            "energy_GeV": f8(particle_energy),
+            "zenith_rad": f8(zd),
+            "azimuth_rad": f8(az),
+            "depth_g_per_cm2": f8(0.0),
         }
         steering["primaries"].append(prm)
 
@@ -67,8 +65,7 @@ def make_steering(
 
 def estimate_cherenkov_pool(
     corsika_primary_path,
-    corsika_steering_card,
-    corsika_primary_bytes,
+    corsika_steering_dict,
     min_num_cherenkov_photons,
 ):
     pools = []
@@ -76,31 +73,34 @@ def estimate_cherenkov_pool(
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
         corsika_run = cpw.CorsikaPrimary(
             corsika_path=corsika_primary_path,
-            steering_card=corsika_steering_card,
-            primary_bytes=corsika_primary_bytes,
+            steering_dict=corsika_steering_dict,
             stdout_path=os.path.join(tmp_dir, "corsika.stdout"),
             stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
         )
 
-        for idx, shower in enumerate(corsika_run):
-            corsika_event_header, photon_bunches = shower
+        event_seeds = {}
+        for event in corsika_run:
+            evth, bunches = event
+            event_id = int(evth[cpw.I.EVTH.EVENT_NUMBER])
+            event_seeds[event_id] = cpw.random.seed.parse_seed_from_evth(
+                evth=evth
+            )
             light_field = init_light_field_from_corsika(
-                bunches=photon_bunches
+                bunches=bunches
             )
             num_bunches = light_field.shape[0]
-            ceh = corsika_event_header
 
             if num_bunches >= min_num_cherenkov_photons:
                 pool = {}
-                pool["run"] = int(ceh[cpw.I_EVTH_RUN_NUMBER])
-                pool["event"] = int(ceh[cpw.I_EVTH_EVENT_NUMBER])
+                pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
+                pool["event"] = event_id
                 pool["particle_azimuth_deg"] = np.rad2deg(
-                    ceh[cpw.I_EVTH_AZIMUTH_RAD]
+                    evth[cpw.I.EVTH.AZIMUTH_RAD]
                 )
                 pool["particle_zenith_deg"] = np.rad2deg(
-                    ceh[cpw.I_EVTH_ZENITH_RAD]
+                    evth[cpw.I.EVTH.ZENITH_RAD]
                 )
-                pool["particle_energy_GeV"] = ceh[cpw.I_EVTH_TOTAL_ENERGY_GEV]
+                pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
                 pool["cherenkov_num_photons"] = np.sum(light_field["size"])
                 pool["cherenkov_num_bunches"] = num_bunches
 
@@ -108,7 +108,7 @@ def estimate_cherenkov_pool(
                 pool.update(c)
                 pools.append(pool)
 
-        return pools
+        return pools, event_seeds
 
 
 def make_cherenkov_pools_statistics(
@@ -135,21 +135,13 @@ def make_cherenkov_pools_statistics(
         num_showers=num_showers,
         prng=prng,
     )
-    steering_card, primary_bytes = cpw._dict_to_card_and_bytes(
-        steering_dict=steering_dict
-    )
-    explicit_steering = {
-        "steering_card": steering_card,
-        "primary_bytes": primary_bytes,
-    }
-    pools = estimate_cherenkov_pool(
-        corsika_steering_card=explicit_steering["steering_card"],
-        corsika_primary_bytes=explicit_steering["primary_bytes"],
+    pools, event_seeds = estimate_cherenkov_pool(
+        corsika_steering_dict=steering_dict,
         corsika_primary_path=corsika_primary_path,
         min_num_cherenkov_photons=min_num_cherenkov_photons,
     )
-
-    return pools, explicit_steering
+    steering_dict["event_seeds"] = event_seeds
+    return pools, steering_dict
 
 
 def init_light_field_from_corsika(bunches):

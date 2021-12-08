@@ -198,7 +198,7 @@ def run_job(job):
 
             (
                 pools,
-                pools_explicit_steering,
+                pools_reproduction,
             ) = corsika.make_cherenkov_pools_statistics(
                 site=job["site"],
                 particle_id=job["particle"]["corsika_id"],
@@ -223,10 +223,11 @@ def run_job(job):
                 instrument_zenith_deg=job["pointing"]["zenith_deg"],
             )
 
-            corsika.cpw.steering_io.write_explicit_steerings(
-                explicit_steerings={job["job"]["id"]: pools_explicit_steering},
+            cpw.steering.write_steerings_and_seeds(
                 path=map_paths["statistics_steering"],
+                runs={job["job"]["id"]: pools_reproduction},
             )
+
             _write_pool_statistics(
                 pool_statistics=pools, path=map_paths["statistics"]
             )

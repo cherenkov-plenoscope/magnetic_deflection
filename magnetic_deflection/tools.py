@@ -4,7 +4,7 @@ import shutil
 import os
 import glob
 import json_numpy
-import corsika_primary_wrapper as cpw
+import corsika_primary as cpw
 import io
 import tarfile
 
@@ -41,7 +41,7 @@ def powerspace(start, stop, power_index, num, iterations=10000):
         full = []
         for iti in range(iterations):
             points = np.sort(
-                cpw.random_distributions.draw_power_law(
+                cpw.random.distributions.draw_power_law(
                     prng=np.random.default_rng(),
                     lower_limit=start,
                     upper_limit=stop,
