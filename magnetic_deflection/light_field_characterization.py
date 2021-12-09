@@ -17,39 +17,36 @@ def parameterize_light_field(light_field):
     rel_x = lf["x"] - out["cherenkov_x_m"]
     rel_y = lf["y"] - out["cherenkov_y_m"]
     rel_r_square = rel_x ** 2 + rel_y ** 2
-    del(rel_x)
-    del(rel_y)
+    del rel_x
+    del rel_y
     rel_r_pivot = np.sqrt(np.percentile(a=rel_r_square, q=percentile))
-    del(rel_r_square)
+    del rel_r_square
     out["cherenkov_radius50_m"] = rel_r_pivot
-
 
     out["cherenkov_cx_rad"] = np.median(lf["cx"])
     out["cherenkov_cy_rad"] = np.median(lf["cy"])
     cherenkov_cz_rad = np.sqrt(
-        1.0
-        - out["cherenkov_cx_rad"] ** 2
-        - out["cherenkov_cy_rad"] ** 2
+        1.0 - out["cherenkov_cx_rad"] ** 2 - out["cherenkov_cy_rad"] ** 2
     )
-    cherenkov_direction_median = np.array([
-        out["cherenkov_cx_rad"],
-        out["cherenkov_cy_rad"],
-        cherenkov_cz_rad
-    ])
+    cherenkov_direction_median = np.array(
+        [out["cherenkov_cx_rad"], out["cherenkov_cy_rad"], cherenkov_cz_rad]
+    )
 
     lf_cz = np.sqrt(1.0 - lf["cx"] ** 2 - lf["cy"] ** 2)
 
-    dot_product = np.array([
-        lf["cx"] * cherenkov_direction_median[0],
-        lf["cy"] * cherenkov_direction_median[1],
-        lf_cz * cherenkov_direction_median[2],
-    ])
+    dot_product = np.array(
+        [
+            lf["cx"] * cherenkov_direction_median[0],
+            lf["cy"] * cherenkov_direction_median[1],
+            lf_cz * cherenkov_direction_median[2],
+        ]
+    )
     cos_theta = np.sum(dot_product, axis=0)
-    del(dot_product)
+    del dot_product
     assert len(cos_theta) == len(lf["cx"])
 
     cos_theta_pivot = np.percentile(a=cos_theta, q=percentile)
-    del(cos_theta)
+    del cos_theta
     theta_pivot = np.arccos(cos_theta_pivot)
     out["cherenkov_angle50_rad"] = theta_pivot
 

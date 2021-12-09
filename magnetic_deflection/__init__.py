@@ -238,9 +238,15 @@ def read_explicit_steerings(work_dir):
         out[skey] = {}
         for pkey in CFG["particles"]:
             path = os.path.join(
-                work_dir, "reduce", skey, pkey, reduce_basenames["statistics_steering"],
+                work_dir,
+                "reduce",
+                skey,
+                pkey,
+                reduce_basenames["statistics_steering"],
             )
-            out[skey][pkey] = corsika.cpw.steering.read_steerings_and_seeds(path)
+            out[skey][pkey] = corsika.cpw.steering.read_steerings_and_seeds(
+                path
+            )
     return out
 
 

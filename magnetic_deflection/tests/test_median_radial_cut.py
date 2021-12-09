@@ -8,9 +8,7 @@ def test_median_radial():
     y = prng.normal(loc=3.0, scale=1.5, size=1000)
 
     mask = mdfl.light_field_characterization.percentile_indices_wrt_median_radial(
-        value_dim0=x,
-        value_dim1=y,
-        percentile=50.0,
+        value_dim0=x, value_dim1=y, percentile=50.0,
     )
 
     num_valid = np.sum(mask)
@@ -27,14 +25,12 @@ def test_median_radial_in_uniform():
     y = prng.uniform(low=-1.0, high=1.0, size=N)
 
     mask = mdfl.light_field_characterization.percentile_indices_wrt_median_radial(
-        value_dim0=x,
-        value_dim1=y,
-        percentile=percentile,
+        value_dim0=x, value_dim1=y, percentile=percentile,
     )
 
     num_valid = np.sum(mask)
-    assert num_valid >= N*fraction - 1
-    assert num_valid <= N*fraction + 1
+    assert num_valid >= N * fraction - 1
+    assert num_valid <= N * fraction + 1
 
     r = np.hypot(x, y)
     r_max = np.max(r[mask])

@@ -19,13 +19,14 @@ def deflection_add_density_fields(deflection):
     dicout = pandas.DataFrame(t).to_dict(orient="list")
 
     dicout["cherenkov_area_m2"] = np.pi * t["cherenkov_radius50_m"] ** 2
-    dicout["cherenkov_solid_angle_sr"] = spherical_coordinates.cone_solid_angle(
+    dicout[
+        "cherenkov_solid_angle_sr"
+    ] = spherical_coordinates.cone_solid_angle(
         cone_radial_opening_angle=t["cherenkov_angle50_rad"]
     )
 
-    dicout["cherenkov_density_per_m2_per_sr"] = (
-        t["cherenkov_num_photons"]
-        / (dicout["cherenkov_solid_angle_sr"] * dicout["cherenkov_area_m2"])
+    dicout["cherenkov_density_per_m2_per_sr"] = t["cherenkov_num_photons"] / (
+        dicout["cherenkov_solid_angle_sr"] * dicout["cherenkov_area_m2"]
     )
     return pandas.DataFrame(dicout).to_records(index=False)
 

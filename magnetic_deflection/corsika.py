@@ -33,8 +33,8 @@ def make_steering(
         "earth_magnetic_field_z_muT": f8(site["earth_magnetic_field_z_muT"]),
         "atmosphere_id": i8(site["atmosphere_id"]),
         "energy_range": {
-            "start_GeV": f8(particle_energy*0.99),
-            "stop_GeV": f8(particle_energy*1.01)
+            "start_GeV": f8(particle_energy * 0.99),
+            "stop_GeV": f8(particle_energy * 1.01),
         },
         "random_seed": cpw.random.seed.make_simple_seed(seed=run_id),
     }
@@ -64,9 +64,7 @@ def make_steering(
 
 
 def estimate_cherenkov_pool(
-    corsika_primary_path,
-    corsika_steering_dict,
-    min_num_cherenkov_photons,
+    corsika_primary_path, corsika_steering_dict, min_num_cherenkov_photons,
 ):
     pools = []
 
@@ -85,9 +83,7 @@ def estimate_cherenkov_pool(
             event_seeds[event_id] = cpw.random.seed.parse_seed_from_evth(
                 evth=evth
             )
-            light_field = init_light_field_from_corsika(
-                bunches=bunches
-            )
+            light_field = init_light_field_from_corsika(bunches=bunches)
             num_bunches = light_field.shape[0]
 
             if num_bunches >= min_num_cherenkov_photons:

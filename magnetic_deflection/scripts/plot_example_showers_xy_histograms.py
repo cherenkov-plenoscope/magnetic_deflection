@@ -11,7 +11,6 @@ from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 
 
-
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
@@ -46,11 +45,13 @@ XY_BIN_EDGES = np.linspace(-1e4, 1e4, 401)
 ON_AXIS_SCALE = 1.0
 MAX_NUM_EXAMPLES = 8
 
+
 def margin(a, b, epsilon):
     match = np.abs(a - b) < epsilon
     if not match:
         print("a", a, "b", b, "abs(a-b)", np.abs(a - b), "epsilon", epsilon)
     return match
+
 
 # find example events
 # -------------------
@@ -184,9 +185,9 @@ for skey in CFG["sites"]:
             assert event_idx >= 0
             steering["primary_bytes"] = bytes(
                 mdfl.corsika.cpw._primaries_slice(
-                    primary_bytes=shower_explicit_steerings[skey][pkey][run_id][
-                        "primary_bytes"
-                    ],
+                    primary_bytes=shower_explicit_steerings[skey][pkey][
+                        run_id
+                    ]["primary_bytes"],
                     i=event_idx,
                 )
             )
@@ -268,22 +269,22 @@ for skey in CFG["sites"]:
 
 def run_job(job):
     job_dir = os.path.join(
-        job["cache_dir"], "cherenkov_pools", job["skey"], job["pkey"], job["ckey"],
+        job["cache_dir"],
+        "cherenkov_pools",
+        job["skey"],
+        job["pkey"],
+        job["ckey"],
     )
     os.makedirs(job_dir, exist_ok=True)
-    job_key = "{:06d}_{:06d}".format(
-        job["run"],
-        job["event"],
-    )
+    job_key = "{:06d}_{:06d}".format(job["run"], job["event"],)
 
     pool_path = os.path.join(job_dir, job_key + "_cherenkov_pool.tar")
     hist_path = os.path.join(
         job["out_dir"],
-        "{:s}_{:s}_{:s}".format(
-            job["skey"],
-            job["pkey"],
-            job["ckey"],
-        ) + "_" + job_key + "_cherenkov_pool_histogram_xy.jpg"
+        "{:s}_{:s}_{:s}".format(job["skey"], job["pkey"], job["ckey"],)
+        + "_"
+        + job_key
+        + "_cherenkov_pool_histogram_xy.jpg",
     )
 
     # reproduce Cherenkov-pool
@@ -313,26 +314,86 @@ def run_job(job):
         prm_dict = mdfl.corsika.cpw._primaries_to_dict(
             primary_bytes=job["primary_bytes"]
         )[0]
-        assert evth[mdfl.corsika.cpw.I_EVTH_PARTICLE_ID] == prm_dict["particle_id"]
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_TOTAL_ENERGY_GEV], prm_dict["energy_GeV"], 1e-3)
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_ZENITH_RAD], prm_dict["zenith_rad"], 1e-3)
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_PARTICLE_ID]
+            == prm_dict["particle_id"]
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_TOTAL_ENERGY_GEV],
+            prm_dict["energy_GeV"],
+            1e-3,
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_ZENITH_RAD],
+            prm_dict["zenith_rad"],
+            1e-3,
+        )
 
         # assert margin(evth[mdfl.corsika.cpw.I_EVTH_AZIMUTH_RAD], prm_dict["azimuth_rad"], 1e-3)
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_STARTING_DEPTH_G_PER_CM2], prm_dict["depth_g_per_cm2"], 1e-3)
-        assert evth[mdfl.corsika.cpw.I_EVTH_NUM_DIFFERENT_RANDOM_SEQUENCES] == 4
-        assert prm_dict["random_seed"][0]["SEED"] == job["run"] * 100000 + job["event"]
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(1)], prm_dict["random_seed"][0]["SEED"], 35)
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(2)], prm_dict["random_seed"][1]["SEED"], 35)
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(3)], prm_dict["random_seed"][2]["SEED"], 35)
-        assert margin(evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(4)], prm_dict["random_seed"][3]["SEED"], 35)
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(1)] == prm_dict["random_seed"][0]["CALLS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(2)] == prm_dict["random_seed"][1]["CALLS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(3)] == prm_dict["random_seed"][2]["CALLS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(4)] == prm_dict["random_seed"][3]["CALLS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(1)] == prm_dict["random_seed"][0]["BILLIONS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(2)] == prm_dict["random_seed"][1]["BILLIONS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(3)] == prm_dict["random_seed"][2]["BILLIONS"]
-        assert evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(4)] == prm_dict["random_seed"][3]["BILLIONS"]
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_STARTING_DEPTH_G_PER_CM2],
+            prm_dict["depth_g_per_cm2"],
+            1e-3,
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_NUM_DIFFERENT_RANDOM_SEQUENCES] == 4
+        )
+        assert (
+            prm_dict["random_seed"][0]["SEED"]
+            == job["run"] * 100000 + job["event"]
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(1)],
+            prm_dict["random_seed"][0]["SEED"],
+            35,
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(2)],
+            prm_dict["random_seed"][1]["SEED"],
+            35,
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(3)],
+            prm_dict["random_seed"][2]["SEED"],
+            35,
+        )
+        assert margin(
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED(4)],
+            prm_dict["random_seed"][3]["SEED"],
+            35,
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(1)]
+            == prm_dict["random_seed"][0]["CALLS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(2)]
+            == prm_dict["random_seed"][1]["CALLS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(3)]
+            == prm_dict["random_seed"][2]["CALLS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_CALLS(4)]
+            == prm_dict["random_seed"][3]["CALLS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(1)]
+            == prm_dict["random_seed"][0]["BILLIONS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(2)]
+            == prm_dict["random_seed"][1]["BILLIONS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(3)]
+            == prm_dict["random_seed"][2]["BILLIONS"]
+        )
+        assert (
+            evth[mdfl.corsika.cpw.I_EVTH_RANDOM_SEED_BILLIONS(4)]
+            == prm_dict["random_seed"][3]["BILLIONS"]
+        )
         assert evth[mdfl.corsika.cpw.I_EVTH_NUM_OBSERVATION_LEVELS] == 1
         # print("obslev", evth[mdfl.corsika.cpw.I_EVTH_HEIGHT_OBSERVATION_LEVEL(1)]*1e-2, "m")
         assert evth[mdfl.corsika.cpw.I_EVTH_NUM_REUSES_OF_CHERENKOV_EVENT] == 1
@@ -351,8 +412,7 @@ def run_job(job):
                 - job["shower_statistic"]["cherenkov_x_m"][0]
             )
             < 1e0
-            and
-            np.abs(
+            and np.abs(
                 stats_on_the_fly["cherenkov_y_m"]
                 - job["shower_statistic"]["cherenkov_y_m"][0]
             )
@@ -364,7 +424,11 @@ def run_job(job):
 
         print(
             "run {: 6d}, event {: 6d}, site {:<20s}, case {:<20s}, valid {:d}".format(
-                job["run"], job["event"], job["skey"], job["ckey"], reproduction_valid,
+                job["run"],
+                job["event"],
+                job["skey"],
+                job["ckey"],
+                reproduction_valid,
             )
         )
 
@@ -382,14 +446,14 @@ def run_job(job):
         dkey = "cherenkov_area_m2"
 
         fig = sebplt.figure({"rows": 1080, "cols": 2560, "fontsize": 1.5})
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.15, 0.8*(1080/2560), 0.8))
+        ax = sebplt.add_axes(
+            fig=fig, span=(0.15, 0.15, 0.8 * (1080 / 2560), 0.8)
+        )
         ax_cb = sebplt.add_axes(fig=fig, span=[0.5, 0.15, 0.015, 0.8])
         ax_cut = sebplt.add_axes(fig=fig, span=[0.65, 0.15, 0.3, 0.8])
 
         ax_cut.set_xlabel(
-            "energy"
-            + CFG["plotting"]["label_unit_seperator"]
-            + "GeV"
+            "energy" + CFG["plotting"]["label_unit_seperator"] + "GeV"
         )
         ax_cut.set_ylabel(
             CFG["plotting"]["light_field"][dkey]["label"]
@@ -401,16 +465,22 @@ def run_job(job):
         ax_cut.loglog()
         sebplt.ax_add_box(
             ax=ax_cut,
-            xlim=[cases[job["ckey"]]["energy"]["start"], cases[job["ckey"]]["energy"]["stop"]],
-            ylim=[cases[job["ckey"]][dkey]["start"], cases[job["ckey"]][dkey]["stop"]],
+            xlim=[
+                cases[job["ckey"]]["energy"]["start"],
+                cases[job["ckey"]]["energy"]["stop"],
+            ],
+            ylim=[
+                cases[job["ckey"]][dkey]["start"],
+                cases[job["ckey"]][dkey]["stop"],
+            ],
             color="k",
-            linewidth=None
+            linewidth=None,
         )
-        cherenkov_area_m2 = np.pi * job["shower_statistic"]["cherenkov_radius50_m"][0] ** 2
+        cherenkov_area_m2 = (
+            np.pi * job["shower_statistic"]["cherenkov_radius50_m"][0] ** 2
+        )
         ax_cut.plot(
-            prm_dict["energy_GeV"],
-            cherenkov_area_m2,
-            "xk",
+            prm_dict["energy_GeV"], cherenkov_area_m2, "xk",
         )
 
         if reproduction_valid:
@@ -418,16 +488,13 @@ def run_job(job):
         else:
             cmap = "Greys"
             ax.plot(
-                0,
-                0,
-                "xr",
-                markersize=4,
+                0, 0, "xr", markersize=4,
             )
         sebplt.ax_add_circle(
             ax=ax,
             x=0,
             y=0,
-            r=job["shower_statistic"]["cherenkov_radius50_m"]*1e-3,
+            r=job["shower_statistic"]["cherenkov_radius50_m"] * 1e-3,
             linewidth=0.5,
             linestyle="-",
             color="green",
@@ -435,12 +502,23 @@ def run_job(job):
             num_steps=128,
         )
         pcm = ax.pcolormesh(
-            job["xy_bin_edges"]*1e-3, job["xy_bin_edges"]*1e-3, (hist.T + 1), cmap=cmap,
+            job["xy_bin_edges"] * 1e-3,
+            job["xy_bin_edges"] * 1e-3,
+            (hist.T + 1),
+            cmap=cmap,
             norm=sebplt.plt_colors.LogNorm(vmin=1e0, vmax=1e4),
         )
         sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
-        ax.set_xlabel("$x$ - median($x$)" + CFG["plotting"]["label_unit_seperator"] + "km")
-        ax.set_ylabel("$y$ - median($y$)" + CFG["plotting"]["label_unit_seperator"] + "km")
+        ax.set_xlabel(
+            "$x$ - median($x$)"
+            + CFG["plotting"]["label_unit_seperator"]
+            + "km"
+        )
+        ax.set_ylabel(
+            "$y$ - median($y$)"
+            + CFG["plotting"]["label_unit_seperator"]
+            + "km"
+        )
         fig.savefig(hist_path)
         sebplt.close_figure(fig)
         return 1

@@ -17,7 +17,7 @@ def list_incomplete_jobs(work_dir):
 
 
 def list_incomplete_job_paths_and_states(work_dir):
-    CFG = work_dir_structure.read_config(work_dir, ["sites", "particles"], )
+    CFG = work_dir_structure.read_config(work_dir, ["sites", "particles"],)
 
     incomplete = []
     for skey in CFG["sites"]:

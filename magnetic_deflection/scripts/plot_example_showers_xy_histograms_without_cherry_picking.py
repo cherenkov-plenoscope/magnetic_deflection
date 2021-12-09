@@ -12,11 +12,12 @@ from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 
 
-
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
-out_dir = os.path.join(work_dir, "plot", "example_showers_xy_histograms_without_cherry_picking")
+out_dir = os.path.join(
+    work_dir, "plot", "example_showers_xy_histograms_without_cherry_picking"
+)
 os.makedirs(out_dir, exist_ok=True)
 cache_dir = os.path.join(out_dir, "cache")
 os.makedirs(cache_dir, exist_ok=True)
@@ -47,11 +48,13 @@ XY_BIN_EDGES = np.linspace(-1e4, 1e4, 401)
 ON_AXIS_SCALE = 1.0
 MAX_NUM_EXAMPLES = 8
 
+
 def margin(a, b, epsilon):
     match = np.abs(a - b) < epsilon
     if not match:
         print("a", a, "b", b, "abs(a-b)", np.abs(a - b), "epsilon", epsilon)
     return match
+
 
 # find example events
 # -------------------
@@ -272,15 +275,23 @@ for skey in CFG["sites"]:
             job["xy_bin_edges"] = XY_BIN_EDGES
             job["shower_statistics"] = {}
             for event_id in run_rep["event_ids"]:
-                job["shower_statistics"][event_id] = example_events[skey][ckey][(run_id, event_id)]
-                assert job["shower_statistics"][event_id]["run"] == job["run_id"]
+                job["shower_statistics"][event_id] = example_events[skey][
+                    ckey
+                ][(run_id, event_id)]
+                assert (
+                    job["shower_statistics"][event_id]["run"] == job["run_id"]
+                )
                 assert job["shower_statistics"][event_id]["event"] == event_id
             jobs.append(job)
 
 
 def run_job(job):
     job_dir = os.path.join(
-        job["cache_dir"], "cherenkov_pools", job["skey"], job["pkey"], job["ckey"],
+        job["cache_dir"],
+        "cherenkov_pools",
+        job["skey"],
+        job["pkey"],
+        job["ckey"],
     )
     os.makedirs(job_dir, exist_ok=True)
     job_key = "{:06d}".format(job["run_id"])
@@ -288,11 +299,10 @@ def run_job(job):
     run_path = os.path.join(job_dir, job_key)
     hist_path = os.path.join(
         job["out_dir"],
-        "{:s}_{:s}_{:s}".format(
-            job["skey"],
-            job["pkey"],
-            job["ckey"],
-        ) + "_" + job_key + "_cherenkov_pool_histogram_xy.jpg"
+        "{:s}_{:s}_{:s}".format(job["skey"], job["pkey"], job["ckey"],)
+        + "_"
+        + job_key
+        + "_cherenkov_pool_histogram_xy.jpg",
     )
 
     all_events_exist = True
@@ -383,8 +393,7 @@ def run_job(job):
                 - shower_statistic["cherenkov_x_m"][0]
             )
             < 1e0
-            and
-            np.abs(
+            and np.abs(
                 stats_on_the_fly["cherenkov_y_m"]
                 - shower_statistic["cherenkov_y_m"][0]
             )
@@ -396,7 +405,11 @@ def run_job(job):
 
         print(
             "run {: 6d}, event {: 6d}, site {:<20s}, case {:<20s}, valid {:d}".format(
-                job["run_id"], event_id, job["skey"], job["ckey"], reproduction_valid,
+                job["run_id"],
+                event_id,
+                job["skey"],
+                job["ckey"],
+                reproduction_valid,
             )
         )
 
@@ -414,14 +427,14 @@ def run_job(job):
         dkey = "cherenkov_area_m2"
 
         fig = sebplt.figure({"rows": 1080, "cols": 2560, "fontsize": 1.5})
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.15, 0.8*(1080/2560), 0.8))
+        ax = sebplt.add_axes(
+            fig=fig, span=(0.15, 0.15, 0.8 * (1080 / 2560), 0.8)
+        )
         ax_cb = sebplt.add_axes(fig=fig, span=[0.5, 0.15, 0.015, 0.8])
         ax_cut = sebplt.add_axes(fig=fig, span=[0.65, 0.15, 0.3, 0.8])
 
         ax_cut.set_xlabel(
-            "energy"
-            + CFG["plotting"]["label_unit_seperator"]
-            + "GeV"
+            "energy" + CFG["plotting"]["label_unit_seperator"] + "GeV"
         )
         ax_cut.set_ylabel(
             CFG["plotting"]["light_field"][dkey]["label"]
@@ -433,16 +446,22 @@ def run_job(job):
         ax_cut.loglog()
         sebplt.ax_add_box(
             ax=ax_cut,
-            xlim=[cases[job["ckey"]]["energy"]["start"], cases[job["ckey"]]["energy"]["stop"]],
-            ylim=[cases[job["ckey"]][dkey]["start"], cases[job["ckey"]][dkey]["stop"]],
+            xlim=[
+                cases[job["ckey"]]["energy"]["start"],
+                cases[job["ckey"]]["energy"]["stop"],
+            ],
+            ylim=[
+                cases[job["ckey"]][dkey]["start"],
+                cases[job["ckey"]][dkey]["stop"],
+            ],
             color="k",
-            linewidth=None
+            linewidth=None,
         )
-        cherenkov_area_m2 = np.pi * shower_statistic["cherenkov_radius50_m"][0] ** 2
+        cherenkov_area_m2 = (
+            np.pi * shower_statistic["cherenkov_radius50_m"][0] ** 2
+        )
         ax_cut.plot(
-            prm_dict["energy_GeV"],
-            cherenkov_area_m2,
-            "xk",
+            prm_dict["energy_GeV"], cherenkov_area_m2, "xk",
         )
 
         if reproduction_valid:
@@ -450,16 +469,13 @@ def run_job(job):
         else:
             cmap = "Greys"
             ax.plot(
-                0,
-                0,
-                "xr",
-                markersize=4,
+                0, 0, "xr", markersize=4,
             )
         sebplt.ax_add_circle(
             ax=ax,
             x=0,
             y=0,
-            r=shower_statistic["cherenkov_radius50_m"]*1e-3,
+            r=shower_statistic["cherenkov_radius50_m"] * 1e-3,
             linewidth=0.5,
             linestyle="-",
             color="green",
@@ -467,12 +483,23 @@ def run_job(job):
             num_steps=128,
         )
         pcm = ax.pcolormesh(
-            job["xy_bin_edges"]*1e-3, job["xy_bin_edges"]*1e-3, (hist.T + 1), cmap=cmap,
+            job["xy_bin_edges"] * 1e-3,
+            job["xy_bin_edges"] * 1e-3,
+            (hist.T + 1),
+            cmap=cmap,
             norm=sebplt.plt_colors.LogNorm(vmin=1e0, vmax=1e4),
         )
         sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
-        ax.set_xlabel("$x$ - median($x$)" + CFG["plotting"]["label_unit_seperator"] + "km")
-        ax.set_ylabel("$y$ - median($y$)" + CFG["plotting"]["label_unit_seperator"] + "km")
+        ax.set_xlabel(
+            "$x$ - median($x$)"
+            + CFG["plotting"]["label_unit_seperator"]
+            + "km"
+        )
+        ax.set_ylabel(
+            "$y$ - median($y$)"
+            + CFG["plotting"]["label_unit_seperator"]
+            + "km"
+        )
         fig.savefig(hist_path)
         sebplt.close_figure(fig)
         return 1

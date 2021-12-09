@@ -119,14 +119,15 @@ for skey in on_axis_shower_statistics:
         den["cherenkov_num_photons"] = oasst["cherenkov_num_photons"]
         den["cherenkov_area_m2"] = np.pi * oasst["cherenkov_radius50_m"] ** 2
 
-        den["cherenkov_solid_angle_sr"] = mdfl.spherical_coordinates.cone_solid_angle(
+        den[
+            "cherenkov_solid_angle_sr"
+        ] = mdfl.spherical_coordinates.cone_solid_angle(
             cone_radial_opening_angle=oasst["cherenkov_angle50_rad"]
         )
 
-        den["cherenkov_density_per_m2_per_sr"] = (
-            oasst["cherenkov_num_photons"]
-            / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
-        )
+        den["cherenkov_density_per_m2_per_sr"] = oasst[
+            "cherenkov_num_photons"
+        ] / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
 
         cherenkov_density[skey][pkey] = pd.DataFrame(den).to_records(
             index=False
