@@ -30,17 +30,17 @@ def make_steering(
         "event_id_of_first_event": i8(1),
         "observation_level_asl_m": f8(site["observation_level_asl_m"]),
         "earth_magnetic_field_x_muT": f8(site["earth_magnetic_field_x_muT"]),
-        "earth_magnetic_field_z_muT": f8(ite["earth_magnetic_field_z_muT"]),
+        "earth_magnetic_field_z_muT": f8(site["earth_magnetic_field_z_muT"]),
         "atmosphere_id": i8(site["atmosphere_id"]),
         "energy_range": {
             "start_GeV": f8(particle_energy*0.99),
             "stop_GeV": f8(particle_energy*1.01)
         },
-        "random_seed": cpw.simple_seed(seed=run_id),
+        "random_seed": cpw.random.seed.make_simple_seed(seed=run_id),
     }
     steering["primaries"] = []
     for airshower_id in np.arange(1, num_showers + 1):
-        az, zd = cpw.random_distributions.draw_azimuth_zenith_in_viewcone(
+        az, zd = cpw.random.distributions.draw_azimuth_zenith_in_viewcone(
             prng=prng,
             azimuth_rad=np.deg2rad(particle_cone_azimuth_deg),
             zenith_rad=np.deg2rad(particle_cone_zenith_deg),
@@ -146,11 +146,11 @@ def make_cherenkov_pools_statistics(
 
 def init_light_field_from_corsika(bunches):
     lf = {}
-    lf["x"] = bunches[:, cpw.IX] * cpw.CM2M  # cm to m
-    lf["y"] = bunches[:, cpw.IY] * cpw.CM2M  # cm to m
-    lf["cx"] = bunches[:, cpw.ICX]
-    lf["cy"] = bunches[:, cpw.ICY]
-    lf["t"] = bunches[:, cpw.ITIME] * 1e-9  # ns to s
-    lf["size"] = bunches[:, cpw.IBSIZE]
-    lf["wavelength"] = bunches[:, cpw.IWVL] * 1e-9  # nm to m
+    lf["x"] = bunches[:, cpw.I.BUNCH.X] * cpw.CM2M  # cm to m
+    lf["y"] = bunches[:, cpw.I.BUNCH.Y] * cpw.CM2M  # cm to m
+    lf["cx"] = bunches[:, cpw.I.BUNCH.CX]
+    lf["cy"] = bunches[:, cpw.I.BUNCH.CY]
+    lf["t"] = bunches[:, cpw.I.BUNCH.TIME] * 1e-9  # ns to s
+    lf["size"] = bunches[:, cpw.I.BUNCH.BSIZE]
+    lf["wavelength"] = bunches[:, cpw.I.BUNCH.WVL] * 1e-9  # nm to m
     return pandas.DataFrame(lf).to_records(index=False)

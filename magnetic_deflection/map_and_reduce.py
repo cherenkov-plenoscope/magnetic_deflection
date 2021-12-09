@@ -223,7 +223,7 @@ def run_job(job):
                 instrument_zenith_deg=job["pointing"]["zenith_deg"],
             )
 
-            cpw.steering.write_steerings_and_seeds(
+            corsika.cpw.steering.write_steerings_and_seeds(
                 path=map_paths["statistics_steering"],
                 runs={job["job"]["id"]: pools_reproduction},
             )

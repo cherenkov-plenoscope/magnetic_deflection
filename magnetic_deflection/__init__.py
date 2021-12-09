@@ -240,7 +240,7 @@ def read_explicit_steerings(work_dir):
             path = os.path.join(
                 work_dir, "reduce", skey, pkey, reduce_basenames["statistics_steering"],
             )
-            out[skey][pkey] = corsika.cpw.steering_io.read_explicit_steerings(path)
+            out[skey][pkey] = corsika.cpw.steering.read_steerings_and_seeds(path)
     return out
 
 
