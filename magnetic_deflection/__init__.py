@@ -67,6 +67,8 @@ def _write_default_config(path, energy_supports_max, energy_supports_num):
         "statistics_min_num_showers": 500,
         "min_num_cherenkov_photons": 100,
         "corsika_primary_path": examples.CORSIKA_PRIMARY_MOD_PATH,
+        "statistics_r_bin_edges": light_field_characterization.make_radial_bin_edges(r_stop=7*30, num_bins=8, r_overflow_limit=np.inf),
+        "statistics_theta_bin_edges_deg" : light_field_characterization.make_radial_bin_edges(r_stop=7*1, num_bins=8, r_overflow_limit=np.inf),
     }
     tools.write_json(path, obj=cfg)
 

@@ -30,6 +30,8 @@ def make_jobs(
     discovery_min_num_showers_per_iteration,
     statistics_total_energy,
     statistics_min_num_showers,
+    statistics_r_bin_edges,
+    statistics_theta_bin_edges_deg,
     min_num_cherenkov_photons,
     corsika_primary_path,
 ):
@@ -104,11 +106,20 @@ def make_jobs(
 
         num_showers = np.max([num_showers, statistics_min_num_showers])
 
+        statistics_theta_bin_edges = np.deg2rad(statistics_theta_bin_edges_deg)
         job["statistics"] = {
             "num_showers": num_showers,
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
             "off_axis_deg": 3.0
             * particle["magnetic_deflection_max_off_axis_deg"],
+            "optional": {
+                "histogram_r": {
+                    "r_bin_edges": np.array(statistics_r_bin_edges),
+                },
+                "histogram_theta": {
+                    "theta_bin_edges": np.array(statistics_theta_bin_edges),
+                },
+            }
         }
 
         jobs.append(job)
@@ -215,6 +226,7 @@ def run_job(job):
                 corsika_primary_path=job["job"]["corsika_primary_path"],
                 run_id=job["job"]["id"],
                 prng=prng,
+                statistics_optional=job["statistics"]["optional"],
             )
 
             pools = add_off_axis_to_pool_statistics(
@@ -272,6 +284,16 @@ def add_off_axis_to_pool_statistics(
 def _write_pool_statistics(pool_statistics, path):
     pool_statistics_rec = pandas.DataFrame(pool_statistics).to_records(
         index=False
+    )
+    pool_statistics_rec = recarray_io.change_dtype(
+        recarray=pool_statistics_rec,
+        current_dtype="f8",
+        target_dtype="f4"
+    )
+    pool_statistics_rec = recarray_io.change_dtype(
+        recarray=pool_statistics_rec,
+        current_dtype="i8",
+        target_dtype="i4"
     )
     recarray_io.write_to_tar(recarray=pool_statistics_rec, path=path)
 

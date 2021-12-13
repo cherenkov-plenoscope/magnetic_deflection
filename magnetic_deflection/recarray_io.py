@@ -44,3 +44,15 @@ def read_from_csv(path):
     df = pandas.read_csv(path)
     rec = df.to_records(index=False)
     return rec
+
+
+def change_dtype(recarray, current_dtype="f8", target_dtype="f4"):
+    keys = list(recarray.dtype.names)
+    new_dtypes = []
+    for key in keys:
+        current_dtype_str = recarray.dtype[key].str
+        if current_dtype in current_dtype_str:
+            new_dtypes.append((key, target_dtype))
+        else:
+            new_dtypes.append((key, current_dtype_str))
+    return recarray.astype(new_dtypes)
