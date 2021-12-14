@@ -132,19 +132,6 @@ def histogram_theta_in_light_field(light_field, theta_bin_edges):
     return out
 
 
-def make_radial_bin_edges(
-    r_start=0,
-    r_stop=7*30,
-    num_bins=8,
-    r_overflow_limit=np.inf,
-):
-    bin_edges = np.array(
-        np.linspace(r_start, r_stop, num_bins).tolist()
-        + [r_overflow_limit]
-    )
-    return bin_edges
-
-
 def inspect_pools(
     cherenkov_pools,
     off_axis_pivot_deg,
