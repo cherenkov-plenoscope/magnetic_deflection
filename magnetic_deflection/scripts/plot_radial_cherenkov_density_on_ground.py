@@ -60,85 +60,72 @@ def recarray_pick_hsitogram(hist_recarray, key_format_str, num_bins):
     return out
 
 
-R_BIN_EDGES_M = np.array(CFG["config"]["statistics_r_bin_edges"])
-NUM_R_BINS = len(R_BIN_EDGES_M) - 1
-R_BIN_AREAS_M2 = area_in_bins(bin_edges=R_BIN_EDGES_M)
+rs = {}
+rs["r"] = {}
+rs["r"]["label"] = r"$r$"
+rs["r"]["unit"] = r"m"
+rs["r"]["bin_edges"] = np.array(CFG["config"]["statistics_r_bin_edges"])
+rs["r"]["num_bins"] = len(rs["r"]["bin_edges"]) - 1
+rs["r"]["bin_areas"] = area_in_bins(bin_edges=rs["r"]["bin_edges"])
+rs["r"]["inverse_area_unit"] = r"m$^{-2}$"
 
-
-THETA_BIN_EDGES_DEG = np.array(CFG["config"]["statistics_theta_bin_edges_deg"])
-NUM_THETA_BINS = len(THETA_BIN_EDGES_DEG) - 1
-THETA_BIN_SOLID_ANGLE_DEG2  = area_in_bins(bin_edges=THETA_BIN_EDGES_DEG)
-
+rs["theta"] = {}
+rs["theta"]["label"] = r"$\theta$"
+rs["theta"]["unit"] = r"(1$^\circ$)"
+rs["theta"]["bin_edges"] = np.array(
+    CFG["config"]["statistics_theta_bin_edges_deg"]
+)
+rs["theta"]["num_bins"] = len(rs["theta"]["bin_edges"]) - 1
+rs["theta"]["bin_areas"] = area_in_bins(bin_edges=rs["theta"]["bin_edges"])
+rs["theta"]["inverse_area_unit"] = r"$(1^\circ)^{-2}$"
 
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
-        #spstats = shower_statistics[skey][pkey]
+        for rkey in rs:
+            # spstats = shower_statistics[skey][pkey]
 
-        spstats = mdfl.recarray_io.read_from_tar(
-            "__test_mdfl/map/namibia/gamma/000003_statistics.recarray.tar"
-        )
+            spstats = mdfl.recarray_io.read_from_tar(
+                "__test_mdfl/map/namibia/gamma/000003_statistics.recarray.tar"
+            )
 
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig, AXSPAN)
-        num_photons = recarray_pick_hsitogram(
-            hist_recarray=spstats,
-            key_format_str="cherenkov_r_bin_{:06d}",
-            num_bins=NUM_R_BINS,
-        )
-        p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
-        p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
-        p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
+            fig = sebplt.figure(FIGSIZE)
+            ax = sebplt.add_axes(fig, AXSPAN)
+            num_photons = recarray_pick_hsitogram(
+                hist_recarray=spstats,
+                key_format_str="cherenkov_" + rkey + "_bin_{:06d}",
+                num_bins=rs[rkey]["num_bins"],
+            )
+            p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
+            p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
+            p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
 
-        sebplt.ax_add_histogram(
-            ax=ax,
-            bin_edges=R_BIN_EDGES_M,
-            bincounts=p50_num_photons / R_BIN_AREAS_M2,
-            bincounts_upper=p84_num_photons / R_BIN_AREAS_M2,
-            bincounts_lower=p16_num_photons / R_BIN_AREAS_M2,
-            linestyle="-",
-            linecolor="k",
-            linealpha=1.0,
-            face_color="k",
-            face_alpha=0.1,
-        )
-        ax.semilogy()
-        ax.set_xlabel("r" + PLT["label_unit_seperator"] + "m")
-        ax.set_xlim([min(R_BIN_EDGES_M), max(R_BIN_EDGES_M)])
-        ax.set_ylabel("density" + PLT["label_unit_seperator"] + "m$^{-2}$")
-        filename = "{:s}_{:s}_{:s}".format(skey, pkey, "r")
-        filepath = os.path.join(out_dir, filename)
-        fig.savefig(filepath + ".jpg")
-        sebplt.close_figure(fig)
-
-
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig, AXSPAN)
-        num_photons = recarray_pick_hsitogram(
-            hist_recarray=spstats,
-            key_format_str="cherenkov_theta_bin_{:06d}",
-            num_bins=NUM_THETA_BINS,
-        )
-        p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
-        p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
-        p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
-
-        sebplt.ax_add_histogram(
-            ax=ax,
-            bin_edges=THETA_BIN_EDGES_DEG,
-            bincounts=p50_num_photons / THETA_BIN_SOLID_ANGLE_DEG2,
-            bincounts_upper=p84_num_photons / THETA_BIN_SOLID_ANGLE_DEG2,
-            bincounts_lower=p16_num_photons / THETA_BIN_SOLID_ANGLE_DEG2,
-            linestyle="-",
-            linecolor="k",
-            linealpha=1.0,
-            face_color="k",
-            face_alpha=0.1,
-        )
-        ax.semilogy()
-        ax.set_xlabel(r"$\theta$" + PLT["label_unit_seperator"] + r"$1^\circ$")
-        ax.set_xlim([min(THETA_BIN_EDGES_DEG), max(THETA_BIN_EDGES_DEG)])
-        ax.set_ylabel("density" + PLT["label_unit_seperator"] + r"$(1^\circ)^2$")
-        filename = "{:s}_{:s}_{:s}".format(skey, pkey, "theta")
-        filepath = os.path.join(out_dir, filename)
-        fig.savefig(filepath + ".jpg")
-        sebplt.close_figure(fig)
+            sebplt.ax_add_histogram(
+                ax=ax,
+                bin_edges=rs[rkey]["bin_edges"],
+                bincounts=p50_num_photons / rs[rkey]["bin_areas"],
+                bincounts_upper=p84_num_photons / rs[rkey]["bin_areas"],
+                bincounts_lower=p16_num_photons / rs[rkey]["bin_areas"],
+                linestyle="-",
+                linecolor="k",
+                linealpha=1.0,
+                face_color="k",
+                face_alpha=0.1,
+            )
+            ax.semilogy()
+            ax.set_xlabel(
+                rs[rkey]["label"]
+                + PLT["label_unit_seperator"]
+                + rs[rkey]["unit"]
+            )
+            ax.set_xlim(
+                [min(rs[rkey]["bin_edges"]), max(rs[rkey]["bin_edges"])]
+            )
+            ax.set_ylabel(
+                "density"
+                + PLT["label_unit_seperator"]
+                + rs[rkey]["inverse_area_unit"]
+            )
+            filename = "{:s}_{:s}_{:s}".format(skey, pkey, rkey)
+            filepath = os.path.join(out_dir, filename)
+            fig.savefig(filepath + ".jpg")
+            sebplt.close_figure(fig)
