@@ -119,7 +119,7 @@ def make_jobs(
                 "histogram_theta": {
                     "theta_bin_edges": np.array(statistics_theta_bin_edges),
                 },
-            }
+            },
         }
 
         jobs.append(job)
@@ -286,14 +286,10 @@ def _write_pool_statistics(pool_statistics, path):
         index=False
     )
     pool_statistics_rec = recarray_io.change_dtype(
-        recarray=pool_statistics_rec,
-        current_dtype="f8",
-        target_dtype="f4"
+        recarray=pool_statistics_rec, current_dtype="f8", target_dtype="f4"
     )
     pool_statistics_rec = recarray_io.change_dtype(
-        recarray=pool_statistics_rec,
-        current_dtype="i8",
-        target_dtype="i4"
+        recarray=pool_statistics_rec, current_dtype="i8", target_dtype="i4"
     )
     recarray_io.write_to_tar(recarray=pool_statistics_rec, path=path)
 

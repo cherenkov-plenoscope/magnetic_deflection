@@ -8,10 +8,7 @@ from . import tools
 
 
 def make_radius_square_wrt_center_position(
-    photon_x_m,
-    photon_y_m,
-    center_x_m,
-    center_y_m,
+    photon_x_m, photon_y_m, center_x_m, center_y_m,
 ):
     assert len(photon_x_m) == len(photon_y_m)
 
@@ -21,10 +18,7 @@ def make_radius_square_wrt_center_position(
 
 
 def make_cos_theta_wrt_center_direction(
-    photon_cx_rad,
-    photon_cy_rad,
-    center_cx_rad,
-    center_cy_rad,
+    photon_cx_rad, photon_cy_rad, center_cx_rad, center_cy_rad,
 ):
     assert len(photon_cx_rad) == len(photon_cy_rad)
 
@@ -110,9 +104,7 @@ def histogram_r_in_light_field(light_field, r_bin_edges):
     num_bins_r = len(r_bin_edges) - 1
     r_square_bin_edges = r_bin_edges ** 2
     hr = np.histogram(
-        lf["r_square"],
-        bins=r_square_bin_edges,
-        weights=lf["size"]
+        lf["r_square"], bins=r_square_bin_edges, weights=lf["size"]
     )[0]
     for iir in range(num_bins_r):
         iir_key = "cherenkov_r_bin_{:06d}".format(iir)

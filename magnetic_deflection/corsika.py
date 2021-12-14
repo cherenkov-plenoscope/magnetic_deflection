@@ -106,8 +106,12 @@ def estimate_cherenkov_pool(
 
                 light_field = lfc.add_median_x_y_to_light_field(light_field)
                 light_field = lfc.add_median_cx_cy_to_light_field(light_field)
-                light_field = lfc.add_r_square_to_light_field_wrt_median(light_field)
-                light_field = lfc.add_cos_theta_to_light_field_wrt_median(light_field)
+                light_field = lfc.add_r_square_to_light_field_wrt_median(
+                    light_field
+                )
+                light_field = lfc.add_cos_theta_to_light_field_wrt_median(
+                    light_field
+                )
 
                 c = lfc.parameterize_light_field(light_field=light_field)
 
@@ -121,7 +125,9 @@ def estimate_cherenkov_pool(
                 if "histogram_theta" in sopt:
                     c_t = lfc.histogram_theta_in_light_field(
                         light_field=light_field,
-                        theta_bin_edges=sopt["histogram_theta"]["theta_bin_edges"],
+                        theta_bin_edges=sopt["histogram_theta"][
+                            "theta_bin_edges"
+                        ],
                     )
                     c.update(c_t)
 
