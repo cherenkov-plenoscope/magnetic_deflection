@@ -40,10 +40,6 @@ def init(dtypes={"a": "i8"}):
 
 
 def append_dict(records, dict_object):
-    for key in dict_object:
-        if key not in records:
-            raise Warning("The key '{:s}' is not in records.")
-
     for key in records:
         try:
             records[key].append(dict_object[key])
@@ -54,10 +50,6 @@ def append_dict(records, dict_object):
 
 
 def append_numpy_recarray(records, recarray):
-    for key in recarray.dtype.names:
-        if key not in records:
-            raise Warning("The key '{:s}' is not in records.")
-
     for key in records:
         try:
             records[key].extend(recarray[key])
