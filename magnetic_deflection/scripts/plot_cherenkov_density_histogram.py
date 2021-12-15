@@ -37,8 +37,6 @@ Sebastian:
     Ja, das mache ich mal.
 """
 
-# shower_statistics = mdfl.read_statistics(work_dir=work_dir)
-
 
 def area_in_bins(bin_edges):
     num_bins = len(bin_edges) - 1
@@ -78,6 +76,10 @@ rs["theta"]["bin_edges"] = np.array(
 rs["theta"]["num_bins"] = len(rs["theta"]["bin_edges"]) - 1
 rs["theta"]["bin_areas"] = area_in_bins(bin_edges=rs["theta"]["bin_edges"])
 rs["theta"]["inverse_area_unit"] = r"$(1^\circ)^{-2}$"
+
+
+shower_statistics = mdfl.read_statistics(work_dir=work_dir)
+
 
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
