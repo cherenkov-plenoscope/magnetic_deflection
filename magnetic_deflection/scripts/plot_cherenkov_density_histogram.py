@@ -82,11 +82,7 @@ rs["theta"]["inverse_area_unit"] = r"$(1^\circ)^{-2}$"
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
         for rkey in rs:
-            # spstats = shower_statistics[skey][pkey]
-
-            spstats = mdfl.recarray_io.read_from_tar(
-                "__test_mdfl/map/namibia/gamma/000003_statistics.recarray.tar"
-            )
+            spstats = shower_statistics[skey][pkey]
 
             fig = sebplt.figure(FIGSIZE)
             ax = sebplt.add_axes(fig, AXSPAN)
