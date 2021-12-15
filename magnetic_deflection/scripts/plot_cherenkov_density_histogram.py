@@ -21,6 +21,7 @@ matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
 
 FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
 AXSPAN = [0.175, 0.2, 0.8, 0.75]
+ON_AXIS_SCALE = 1.0
 
 """
 email: 2021-12-06
@@ -80,50 +81,74 @@ rs["theta"]["inverse_area_unit"] = r"$(1^\circ)^{-2}$"
 
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
+num_energy_bins = 3
+energy_bin_edges = np.geomspace(0.1, 1e2, num_energy_bins + 1)
 
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
         for rkey in rs:
             spstats = shower_statistics[skey][pkey]
 
-            fig = sebplt.figure(FIGSIZE)
-            ax = sebplt.add_axes(fig, AXSPAN)
-            num_photons = recarray_pick_hsitogram(
-                hist_recarray=spstats,
-                key_format_str="cherenkov_" + rkey + "_bin_{:06d}",
-                num_bins=rs[rkey]["num_bins"],
+            mask_on_axis = (
+                spstats["off_axis_deg"]
+                <= ON_AXIS_SCALE
+                * CFG["particles"][pkey][
+                    "magnetic_deflection_max_off_axis_deg"
+                ]
             )
-            p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
-            p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
-            p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
 
-            sebplt.ax_add_histogram(
-                ax=ax,
-                bin_edges=rs[rkey]["bin_edges"],
-                bincounts=p50_num_photons / rs[rkey]["bin_areas"],
-                bincounts_upper=p84_num_photons / rs[rkey]["bin_areas"],
-                bincounts_lower=p16_num_photons / rs[rkey]["bin_areas"],
-                linestyle="-",
-                linecolor="k",
-                linealpha=1.0,
-                face_color="k",
-                face_alpha=0.1,
-            )
-            ax.semilogy()
-            ax.set_xlabel(
-                rs[rkey]["label"]
-                + PLT["label_unit_seperator"]
-                + rs[rkey]["unit"]
-            )
-            ax.set_xlim(
-                [min(rs[rkey]["bin_edges"]), max(rs[rkey]["bin_edges"])]
-            )
-            ax.set_ylabel(
-                "density"
-                + PLT["label_unit_seperator"]
-                + rs[rkey]["inverse_area_unit"]
-            )
-            filename = "{:s}_{:s}_{:s}".format(skey, pkey, rkey)
-            filepath = os.path.join(out_dir, filename)
-            fig.savefig(filepath + ".jpg")
-            sebplt.close(fig)
+            for ekey in range(num_energy_bins):
+                energy_start = energy_bin_edges[ekey]
+                energy_stop = energy_bin_edges[ekey + 1]
+
+                mask_in_energy_bin = np.logical_and(
+                    spstats["particle_energy_GeV"] >= energy_start,
+                    spstats["particle_energy_GeV"] < energy_stop,
+                )
+
+                mask = np.logical_and(mask_in_energy_bin, mask_on_axis)
+                cut_spstats = spstats[mask]
+
+                num_photons = recarray_pick_hsitogram(
+                    hist_recarray=cut_spstats,
+                    key_format_str="cherenkov_" + rkey + "_bin_{:06d}",
+                    num_bins=rs[rkey]["num_bins"],
+                )
+                p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
+                p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
+                p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
+
+                fig = sebplt.figure(FIGSIZE)
+                ax = sebplt.add_axes(fig, AXSPAN)
+                sebplt.ax_add_histogram(
+                    ax=ax,
+                    bin_edges=rs[rkey]["bin_edges"],
+                    bincounts=p50_num_photons / rs[rkey]["bin_areas"],
+                    bincounts_upper=p84_num_photons / rs[rkey]["bin_areas"],
+                    bincounts_lower=p16_num_photons / rs[rkey]["bin_areas"],
+                    linestyle="-",
+                    linecolor="k",
+                    linealpha=1.0,
+                    face_color="k",
+                    face_alpha=0.1,
+                )
+                ax.semilogy()
+                ax.set_xlabel(
+                    rs[rkey]["label"]
+                    + PLT["label_unit_seperator"]
+                    + rs[rkey]["unit"]
+                )
+                ax.set_xlim(
+                    [min(rs[rkey]["bin_edges"]), max(rs[rkey]["bin_edges"])]
+                )
+                ax.set_ylabel(
+                    "density"
+                    + PLT["label_unit_seperator"]
+                    + rs[rkey]["inverse_area_unit"]
+                )
+                filename = "{:s}_{:s}_{:s}_{:06d}".format(
+                    skey, pkey, rkey, ekey
+                )
+                filepath = os.path.join(out_dir, filename)
+                fig.savefig(filepath + ".jpg")
+                sebplt.close(fig)
