@@ -87,6 +87,8 @@ energy_bin_edges = np.geomspace(0.1, 1e2, num_energy_bins + 1)
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
         for rkey in rs:
+            print(skey, pkey, rkey)
+
             spstats = shower_statistics[skey][pkey]
 
             mask_on_axis = (
@@ -95,6 +97,10 @@ for skey in CFG["sites"]:
                 * CFG["particles"][pkey][
                     "magnetic_deflection_max_off_axis_deg"
                 ]
+            )
+            print(
+                skey, pkey, rkey, "on_axis",
+                np.sum(mask_on_axis), "/", len(mask_on_axis)
             )
 
             for ekey in range(num_energy_bins):
@@ -105,18 +111,34 @@ for skey in CFG["sites"]:
                     spstats["particle_energy_GeV"] >= energy_start,
                     spstats["particle_energy_GeV"] < energy_stop,
                 )
+                print(
+                    skey, pkey, rkey, ekey, "energy_bin",
+                    np.sum(mask_in_energy_bin), "/", len(mask_in_energy_bin)
+                )
 
                 mask = np.logical_and(mask_in_energy_bin, mask_on_axis)
+
+                print(
+                    skey, pkey, rkey, ekey, "on && E",
+                    np.sum(mask), "/", len(mask)
+                )
+
                 cut_spstats = spstats[mask]
 
-                num_photons = recarray_pick_hsitogram(
+                hist_bins = recarray_pick_hsitogram(
                     hist_recarray=cut_spstats,
                     key_format_str="cherenkov_" + rkey + "_bin_{:06d}",
                     num_bins=rs[rkey]["num_bins"],
                 )
-                p16_num_photons = np.percentile(num_photons, q=16.0, axis=0)
-                p50_num_photons = np.percentile(num_photons, q=50.0, axis=0)
-                p84_num_photons = np.percentile(num_photons, q=84.0, axis=0)
+
+                if hist_bins.shape[0] > 0
+                    p16_num_photons = np.percentile(hist_bins, q=16.0, axis=0)
+                    p50_num_photons = np.percentile(hist_bins, q=50.0, axis=0)
+                    p84_num_photons = np.percentile(hist_bins, q=84.0, axis=0)
+                else:
+                    p16_num_photons = np.nan
+                    p50_num_photons = np.nan
+                    p84_num_photons = np.nan
 
                 fig = sebplt.figure(FIGSIZE)
                 ax = sebplt.add_axes(fig, AXSPAN)
