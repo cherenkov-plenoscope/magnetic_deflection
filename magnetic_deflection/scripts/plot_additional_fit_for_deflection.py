@@ -301,7 +301,7 @@ for skey in deflection_table:
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
             filepath = os.path.join(out_dir, filename)
             fig.savefig(filepath + ".jpg")
-            plt.close(fig)
+            sebplt.close(fig)
 
             _fit = {
                 "name": key,
@@ -348,7 +348,7 @@ for skey in deflection_table:
             + PLT["light_field"][dkey]["unit"]
         )
         fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
-        plt.close(fig)
+        sebplt.close(fig)
 
 _table = make_latex_table_with_power_law_fit(power_law_fit_table)
 with open(os.path.join(out_dir, "power_law_table.tex"), "wt") as fout:
@@ -403,4 +403,4 @@ ax.set_ylabel(
     + PLT["light_field"][dkey]["unit"]
 )
 fig.savefig(os.path.join(out_dir, "{:s}.jpg".format(dkey)))
-plt.close(fig)
+sebplt.close(fig)

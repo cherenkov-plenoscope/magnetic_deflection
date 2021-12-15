@@ -160,4 +160,4 @@ for skey in counts:
     ax.set_ylim([0, 1.05])
     ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
     fig.savefig(os.path.join(out_dir, "{:s}_ratio.jpg".format(skey)))
-    plt.close(fig)
+    sebplt.close(fig)

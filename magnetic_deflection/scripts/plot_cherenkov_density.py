@@ -7,8 +7,6 @@ import magnetic_deflection as mdfl
 import plenoirf as irf
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
-from matplotlib import patches as plt_patches
-from matplotlib import colors as plt_colors
 
 
 argv = irf.summary.argv_since_py(sys.argv)
@@ -104,7 +102,7 @@ for tkey in statkeys:
                 raw_statistics_dir, "{:s}_{:s}.jpg".format(skey, tkey)
             )
         )
-        plt.close(fig)
+        sebplt.close(fig)
 
 
 # compute density
@@ -229,7 +227,7 @@ for dkey in PLT["light_field"]:
         ax.set_ylim(PLT["light_field"][dkey]["limits"])
         ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
         fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(skey, dkey)))
-        plt.close(fig)
+        sebplt.close(fig)
 
 
 # num showers
@@ -270,7 +268,7 @@ for skey in oof:
     ax.set_ylim([1e1, 1e5])
     ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
     fig.savefig(os.path.join(out_dir, "{:s}_statistics.jpg".format(skey)))
-    plt.close(fig)
+    sebplt.close(fig)
 
 
 # density side by side
@@ -325,4 +323,4 @@ ax.set_ylabel(
 )
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
 fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))
-plt.close(fig)
+sebplt.close(fig)

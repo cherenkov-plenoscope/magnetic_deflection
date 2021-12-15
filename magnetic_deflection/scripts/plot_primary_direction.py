@@ -8,7 +8,7 @@ import sebastians_matplotlib_addons as sebplt
 import matplotlib
 from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
-
+import matplotlib.pyplot as plt
 
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
@@ -45,7 +45,7 @@ cmap_mappable = matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap_name)
 plt.colorbar(cmap_mappable, cax=cmap_ax, orientation="horizontal")
 cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
-plt.close(cmap_fig)
+sebplt.close(cmap_fig)
 
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
@@ -160,4 +160,4 @@ for skey in shower_statistics:
                     out_dir, "{:s}_{:s}_{:s}.jpg".format(skey, pkey, fkey),
                 )
             )
-            plt.close(fig)
+            sebplt.close(fig)

@@ -520,7 +520,7 @@ def run_job(job):
             + "km"
         )
         fig.savefig(hist_path)
-        sebplt.close_figure(fig)
+        sebplt.close(fig)
         return 1
 
 

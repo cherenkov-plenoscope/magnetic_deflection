@@ -128,4 +128,4 @@ for skey in CFG["sites"]:
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, rkey)
             filepath = os.path.join(out_dir, filename)
             fig.savefig(filepath + ".jpg")
-            sebplt.close_figure(fig)
+            sebplt.close(fig)
