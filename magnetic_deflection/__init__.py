@@ -129,22 +129,27 @@ def reduce_raw_deflection(work_dir):
             )
             print("Reducing deflection: ", skey, pkey)
 
-            paths = glob.glob(
-                os.path.join(
-                    work_dir,
-                    "map",
-                    skey,
-                    pkey,
-                    map_basenames_wildcard["deflection"],
+            out_path = os.path.join(
+                work_dir, "reduce", skey, pkey, ".deflection", "raw.csv"
+            )
+            if not os.path.exists(out_path):
+                print("From scratch.")
+                paths = glob.glob(
+                    os.path.join(
+                        work_dir,
+                        "map",
+                        skey,
+                        pkey,
+                        map_basenames_wildcard["deflection"],
+                    )
                 )
-            )
-            raw = _reduce_raw_deflection_site_particle(paths=paths)
-            recarray_io.write_to_csv(
-                recarray=raw,
-                path=os.path.join(
-                    work_dir, "reduce", skey, pkey, ".deflection", "raw.csv"
-                ),
-            )
+                raw = _reduce_raw_deflection_site_particle(paths=paths)
+                recarray_io.write_to_csv(
+                    recarray=raw,
+                    path=out_path,
+                )
+            else:
+                print("Already done.")
 
 
 def _reduce_raw_deflection_site_particle(paths):
@@ -169,53 +174,66 @@ def reduce_statistics(work_dir):
             os.makedirs(
                 os.path.join(work_dir, "reduce", skey, pkey), exist_ok=True
             )
-            print("Reducing statistics_steering: ", skey, pkey)
+
             # steering
             # --------
-            paths = glob.glob(
-                os.path.join(
-                    work_dir,
-                    "map",
-                    skey,
-                    pkey,
-                    map_basenames_wildcard["statistics_steering"],
+            print("Reducing statistics_steering: ", skey, pkey)
+            out_steering_path = os.path.join(
+                work_dir,
+                "reduce",
+                skey,
+                pkey,
+                reduce_basenames["statistics_steering"],
+            )
+            if not os.path.exists(out_steering_path):
+                print("From scratch.")
+                paths = glob.glob(
+                    os.path.join(
+                        work_dir,
+                        "map",
+                        skey,
+                        pkey,
+                        map_basenames_wildcard["statistics_steering"],
+                    )
                 )
-            )
-            steerings_and_seeds = _reduce_statistics_steering_site_particle(
-                paths=paths
-            )
-            expl = corsika.cpw.steering.write_steerings_and_seeds(
-                runs=steerings_and_seeds,
-                path=os.path.join(
-                    work_dir,
-                    "reduce",
-                    skey,
-                    pkey,
-                    reduce_basenames["statistics_steering"],
-                ),
-            )
+                steerings_and_seeds = _reduce_statistics_steering_site_particle(
+                    paths=paths
+                )
+                expl = corsika.cpw.steering.write_steerings_and_seeds(
+                    runs=steerings_and_seeds,
+                    path=out_steering_path,
+                )
+            else:
+                print("Already done.")
 
+            # statistics
+            # ----------
             print("Reducing statistics: ", skey, pkey)
-            paths = glob.glob(
-                os.path.join(
-                    work_dir,
-                    "map",
-                    skey,
-                    pkey,
-                    map_basenames_wildcard["statistics"],
+            out_statistics_path = os.path.join(
+                work_dir,
+                "reduce",
+                skey,
+                pkey,
+                reduce_basenames["statistics"],
+            )
+            if not os.path.exists(out_statistics_path):
+                print("From scratch.")
+                paths = glob.glob(
+                    os.path.join(
+                        work_dir,
+                        "map",
+                        skey,
+                        pkey,
+                        map_basenames_wildcard["statistics"],
+                    )
                 )
-            )
-            shower_statistics = _reduce_statistics_site_particle(paths=paths)
-            recarray_io.write_to_tar(
-                recarray=shower_statistics,
-                path=os.path.join(
-                    work_dir,
-                    "reduce",
-                    skey,
-                    pkey,
-                    reduce_basenames["statistics"],
-                ),
-            )
+                shower_statistics = _reduce_statistics_site_particle(paths=paths)
+                recarray_io.write_to_tar(
+                    recarray=shower_statistics,
+                    path=out_statistics_path,
+                )
+            else:
+                print("Already done.")
 
 
 def read_statistics(work_dir):
@@ -286,6 +304,12 @@ def analyse_raw_deflection(
                     work_dir, "reduce", skey, pkey, "deflection.csv"
                 ),
             }
+
+            if os.path.exists(stages["result"]):
+                print("Already done.")
+                continue
+            else:
+                print("From scratch.")
 
             charge_sign = np.sign(PARTICLES[pkey]["electric_charge_qe"])
 
