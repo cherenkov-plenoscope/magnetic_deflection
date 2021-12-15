@@ -409,7 +409,9 @@ def read_deflection(work_dir, style="dict"):
 
 def _reduce_statistics_site_particle(paths, skey=None, pkey=None):
     probe_recarray = recarray_io.read_from_tar(path=paths[0])
-    probe_dtypes = get_dtypes_from_numpy_recarray(recarray=probe_recarray)
+    probe_dtypes = Records.get_dtypes_from_numpy_recarray(
+        recarray=probe_recarray
+    )
     stats = Records.init(dtypes=probe_dtypes)
     del probe_recarray
     del probe_dtypes
@@ -420,10 +422,10 @@ def _reduce_statistics_site_particle(paths, skey=None, pkey=None):
         job_id = int(basename[0:6])
         print(
             "reduce",
-            "steerings",
+            "statistics",
             skey,
             pkey,
-            "run {:06d}, {: 6d} / {: 6d}".format(run_id, i, num),
+            "run {:06d}, {: 6d} / {: 6d}".format(job_id, i, num),
         )
         pools = recarray_io.read_from_tar(path=path)
         stats = Records.append_numpy_recarray(stats, pools)
