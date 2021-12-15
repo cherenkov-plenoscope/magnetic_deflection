@@ -61,3 +61,10 @@ def append_numpy_recarray(records, recarray):
 
 def to_numpy_recarray(records):
     return pandas.DataFrame(records).to_records(index=False)
+
+
+def get_dtypes_from_numpy_recarray(recarray):
+    out = {}
+    for key in recarray.dtype.names:
+        out[key] = recarray.dtype[key].str
+    return out
