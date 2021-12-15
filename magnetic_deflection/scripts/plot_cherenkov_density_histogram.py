@@ -131,7 +131,7 @@ for skey in CFG["sites"]:
                     num_bins=rs[rkey]["num_bins"],
                 )
 
-                if hist_bins.shape[0] > 0
+                if hist_bins.shape[0] > 0:
                     p16_num_photons = np.percentile(hist_bins, q=16.0, axis=0)
                     p50_num_photons = np.percentile(hist_bins, q=50.0, axis=0)
                     p84_num_photons = np.percentile(hist_bins, q=84.0, axis=0)
