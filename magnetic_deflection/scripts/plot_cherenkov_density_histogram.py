@@ -67,6 +67,7 @@ rs["r"]["bin_edges"] = np.array(CFG["config"]["statistics_r_bin_edges"])
 rs["r"]["num_bins"] = len(rs["r"]["bin_edges"]) - 1
 rs["r"]["bin_areas"] = area_in_bins(bin_edges=rs["r"]["bin_edges"])
 rs["r"]["inverse_area_unit"] = r"m$^{-2}$"
+rs["r"]["ylim"] = [1e-3, 1e1]
 
 rs["theta"] = {}
 rs["theta"]["label"] = r"$\theta$"
@@ -77,7 +78,7 @@ rs["theta"]["bin_edges"] = np.array(
 rs["theta"]["num_bins"] = len(rs["theta"]["bin_edges"]) - 1
 rs["theta"]["bin_areas"] = area_in_bins(bin_edges=rs["theta"]["bin_edges"])
 rs["theta"]["inverse_area_unit"] = r"$(1^\circ)^{-2}$"
-
+rs["theta"]["ylim"] = [1e1, 1e6]
 
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
@@ -163,6 +164,7 @@ for skey in CFG["sites"]:
                 ax.set_xlim(
                     [min(rs[rkey]["bin_edges"]), max(rs[rkey]["bin_edges"])]
                 )
+                ax.set_ylim(rs[rkey]["ylim"])
                 ax.set_ylabel(
                     "density"
                     + PLT["label_unit_seperator"]
