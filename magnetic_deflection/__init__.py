@@ -120,8 +120,7 @@ def reduce(work_dir, logger=jlogging.LoggerStdout()):
     reduce_statistics(work_dir=work_dir, logger=logger)
 
 
-def reduce_raw_deflection(work_dir, logger=None):
-    logger = logger if logger else jlogging.LoggerStdout()
+def reduce_raw_deflection(work_dir, logger=jlogging.LoggerStdout()):
     CFG = read_config(work_dir, ["sites", "particles",])
     map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
 
