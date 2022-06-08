@@ -17,6 +17,7 @@ import numpy as np
 import pkg_resources
 import subprocess
 import glob
+import json_line_logger as jlogging
 
 
 def init(
@@ -78,14 +79,15 @@ def _write_default_plotting_config(path):
     )
 
 
-def make_jobs(work_dir):
+def make_jobs(work_dir, logger=None):
+    logger = logger if logger else jlogging.LoggerStdout()
     CFG = read_config(work_dir, ["sites", "particles", "pointing", "config",])
 
     jobs = []
     job_id = 1  # start at 1
     for skey in CFG["sites"]:
         for pkey in CFG["particles"]:
-            print("make_jobs", skey, pkey)
+            logger.info("make_jobs: {:s} {:s}".format(skey, pkey))
             site_particle_jobs = map_and_reduce.make_jobs(
                 first_job_id=job_id,
                 work_dir=work_dir,
@@ -102,23 +104,24 @@ def make_jobs(work_dir):
             job_id += len(site_particle_jobs)
             jobs += site_particle_jobs
 
-    print("make_jobs", "sort by energy ascending")
+    logger.info("make_jobs: sort by energy ascending")
     return tools.sort_records_by_key(
         records=jobs, keys=("particle", "energy_GeV")
     )
 
 
-def reduce(work_dir):
-    print("reduce")
-    reduce_raw_deflection(work_dir=work_dir)
+def reduce(work_dir, logger=jlogging.LoggerStdout()):
+    logger.info("reduce")
+    reduce_raw_deflection(work_dir=work_dir, logger=logger)
     analyse_raw_deflection(
-        work_dir=work_dir, min_fit_energy=0.65,
+        work_dir=work_dir, min_fit_energy=0.65, logger=logger,
     )
-    reduce_steerings(work_dir=work_dir)
-    reduce_statistics(work_dir=work_dir)
+    reduce_steerings(work_dir=work_dir, logger=logger)
+    reduce_statistics(work_dir=work_dir, logger=logger)
 
 
-def reduce_raw_deflection(work_dir):
+def reduce_raw_deflection(work_dir, logger=None):
+    logger = logger if logger else jlogging.LoggerStdout()
     CFG = read_config(work_dir, ["sites", "particles",])
     map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
 
@@ -133,7 +136,11 @@ def reduce_raw_deflection(work_dir):
                 work_dir, "reduce", skey, pkey, ".deflection", "raw.csv"
             )
             if not os.path.exists(out_path):
-                print("reduce", "raw_deflection", skey, pkey, "make new")
+                logger.info(
+                    "reduce: raw_deflection {:s} {:s} make new".format(
+                        skey, pkey
+                    )
+                )
                 paths = glob.glob(
                     os.path.join(
                         work_dir,
@@ -148,7 +155,11 @@ def reduce_raw_deflection(work_dir):
                     recarray=raw, path=out_path,
                 )
             else:
-                print("reduce", "raw_deflection", skey, pkey, "already done")
+                logger.info(
+                    "reduce: raw_deflection {:s} {:s} already done".format(
+                        skey, pkey
+                    )
+                )
 
 
 def _reduce_raw_deflection_site_particle(paths):
@@ -163,7 +174,7 @@ def _reduce_raw_deflection_site_particle(paths):
     return raw_rec
 
 
-def reduce_steerings(work_dir):
+def reduce_steerings(work_dir, logger=jlogging.LoggerStdout()):
     CFG = read_config(work_dir, ["sites", "particles",])
     map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
     reduce_basenames = work_dir_structure.reduce_basenames()
@@ -182,7 +193,9 @@ def reduce_steerings(work_dir):
                 reduce_basenames["statistics_steering"],
             )
             if not os.path.exists(out_steering_path):
-                print("reduce", "steerings", skey, pkey, "make new")
+                logger.info(
+                    "reduce: steerings {:s} {:s} make new".format(skey, pkey)
+                )
                 paths = glob.glob(
                     os.path.join(
                         work_dir,
@@ -193,16 +206,20 @@ def reduce_steerings(work_dir):
                     )
                 )
                 steerings_and_seeds = _reduce_statistics_steering_site_particle(
-                    paths=paths, skey=skey, pkey=pkey,
+                    paths=paths, skey=skey, pkey=pkey, logger=logger,
                 )
                 expl = corsika.cpw.steering.write_steerings_and_seeds(
                     runs=steerings_and_seeds, path=out_steering_path,
                 )
             else:
-                print("reduce", "steerings", skey, pkey, "already done")
+                logger.info(
+                    "reduce: steerings {:s} {:s} already done".format(
+                        skey, pkey
+                    )
+                )
 
 
-def reduce_statistics(work_dir):
+def reduce_statistics(work_dir, logger=jlogging.LoggerStdout()):
     CFG = read_config(work_dir, ["sites", "particles",])
     map_basenames_wildcard = work_dir_structure.map_basenames_wildcard()
     reduce_basenames = work_dir_structure.reduce_basenames()
@@ -217,7 +234,9 @@ def reduce_statistics(work_dir):
                 work_dir, "reduce", skey, pkey, reduce_basenames["statistics"],
             )
             if not os.path.exists(out_statistics_path):
-                print("reduce", "statistics", skey, pkey, "make new")
+                logger.info(
+                    "reduce: statistics {:s} {:s} make new".format(skey, pkey)
+                )
                 paths = glob.glob(
                     os.path.join(
                         work_dir,
@@ -228,13 +247,17 @@ def reduce_statistics(work_dir):
                     )
                 )
                 shower_statistics = _reduce_statistics_site_particle(
-                    paths=paths, skey=skey, pkey=pkey,
+                    paths=paths, skey=skey, pkey=pkey, logger=logger,
                 )
                 recarray_io.write_to_tar(
                     recarray=shower_statistics, path=out_statistics_path,
                 )
             else:
-                print("reduce", "statistics", skey, pkey, "already done")
+                logger.info(
+                    "reduce: statistics {:s} {:s} already done".format(
+                        skey, pkey
+                    )
+                )
 
 
 def read_statistics(work_dir):
@@ -272,7 +295,7 @@ def read_explicit_steerings(work_dir):
 
 
 def analyse_raw_deflection(
-    work_dir, min_fit_energy=0.65,
+    work_dir, min_fit_energy=0.65, logger=jlogging.LoggerStdout(),
 ):
     CFG = read_config(work_dir, ["sites", "particles",])
     PARTICLES = CFG["particles"]
@@ -307,10 +330,14 @@ def analyse_raw_deflection(
             }
 
             if os.path.exists(stages["result"]):
-                print("reduce", "analyse", skey, pkey, "already done")
+                logger.info(
+                    "reduce: analyse {:s} {:s} already done".format(skey, pkey)
+                )
                 continue
             else:
-                print("reduce", "analyse", skey, pkey, "make new")
+                logger.info(
+                    "reduce: analyse {:s} {:s} make new".format(skey, pkey)
+                )
 
             charge_sign = np.sign(PARTICLES[pkey]["electric_charge_qe"])
 
@@ -337,7 +364,7 @@ def analyse_raw_deflection(
             # smooth_and_reject_outliers
             # --------------------------
             raw_valid_add_clean = analysis.deflection_smooth_when_possible(
-                deflection=raw_valid_add
+                deflection=raw_valid_add, logger=logger,
             )
             recarray_io.write_to_csv(
                 raw_valid_add_clean, path=stages["raw_valid_add_clean"],
@@ -360,7 +387,9 @@ def analyse_raw_deflection(
             # fit_power_law
             # -------------
             power_law_fit = analysis.deflection_fit_power_law(
-                deflection=raw_valid_add_clean_high, charge_sign=charge_sign,
+                deflection=raw_valid_add_clean_high,
+                charge_sign=charge_sign,
+                logger=logger,
             )
             tools.write_json(
                 path=stages["raw_valid_add_clean_high_power"],
@@ -406,7 +435,9 @@ def read_deflection(work_dir, style="dict"):
     return mag
 
 
-def _reduce_statistics_site_particle(paths, skey=None, pkey=None):
+def _reduce_statistics_site_particle(
+    paths, skey=None, pkey=None, logger=jlogging.LoggerStdout()
+):
     probe_recarray = recarray_io.read_from_tar(path=paths[0])
     probe_dtypes = Records.get_dtypes_from_numpy_recarray(
         recarray=probe_recarray
@@ -419,12 +450,9 @@ def _reduce_statistics_site_particle(paths, skey=None, pkey=None):
     for i, path in enumerate(paths):
         basename = os.path.basename(path)
         job_id = int(basename[0:6])
-        print(
-            "reduce",
-            "statistics",
-            skey,
-            pkey,
-            "run {:06d}, {: 6d} / {: 6d}".format(job_id, i, num),
+        logger.info(
+            "reduce: statistics {:s} {:s} ".format(skey, pkey)
+            + "run {:06d}, {: 6d} / {: 6d}".format(job_id, i, num)
         )
         pools = recarray_io.read_from_tar(path=path)
         stats = Records.append_numpy_recarray(stats, pools)
@@ -432,18 +460,17 @@ def _reduce_statistics_site_particle(paths, skey=None, pkey=None):
     return Records.to_numpy_recarray(stats)
 
 
-def _reduce_statistics_steering_site_particle(paths, skey=None, pkey=None):
+def _reduce_statistics_steering_site_particle(
+    paths, skey=None, pkey=None, logger=jlogging.LoggerStdout()
+):
     bundle = {}
     num = len(paths)
     for i, path in enumerate(paths):
         basename = os.path.basename(path)
         run_id = int(basename[0:6])
-        print(
-            "reduce",
-            "steerings",
-            skey,
-            pkey,
-            "run {:06d}, {: 6d} / {: 6d}".format(run_id, i, num),
+        logger.info(
+            "reduce: steerings {:s} {:s} ".format(skey, pkey)
+            + "run {:06d}, {: 6d} / {: 6d}".format(run_id, i, num),
         )
         runs = corsika.cpw.steering.read_steerings_and_seeds(path=path)
         bundle[run_id] = runs[run_id]

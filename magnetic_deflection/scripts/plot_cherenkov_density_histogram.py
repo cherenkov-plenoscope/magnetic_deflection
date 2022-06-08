@@ -100,8 +100,13 @@ for skey in CFG["sites"]:
                 ]
             )
             print(
-                skey, pkey, rkey, "on_axis",
-                np.sum(mask_on_axis), "/", len(mask_on_axis)
+                skey,
+                pkey,
+                rkey,
+                "on_axis",
+                np.sum(mask_on_axis),
+                "/",
+                len(mask_on_axis),
             )
 
             for ekey in range(num_energy_bins):
@@ -113,15 +118,27 @@ for skey in CFG["sites"]:
                     spstats["particle_energy_GeV"] < energy_stop,
                 )
                 print(
-                    skey, pkey, rkey, ekey, "energy_bin",
-                    np.sum(mask_in_energy_bin), "/", len(mask_in_energy_bin)
+                    skey,
+                    pkey,
+                    rkey,
+                    ekey,
+                    "energy_bin",
+                    np.sum(mask_in_energy_bin),
+                    "/",
+                    len(mask_in_energy_bin),
                 )
 
                 mask = np.logical_and(mask_in_energy_bin, mask_on_axis)
 
                 print(
-                    skey, pkey, rkey, ekey, "on && E",
-                    np.sum(mask), "/", len(mask)
+                    skey,
+                    pkey,
+                    rkey,
+                    ekey,
+                    "on && E",
+                    np.sum(mask),
+                    "/",
+                    len(mask),
                 )
 
                 cut_spstats = spstats[mask]

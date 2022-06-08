@@ -4,6 +4,7 @@ from . import corsika
 from . import spherical_coordinates
 import scipy
 from scipy.optimize import curve_fit
+import json_line_logger as jlogging
 
 
 FIT_KEYS = {
@@ -38,14 +39,16 @@ def deflection_cut_invalid(deflection, min_energy):
     return deflection[valid]
 
 
-def deflection_smooth_when_possible(deflection):
+def deflection_smooth_when_possible(
+    deflection, logger=jlogging.LoggerStdout()
+):
     sm = {}
     for key in FIT_KEYS:
         sres = smooth(
             energies=deflection["particle_energy_GeV"], values=deflection[key]
         )
         if len(sres["energy_supports"]) < 3:
-            print("Not enough statistics to smooth.")
+            logger.warning("Not enough statistics to smooth.")
             energy_supports = deflection["particle_energy_GeV"]
             key_std80 = np.zeros(len(deflection[key]))
             key_mean80 = deflection[key]
@@ -85,7 +88,7 @@ def deflection_extend_to_high_energy(
 
 
 def deflection_fit_power_law(
-    deflection, charge_sign,
+    deflection, charge_sign, logger=jlogging.LoggerStdout(),
 ):
     t = deflection
     fits = {}
@@ -104,7 +107,7 @@ def deflection_fit_power_law(
                 p0=(sig * charge_sign, 1.0),
             )
         except RuntimeError as err:
-            print(err)
+            logger.warning("scipy.optimize.curve_fit failed, using fallback.")
             expy = [0.0, 0.0]
 
         fits[key] = {
