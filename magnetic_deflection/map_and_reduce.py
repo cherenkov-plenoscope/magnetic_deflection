@@ -1,13 +1,13 @@
 import os
 import numpy as np
 import pandas
+import json_line_logger as jlogging
 
 from . import corsika
 from . import examples
 from . import discovery
 from . import light_field_characterization
 from . import tools
-from . import jsonl_logger
 from . import spherical_coordinates
 from . import recarray_io
 from . import work_dir_structure
@@ -132,9 +132,9 @@ def run_job(job):
     map_paths = work_dir_structure.map_paths(
         map_dir=job["job"]["map_dir"], job_id=job["job"]["id"]
     )
-    jlog = jsonl_logger.init(path=map_paths["log"])
-    jlog.info("job: start")
-    jlog.info(
+    logger = jlogging.LoggerFile(path=map_paths["log"])
+    logger.info("job: start")
+    logger.info(
         "job: site: {:s}, particle: {:s}, energy: {:f} GeV".format(
             job["site"]["key"],
             job["particle"]["key"],
@@ -143,14 +143,14 @@ def run_job(job):
     )
 
     tools.write_json(map_paths["job"], job, indent=4)
-    jlog.info("job: init prng for discovery with seed=job_id")
+    logger.info("job: init prng for discovery with seed=job_id")
     prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
-    jlog.info("job: discovering deflection")
+    logger.info("job: discovering deflection")
     if not os.path.exists(map_paths["discovery"]):
-        jlog.info("job: estimate new guess for deflection")
+        logger.info("job: estimate new guess for deflection")
         estimates = discovery.estimate_deflection(
-            json_logger=jlog,
+            logger=logger,
             prng=prng,
             site=job["site"],
             particle_energy=job["particle"]["energy_GeV"],
@@ -170,15 +170,15 @@ def run_job(job):
 
         tools.write_jsonl(map_paths["discovery"], estimates)
     else:
-        jlog.info("job: use existing guess for deflection")
+        logger.info("job: use existing guess for deflection")
         estimates = tools.read_jsonl(map_paths["discovery"])
 
     if len(estimates) > 0:
         best_estimate = estimates[-1]
-        jlog.info("job: have valid estimate for deflection")
+        logger.info("job: have valid estimate for deflection")
 
         if best_estimate["off_axis_deg"] > job["statistics"]["off_axis_deg"]:
-            jlog.info("job: increase opening angle to gather statistics.")
+            logger.info("job: increase opening angle to gather statistics.")
             cone_opening_angle_deg = best_estimate["off_axis_deg"]
         else:
             cone_opening_angle_deg = job["statistics"]["off_axis_deg"]
@@ -187,7 +187,7 @@ def run_job(job):
             best_estimate["particle_zenith_deg"] + cone_opening_angle_deg
             > corsika.MAX_ZENITH_DEG
         ):
-            jlog.info(
+            logger.info(
                 "job: Warning: Cone's opening is out of valid zenith-range."
             )
 
@@ -195,17 +195,17 @@ def run_job(job):
             best_estimate["particle_zenith_deg"] - cone_opening_angle_deg
             > corsika.MAX_ZENITH_DEG
         ):
-            jlog.info(
+            logger.info(
                 "job: Error: Cone is completely out of valid zenith-range."
             )
             return 0
 
-        jlog.info("job: gathering statistics")
-        jlog.info("job: re-init prng for statistics with seed=job_id")
+        logger.info("job: gathering statistics")
+        logger.info("job: re-init prng for statistics with seed=job_id")
         prng = np.random.Generator(np.random.MT19937(seed=job["job"]["id"]))
 
         if not os.path.exists(map_paths["statistics"]):
-            jlog.info("job: simulate new showers")
+            logger.info("job: simulate new showers")
 
             (
                 pools,
@@ -244,10 +244,10 @@ def run_job(job):
                 pool_statistics=pools, path=map_paths["statistics"]
             )
         else:
-            jlog.info("job: use existing showers")
+            logger.info("job: use existing showers")
             pools = _read_pool_statistics(path=map_paths["statistics"])
 
-        jlog.info("job: estimate statistics of showers")
+        logger.info("job: estimate statistics of showers")
         deflection = light_field_characterization.inspect_pools(
             cherenkov_pools=pools,
             off_axis_pivot_deg=(1 / 2) * (job["statistics"]["off_axis_deg"]),
@@ -256,10 +256,10 @@ def run_job(job):
         )
         deflection["particle_energy_GeV"] = job["particle"]["energy_GeV"]
 
-        jlog.info("job: write results")
+        logger.info("job: write results")
         tools.write_json(map_paths["deflection"], deflection)
 
-    jlog.info("job: end")
+    logger.info("job: end")
     return 0
 
 

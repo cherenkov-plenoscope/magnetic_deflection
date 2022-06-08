@@ -8,7 +8,7 @@ from . import spherical_coordinates
 
 
 def estimate_deflection(
-    json_logger,
+    logger,
     prng,
     site,
     particle_energy,
@@ -21,7 +21,6 @@ def estimate_deflection(
     min_num_cherenkov_photons,
     corsika_primary_path=examples.CORSIKA_PRIMARY_MOD_PATH,
 ):
-    jlog = json_logger
     shift_angle_deg = 0.0
     prm_cone_deg = corsika.MAX_ZENITH_DEG
     prm_az_deg = 0.0
@@ -33,8 +32,8 @@ def estimate_deflection(
 
     guesses = []
 
-    jlog.info("loop: start")
-    jlog.info(
+    logger.info("loop: start")
+    logger.info(
         "loop: {:d} shower/iteration, {:d} showers max.".format(
             num_showers_per_iteration, max_num_showers
         )
@@ -44,7 +43,7 @@ def estimate_deflection(
         run_id += 1
 
         if total_num_showers > max_num_showers:
-            jlog.info("loop: break, too many showers")
+            logger.info("loop: break, too many showers")
             break
 
         total_num_showers += num_showers_per_iteration
@@ -68,7 +67,7 @@ def estimate_deflection(
         cherenkov_pools += new_pools
 
         if num_new_pools < min_num_valid_pools:
-            jlog.info(
+            logger.info(
                 "loop: not enough valid cherenkov pools, "
                 + "back to zenith, open cone, double num shower."
             )
@@ -94,7 +93,7 @@ def estimate_deflection(
             zd2_deg=guess["particle_zenith_deg"],
         )
 
-        jlog.info(
+        logger.info(
             "loop: "
             + "azimuth {:.1f}, ".format(prm_az_deg)
             + "zenith {:.1f}, ".format(prm_zd_deg)
@@ -108,20 +107,20 @@ def estimate_deflection(
         guesses.append(guess)
 
         if guess["off_axis_deg"] <= max_off_axis_deg:
-            jlog.info("loop: return, off_axis_deg < max_off_axis_deg")
+            logger.info("loop: return, off_axis_deg < max_off_axis_deg")
             return guesses
 
         prm_az_deg = float(guess["particle_azimuth_deg"])
         prm_zd_deg = float(guess["particle_zenith_deg"])
 
         if np.isnan(prm_az_deg) or np.isnan(prm_zd_deg):
-            jlog.info("loop: break, particle directions are nan")
+            logger.info("loop: break, particle directions are nan")
             break
 
         if prm_cone_deg < 2 * guess["off_axis_deg"]:
             prm_cone_deg *= 2.0
             prm_cone_deg = np.min([prm_cone_deg, corsika.MAX_ZENITH_DEG])
-            jlog.info(
+            logger.info(
                 "loop: increase opening to {:.1f}deg".format(prm_cone_deg)
             )
         else:
@@ -133,7 +132,7 @@ def estimate_deflection(
         ):
             num_showers_per_iteration *= 2
             prm_cone_deg *= 2.0
-            jlog.info(
+            logger.info(
                 "loop: increase num showers to {:d}, and keep opening".format(
                     num_showers_per_iteration
                 )
@@ -141,5 +140,5 @@ def estimate_deflection(
 
         last_off_axis_deg = float(guess["off_axis_deg"])
 
-    jlog.info("loop: failed")
+    logger.info("loop: failed")
     return guesses

@@ -13,7 +13,10 @@ setuptools.setup(
     author_email="sebastian-achim.mueller@mpi-hd.mpg.de",
     license="GPL v3",
     packages=["magnetic_deflection",],
-    install_requires=["corsika_primary",],
+    install_requires=[
+        "corsika_primary",
+        "json_line_logger_sebastian-achim-mueller>=0.0.2",
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
