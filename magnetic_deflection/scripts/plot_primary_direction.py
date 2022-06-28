@@ -18,9 +18,7 @@ os.makedirs(out_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
-
-matplotlib.rcParams["mathtext.fontset"] = PLT["rcParams"]["mathtext.fontset"]
-matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
+sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 
 FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 1.5}
 CMAP_FIGSIZE = {"rows": 240, "cols": 1280, "fontsize": 1.5}

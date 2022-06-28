@@ -17,9 +17,8 @@ os.makedirs(out_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
+sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 
-matplotlib.rcParams["mathtext.fontset"] = PLT["rcParams"]["mathtext.fontset"]
-matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
 FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
 
 MIN_NUM_SHOWER = 11

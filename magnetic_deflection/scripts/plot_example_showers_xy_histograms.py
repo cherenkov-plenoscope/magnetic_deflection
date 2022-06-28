@@ -21,9 +21,7 @@ os.makedirs(cache_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
-
-matplotlib.rcParams["mathtext.fontset"] = PLT["rcParams"]["mathtext.fontset"]
-matplotlib.rcParams["font.family"] = PLT["rcParams"]["font.family"]
+sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 
 prng = np.random.Generator(np.random.PCG64(seed=1))
 
