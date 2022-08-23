@@ -20,26 +20,36 @@ sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
 AXSPAN = [0.15, 0.2, 0.8, 0.75]
 
+PLOT_RAW = False
+PLOT_RAW_VALID_ADD_CLEAN = True
+PLOT_RAW_VALID_ADD_CLEAN_HIGH = True
+PLOT_FIT_RESULT = True
+DEG_UNIT_LATEX_STR = "$1^{\\circ}$"
+
 key_map = {
     "particle_azimuth_deg": {
-        "unit": "deg",
+        "unit": DEG_UNIT_LATEX_STR,
         "name": "particle-azimuth",
         "factor": 1,
+        "ylim": [-180, 180],
     },
     "particle_zenith_deg": {
-        "unit": "deg",
+        "unit": DEG_UNIT_LATEX_STR,
         "name": "particle-zenith",
         "factor": 1,
+        "ylim": [0, 70],
     },
     "cherenkov_x_m": {
         "unit": "km",
         "name": "Cherenkov-pool-x",
         "factor": 1e-3,
+        "ylim": [-200, 200],
     },
     "cherenkov_y_m": {
         "unit": "km",
         "name": "Cherenkov-pool-y",
         "factor": 1e-3,
+        "ylim": [-200, 200],
     },
 }
 
@@ -79,62 +89,71 @@ for skey in CFG["sites"]:
             fig = sebplt.figure(FIGSIZE)
             ax = sebplt.add_axes(fig, AXSPAN)
 
-            ax.plot(
-                defl[skey][pkey]["raw"]["particle_energy_GeV"],
-                defl[skey][pkey]["raw"][key] * key_map[key]["factor"],
-                "ko",
-                alpha=0.05,
-            )
-
-            ax.plot(
-                defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"],
-                defl[skey][pkey]["raw_valid_add_clean"][key]
-                * key_map[key]["factor"],
-                "kx",
-            )
-            num_e = len(
-                defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"]
-            )
-            for ibin in range(num_e):
-                _x = defl[skey][pkey]["raw_valid_add_clean"][
-                    "particle_energy_GeV"
-                ][ibin]
-                _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][
-                    ibin
-                ]
-                _y = defl[skey][pkey]["raw_valid_add_clean"][key][ibin]
-                _y_low = _y - _y_std
-                _y_high = _y + _y_std
+            if PLOT_RAW:
                 ax.plot(
-                    [_x, _x],
-                    np.array([_y_low, _y_high]) * key_map[key]["factor"],
-                    "k-",
+                    defl[skey][pkey]["raw"]["particle_energy_GeV"],
+                    defl[skey][pkey]["raw"][key] * key_map[key]["factor"],
+                    "ko",
+                    alpha=0.05,
                 )
 
-            ax.plot(
-                defl[skey][pkey]["raw_valid_add_clean_high"][
-                    "particle_energy_GeV"
-                ],
-                defl[skey][pkey]["raw_valid_add_clean_high"][key]
-                * key_map[key]["factor"],
-                "bo",
-                alpha=0.3,
-            )
+            if PLOT_RAW_VALID_ADD_CLEAN:
+                if False:
+                    ax.plot(
+                        defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"],
+                        defl[skey][pkey]["raw_valid_add_clean"][key]
+                        * key_map[key]["factor"],
+                        "kx",
+                        alpha=0.3,
+                    )
+                num_e = len(
+                    defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"]
+                )
+                for ibin in range(num_e):
+                    _x = defl[skey][pkey]["raw_valid_add_clean"][
+                        "particle_energy_GeV"
+                    ][ibin]
+                    _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][
+                        ibin
+                    ]
+                    _y = defl[skey][pkey]["raw_valid_add_clean"][key][ibin]
+                    _y_low = _y - _y_std
+                    _y_high = _y + _y_std
+                    ax.plot(
+                        [_x, _x],
+                        np.array([_y_low, _y_high]) * key_map[key]["factor"],
+                        "k-",
+                        alpha=0.3,
+                    )
+            if PLOT_RAW_VALID_ADD_CLEAN_HIGH:
+                ax.plot(
+                    defl[skey][pkey]["raw_valid_add_clean_high"][
+                        "particle_energy_GeV"
+                    ],
+                    defl[skey][pkey]["raw_valid_add_clean_high"][key]
+                    * key_map[key]["factor"],
+                    "ko",
+                    alpha=0.3,
+                )
 
-            ax.plot(
-                defl[skey][pkey]["result"]["particle_energy_GeV"],
-                defl[skey][pkey]["result"][key] * key_map[key]["factor"],
-                color="k",
-                linestyle="-",
-            )
+            if PLOT_FIT_RESULT:
+                ax.plot(
+                    defl[skey][pkey]["result"]["particle_energy_GeV"],
+                    defl[skey][pkey]["result"][key] * key_map[key]["factor"],
+                    color="k",
+                    linestyle="-",
+                )
 
             ax.semilogx()
-            ax.set_xlabel("energy$\,/\,$GeV")
+            ax.set_ylim(key_map[key]["ylim"])
+            ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
             ax.set_xlim([0.1, 100])
 
             ax.set_ylabel(
-                "{key:s}$\,/\,${unit:s}".format(
-                    key=key_map[key]["name"], unit=key_map[key]["unit"]
+                "{key:s}{sep:s}{unit:s}".format(
+                    key=key_map[key]["name"],
+                    sep=PLT["label_unit_seperator"],
+                    unit=key_map[key]["unit"]
                 )
             )
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
