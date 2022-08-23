@@ -10,6 +10,7 @@ from matplotlib import patches as plt_patches
 from matplotlib import colors as plt_colors
 import matplotlib.pyplot as plt
 
+print("start")
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
