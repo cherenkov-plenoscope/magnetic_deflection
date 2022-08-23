@@ -65,46 +65,47 @@ del shower_statistics
 # plot raw statistics
 # -------------------
 raw_statistics_dir = os.path.join(out_dir, "raw")
-os.makedirs(raw_statistics_dir, exist_ok=True)
+if not os.path.exists(raw_statistics_dir):
+    os.makedirs(raw_statistics_dir, exist_ok=True)
 
-for tkey in statkeys:
-    for skey in on_axis_shower_statistics:
-        print("plot raw statistics", tkey, skey)
+    for tkey in statkeys:
+        for skey in on_axis_shower_statistics:
+            print("plot raw statistics", tkey, skey)
 
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+            fig = sebplt.figure(FIGSIZE)
+            ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
 
-        for pkey in on_axis_shower_statistics[skey]:
-            oasst = on_axis_shower_statistics[skey][pkey]
-            ax.plot(
-                oasst["particle_energy_GeV"],
-                oasst[tkey],
-                marker=".",
-                markersize=0.1,
-                linewidth=0.0,
-                color=PLT["particles"][pkey]["color"],
-                alpha=0.1,
+            for pkey in on_axis_shower_statistics[skey]:
+                oasst = on_axis_shower_statistics[skey][pkey]
+                ax.plot(
+                    oasst["particle_energy_GeV"],
+                    oasst[tkey],
+                    marker=".",
+                    markersize=0.1,
+                    linewidth=0.0,
+                    color=PLT["particles"][pkey]["color"],
+                    alpha=0.1,
+                )
+
+            ax.semilogx()
+            ax.spines["right"].set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
+            ax.set_ylabel(tkey)
+            ax.set_xlim(
+                [
+                    min(ENERGY["fine"]["bin_edges"]),
+                    max(ENERGY["fine"]["bin_edges"]),
+                ]
             )
-
-        ax.semilogx()
-        ax.spines["right"].set_visible(False)
-        ax.spines["top"].set_visible(False)
-        ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
-        ax.set_ylabel(tkey)
-        ax.set_xlim(
-            [
-                min(ENERGY["fine"]["bin_edges"]),
-                max(ENERGY["fine"]["bin_edges"]),
-            ]
-        )
-        # ax.set_ylim(1e2, 1e6)
-        ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-        fig.savefig(
-            os.path.join(
-                raw_statistics_dir, "{:s}_{:s}.jpg".format(skey, tkey)
+            # ax.set_ylim(1e2, 1e6)
+            ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+            fig.savefig(
+                os.path.join(
+                    raw_statistics_dir, "{:s}_{:s}.jpg".format(skey, tkey)
+                )
             )
-        )
-        sebplt.close(fig)
+            sebplt.close(fig)
 
 
 # compute density
@@ -311,7 +312,7 @@ for skey in ooc:
             alpha=0.33,
         )
 
-leg = ax.legend()
+# leg = ax.legend()
 ax.loglog()
 ax.spines["right"].set_visible(False)
 ax.spines["top"].set_visible(False)
@@ -328,3 +329,15 @@ ax.set_ylabel(
 ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
 fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))
 sebplt.close(fig)
+
+with open(os.path.join(out_dir, "legend.md"), "wt") as f:
+    f.write("Sites\n")
+    f.write("=====\n")
+    for skey in ooc:
+        f.write("{:s}: {:s}\n".format(skey, PLT["sites"][skey]["marker"]))
+    f.write("\n")
+    f.write("Particles\n")
+    f.write("=========\n")
+    for pkey in ooc[skey]:
+        f.write("{:s}: {:s}\n".format(pkey, PLT["particles"][pkey]["color"]))
+
