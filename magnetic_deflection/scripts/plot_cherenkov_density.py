@@ -8,7 +8,7 @@ import plenoirf as irf
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
 
-
+print("start")
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
@@ -36,6 +36,7 @@ ENERGY["coarse"]["bin_edges"] = np.geomspace(
     1e-1, 1e2, ENERGY["coarse"]["num_bins"] + 1
 )
 
+print("read_statistics")
 shower_statistics = mdfl.read_statistics(work_dir=work_dir)
 
 for skey in shower_statistics:
@@ -44,6 +45,7 @@ for skey in shower_statistics:
 
 # cut on-axis
 # -----------
+print("cut on-axis")
 on_axis_shower_statistics = {}
 for skey in shower_statistics:
     on_axis_shower_statistics[skey] = {}
@@ -67,6 +69,7 @@ os.makedirs(raw_statistics_dir, exist_ok=True)
 
 for tkey in statkeys:
     for skey in on_axis_shower_statistics:
+        print("plot raw statistics", tkey, skey)
 
         fig = sebplt.figure(FIGSIZE)
         ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
@@ -110,6 +113,8 @@ cherenkov_density = {}
 for skey in on_axis_shower_statistics:
     cherenkov_density[skey] = {}
     for pkey in on_axis_shower_statistics[skey]:
+        print("compute density", skey, pkey)
+
         oasst = on_axis_shower_statistics[skey][pkey]
 
         den = {}
