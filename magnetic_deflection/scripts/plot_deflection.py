@@ -17,8 +17,8 @@ CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
 sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 
-FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
-AXSPAN = [0.15, 0.2, 0.8, 0.75]
+FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 2}
+AXSPAN = [0.25, 0.17, 0.7, 0.75]
 
 PLOT_RAW = False
 PLOT_RAW_VALID_ADD_CLEAN = True
