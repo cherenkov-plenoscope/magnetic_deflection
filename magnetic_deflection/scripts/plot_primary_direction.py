@@ -21,8 +21,8 @@ CFG = mdfl.read_config(work_dir=work_dir)
 PLT = CFG["plotting"]
 sebplt.matplotlib.rcParams.update(PLT["rcParams"])
 
-FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 1.5}
-CMAP_FIGSIZE = {"rows": 240, "cols": 1280, "fontsize": 1.5}
+FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 2}
+CMAP_FIGSIZE = {"rows": 300, "cols": 1280, "fontsize": 1.75}
 
 ON_AXIS_SCALE = 1.0
 
@@ -30,6 +30,8 @@ HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
 ENERGY_START_GEV = 0.1
 ENERGY_STOP_GEV = 100
+
+FRACTION = 1.0
 
 # energy colorbar
 # ---------------
@@ -57,20 +59,22 @@ for skey in shower_statistics:
             sort_args
         ]
 
+prng = np.random.generator.Generator(np.random.generator.PCG64(1337))
+
 # hemisphere showing deflections
 # ------------------------------
 FIELD_OF_VIEW = {
     "wide": {
-        "angle_deg": 45,
+        "angle_deg": 60,
         "particles": list(CFG["particles"].keys()),
-        "zenith_mayor_deg": [0, 10, 20, 30, 40, 45,],
-        "zenith_minor_deg": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45,],
+        "zenith_mayor_deg": [0, 20, 40, 60],
+        "zenith_minor_deg": [0, 10, 20, 30, 40, 40, 50, 60],
     },
     "narrow": {
-        "angle_deg": 5,
+        "angle_deg": 10,
         "particles": ["gamma"],
-        "zenith_mayor_deg": [0, 1, 2, 3, 4, 5,],
-        "zenith_minor_deg": [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5,],
+        "zenith_mayor_deg": [0, 2, 4, 6, 8, 10],
+        "zenith_minor_deg": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     },
 }
 
@@ -134,18 +138,20 @@ for skey in shower_statistics:
             )
             rgbas[:, 3] = ALPHA
 
+            _fm = prng.uniform(size=rgbas.shape[0]) <= FRACTION
+
             sebplt.hemisphere.ax_add_points(
                 ax=ax,
-                azimuths_deg=showers[mask_on_axis]["particle_azimuth_deg"],
-                zeniths_deg=showers[mask_on_axis]["particle_zenith_deg"],
+                azimuths_deg=showers[mask_on_axis]["particle_azimuth_deg"][_fm],
+                zeniths_deg=showers[mask_on_axis]["particle_zenith_deg"][_fm],
                 point_diameter_deg=CFG["particles"][pkey][
                     "magnetic_deflection_max_off_axis_deg"
                 ],
-                rgbas=rgbas,
+                rgbas=rgbas[_fm],
             )
 
             ax.text(
-                -1.0 * rfov, -1.0 * rfov, "{:1.0f}$^\\circ$".format(fov_deg)
+                -1.0 * rfov, -1.0 * rfov, "{:1.1f}$^\\circ$".format(fov_deg)
             )
             ax.set_axis_off()
             ax.set_aspect("equal")
