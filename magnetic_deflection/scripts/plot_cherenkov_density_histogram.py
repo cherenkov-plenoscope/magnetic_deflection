@@ -170,6 +170,12 @@ for skey in CFG["sites"]:
                     face_color="k",
                     face_alpha=0.1,
                 )
+                ax.text(
+                    x=0.3,
+                    y=0.9,
+                    s="{:.1f} - {:.1f} GeV".format(energy_start, energy_stop),
+                    transform=ax.transAxes,
+                )
                 ax.semilogy()
                 ax.set_xlabel(
                     rs[rkey]["label"]
