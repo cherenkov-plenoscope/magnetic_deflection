@@ -128,9 +128,23 @@ for skey in on_axis_shower_statistics:
             cone_radial_opening_angle=oasst["cherenkov_angle50_rad"]
         )
 
+        # density in light-field
+        # ----------------------
         den["cherenkov_density_per_m2_per_sr"] = oasst[
             "cherenkov_num_photons"
         ] / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
+
+        # density in area
+        # ---------------
+        den["cherenkov_density_per_m2"] = (
+            oasst["cherenkov_num_photons"] / den["cherenkov_area_m2"]
+        )
+
+        # density in solid angle
+        # ----------------------
+        den["cherenkov_density_per_sr"] = (
+            oasst["cherenkov_num_photons"] / den["cherenkov_solid_angle_sr"]
+        )
 
         cherenkov_density[skey][pkey] = pd.DataFrame(den).to_records(
             index=False
@@ -270,7 +284,7 @@ for skey in oof:
     ax.set_xlim(
         [min(ENERGY["fine"]["bin_edges"]), max(ENERGY["fine"]["bin_edges"])]
     )
-    ax.set_ylim([1e1, 1e5])
+    ax.set_ylim([1e0, 1e6])
     ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
     fig.savefig(os.path.join(out_dir, "{:s}_statistics.jpg".format(skey)))
     sebplt.close(fig)
@@ -279,65 +293,93 @@ for skey in oof:
 # density side by side
 # --------------------
 
-dkey = "cherenkov_density_per_m2_per_sr"
+DKEYS = [
+    "cherenkov_density_per_m2_per_sr",
+    "cherenkov_density_per_m2",
+    "cherenkov_density_per_sr",
+]
 
-fig = sebplt.figure(FIGSIZE)
-ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
+PARTICLE_SETS = {
+    "all_particles": list(CFG["particles"].keys()),
+    "only_gamma": ["gamma"],
+}
 
-for skey in ooc:
-    for pkey in ooc[skey]:
+PARTICLE_SETS_YLIM_LOWER_LIMIT_SCALE = {
+    "all_particles": 1,
+    "only_gamma": 10,
+}
 
-        if PLT["particles"][pkey]["color"] == "black":
-            site_label = PLT["sites"][skey]["label"]
-        else:
-            site_label = None
+for pset in PARTICLE_SETS:
+    for dkey in DKEYS:
+        fig = sebplt.figure(FIGSIZE)
+        ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
 
-        ax.plot(
-            ENERGY["coarse"]["bin_edges"][0:-1],
-            ooc[skey][pkey][dkey]["percentile50"],
-            marker=PLT["sites"][skey]["marker"],
-            linewidth=0.0,
-            color=PLT["particles"][pkey]["color"],
-            alpha=0.5,
-            label=site_label,
+        for skey in ooc:
+            for pkey in PARTICLE_SETS[pset]:
+
+                if PLT["particles"][pkey]["color"] == "black":
+                    site_label = PLT["sites"][skey]["label"]
+                else:
+                    site_label = None
+
+                ax.plot(
+                    ENERGY["coarse"]["bin_edges"][0:-1],
+                    ooc[skey][pkey][dkey]["percentile50"],
+                    marker=PLT["sites"][skey]["marker"],
+                    linewidth=0.0,
+                    color=PLT["particles"][pkey]["color"],
+                    alpha=0.5,
+                    label=site_label,
+                )
+
+                ax.plot(
+                    ENERGY["coarse"]["bin_edges"][0:-1],
+                    ooc[skey][pkey][dkey]["percentile50"],
+                    marker=None,
+                    linestyle=PLT["sites"][skey]["linestyle"],
+                    linewidth=0.5,
+                    color=PLT["particles"][pkey]["color"],
+                    alpha=0.33,
+                )
+
+        # leg = ax.legend()
+        ax.loglog()
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
+        ax.set_xlim(
+            [
+                min(ENERGY["coarse"]["bin_edges"]),
+                max(ENERGY["coarse"]["bin_edges"]),
+            ]
         )
-
-        ax.plot(
-            ENERGY["coarse"]["bin_edges"][0:-1],
-            ooc[skey][pkey][dkey]["percentile50"],
-            marker=None,
-            linestyle=PLT["sites"][skey]["linestyle"],
-            linewidth=0.5,
-            color=PLT["particles"][pkey]["color"],
-            alpha=0.33,
+        ax.set_ylim(
+            [
+                PLT["light_field"][dkey]["limits"][0]
+                * PARTICLE_SETS_YLIM_LOWER_LIMIT_SCALE[pset],
+                PLT["light_field"][dkey]["limits"][1],
+            ]
         )
+        ax.set_ylabel(
+            PLT["light_field"][dkey]["label"]
+            + PLT["label_unit_seperator"]
+            + PLT["light_field"][dkey]["unit"]
+        )
+        ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+        fig.savefig(
+            os.path.join(out_dir, "{:s}_all_sites_{:s}.jpg".format(dkey, pset))
+        )
+        sebplt.close(fig)
 
-# leg = ax.legend()
-ax.loglog()
-ax.spines["right"].set_visible(False)
-ax.spines["top"].set_visible(False)
-ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
-ax.set_xlim(
-    [min(ENERGY["coarse"]["bin_edges"]), max(ENERGY["coarse"]["bin_edges"])]
-)
-ax.set_ylim(PLT["light_field"][dkey]["limits"])
-ax.set_ylabel(
-    PLT["light_field"][dkey]["label"]
-    + PLT["label_unit_seperator"]
-    + PLT["light_field"][dkey]["unit"]
-)
-ax.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-fig.savefig(os.path.join(out_dir, "{:s}_all_sites.jpg".format(dkey)))
-sebplt.close(fig)
-
-with open(os.path.join(out_dir, "legend.md"), "wt") as f:
-    f.write("Sites\n")
-    f.write("=====\n")
-    for skey in ooc:
-        f.write("{:s}: {:s}\n".format(skey, PLT["sites"][skey]["marker"]))
-    f.write("\n")
-    f.write("Particles\n")
-    f.write("=========\n")
-    for pkey in ooc[skey]:
-        f.write("{:s}: {:s}\n".format(pkey, PLT["particles"][pkey]["color"]))
-
+    with open(os.path.join(out_dir, "legend.md"), "wt") as f:
+        f.write("Sites\n")
+        f.write("=====\n")
+        for skey in ooc:
+            f.write("{:s}: {:s}\n".format(skey, PLT["sites"][skey]["marker"]))
+        f.write("\n")
+        f.write("Particles\n")
+        f.write("=========\n")
+        for pkey in ooc[skey]:
+            f.write(
+                "{:s}: {:s}\n".format(pkey, PLT["particles"][pkey]["color"])
+            )

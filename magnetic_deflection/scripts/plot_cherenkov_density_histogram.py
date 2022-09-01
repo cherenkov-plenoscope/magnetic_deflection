@@ -10,7 +10,9 @@ import matplotlib
 argv = irf.summary.argv_since_py(sys.argv)
 assert len(argv) == 2
 work_dir = argv[1]
-out_dir = os.path.join(work_dir, "plot", "cherenkov_density_histogram")
+out_dir = os.path.join(
+    work_dir, "plot", "cherenkov_density_in_area_in_radial_histogram"
+)
 os.makedirs(out_dir, exist_ok=True)
 
 CFG = mdfl.read_config(work_dir=work_dir)
