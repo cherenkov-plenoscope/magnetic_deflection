@@ -142,7 +142,9 @@ for skey in shower_statistics:
 
             sebplt.hemisphere.ax_add_points(
                 ax=ax,
-                azimuths_deg=showers[mask_on_axis]["particle_azimuth_deg"][_fm],
+                azimuths_deg=showers[mask_on_axis]["particle_azimuth_deg"][
+                    _fm
+                ],
                 zeniths_deg=showers[mask_on_axis]["particle_zenith_deg"][_fm],
                 point_diameter_deg=CFG["particles"][pkey][
                     "magnetic_deflection_max_off_axis_deg"

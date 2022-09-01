@@ -100,22 +100,26 @@ for skey in CFG["sites"]:
             if PLOT_RAW_VALID_ADD_CLEAN:
                 if False:
                     ax.plot(
-                        defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"],
+                        defl[skey][pkey]["raw_valid_add_clean"][
+                            "particle_energy_GeV"
+                        ],
                         defl[skey][pkey]["raw_valid_add_clean"][key]
                         * key_map[key]["factor"],
                         "kx",
                         alpha=0.3,
                     )
                 num_e = len(
-                    defl[skey][pkey]["raw_valid_add_clean"]["particle_energy_GeV"]
+                    defl[skey][pkey]["raw_valid_add_clean"][
+                        "particle_energy_GeV"
+                    ]
                 )
                 for ibin in range(num_e):
                     _x = defl[skey][pkey]["raw_valid_add_clean"][
                         "particle_energy_GeV"
                     ][ibin]
-                    _y_std = defl[skey][pkey]["raw_valid_add_clean"][key + "_std"][
-                        ibin
-                    ]
+                    _y_std = defl[skey][pkey]["raw_valid_add_clean"][
+                        key + "_std"
+                    ][ibin]
                     _y = defl[skey][pkey]["raw_valid_add_clean"][key][ibin]
                     _y_low = _y - _y_std
                     _y_high = _y + _y_std
@@ -153,7 +157,7 @@ for skey in CFG["sites"]:
                 "{key:s}{sep:s}{unit:s}".format(
                     key=key_map[key]["name"],
                     sep=PLT["label_unit_seperator"],
-                    unit=key_map[key]["unit"]
+                    unit=key_map[key]["unit"],
                 )
             )
             filename = "{:s}_{:s}_{:s}".format(skey, pkey, key)
