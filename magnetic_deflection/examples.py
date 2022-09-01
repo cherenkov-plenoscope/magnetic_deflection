@@ -107,6 +107,16 @@ PLOTTING = {
             "unit": "m$^{-2}$ sr$^{-1}$",
             "limits": [1e-3, 1e4],
         },
+        "cherenkov_density_per_m2": {
+            "label": "density",
+            "unit": "m$^{-2}$",
+            "limits": [1e-4, 1e2],
+        },
+        "cherenkov_density_per_sr": {
+            "label": "density",
+            "unit": "sr$^{-1}$",
+            "limits": [1e5, 1e9],
+        },
     },
     "label_unit_seperator": "$\\,/\\,$",
     "rcParams": {"mathtext.fontset": "cm", "font.family": "STIXGeneral",},
