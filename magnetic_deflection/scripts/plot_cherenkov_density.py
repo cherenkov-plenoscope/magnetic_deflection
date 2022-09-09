@@ -111,6 +111,8 @@ if not os.path.exists(raw_statistics_dir):
 # compute density
 # ---------------
 cherenkov_density = {}
+PERCENTILE_50 = 0.5
+
 for skey in on_axis_shower_statistics:
     cherenkov_density[skey] = {}
     for pkey in on_axis_shower_statistics[skey]:
@@ -130,19 +132,21 @@ for skey in on_axis_shower_statistics:
 
         # density in light-field
         # ----------------------
-        den["cherenkov_density_per_m2_per_sr"] = oasst[
-            "cherenkov_num_photons"
-        ] / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
+        den["cherenkov_density_per_m2_per_sr"] = (
+            PERCENTILE_50
+            * oasst["cherenkov_num_photons"]
+            / (den["cherenkov_solid_angle_sr"] * den["cherenkov_area_m2"])
+        )
 
         # density in area
         # ---------------
-        den["cherenkov_density_per_m2"] = (
+        den["cherenkov_density_per_m2"] = PERCENTILE_50 * (
             oasst["cherenkov_num_photons"] / den["cherenkov_area_m2"]
         )
 
         # density in solid angle
         # ----------------------
-        den["cherenkov_density_per_sr"] = (
+        den["cherenkov_density_per_sr"] = PERCENTILE_50 * (
             oasst["cherenkov_num_photons"] / den["cherenkov_solid_angle_sr"]
         )
 
