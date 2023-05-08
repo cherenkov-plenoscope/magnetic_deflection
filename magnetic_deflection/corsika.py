@@ -82,7 +82,11 @@ def estimate_cherenkov_pool(
 
         event_seeds = {}
         for event in corsika_run:
-            evth, bunches = event
+            evth, bunch_reader, particle_reader = event
+
+            bunches = np.vstack([b for b in bunch_reader])
+            _ = [b for b in particle_reader]
+
             event_id = int(evth[cpw.I.EVTH.EVENT_NUMBER])
             event_seeds[event_id] = cpw.random.seed.parse_seed_from_evth(
                 evth=evth
