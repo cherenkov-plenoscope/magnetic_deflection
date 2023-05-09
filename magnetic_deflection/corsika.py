@@ -73,70 +73,69 @@ def estimate_cherenkov_pool(
     pools = []
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
-        corsika_run = cpw.CorsikaPrimary(
+        with cpw.CorsikaPrimary(
             corsika_path=corsika_primary_path,
             steering_dict=corsika_steering_dict,
+            particle_output_path=os.path.join(tmp_dir, "corsika.par.dat"),
             stdout_path=os.path.join(tmp_dir, "corsika.stdout"),
             stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
-        )
+        ) as corsika_run:
+            event_seeds = {}
+            for event in corsika_run:
+                evth, bunch_reader = event
 
-        event_seeds = {}
-        for event in corsika_run:
-            evth, bunch_reader, particle_reader = event
+                bunches = np.vstack([b for b in bunch_reader])
 
-            bunches = np.vstack([b for b in bunch_reader])
-            _ = [b for b in particle_reader]
-
-            event_id = int(evth[cpw.I.EVTH.EVENT_NUMBER])
-            event_seeds[event_id] = cpw.random.seed.parse_seed_from_evth(
-                evth=evth
-            )
-            light_field = init_light_field_from_corsika(bunches=bunches)
-            num_bunches = light_field["x"].shape[0]
-
-            if num_bunches >= min_num_cherenkov_photons:
-                pool = {}
-                pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
-                pool["event"] = event_id
-                pool["particle_azimuth_deg"] = np.rad2deg(
-                    evth[cpw.I.EVTH.AZIMUTH_RAD]
+                event_id = int(evth[cpw.I.EVTH.EVENT_NUMBER])
+                event_seeds[event_id] = cpw.random.seed.parse_seed_from_evth(
+                    evth=evth
                 )
-                pool["particle_zenith_deg"] = np.rad2deg(
-                    evth[cpw.I.EVTH.ZENITH_RAD]
-                )
-                pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
-                pool["cherenkov_num_photons"] = np.sum(light_field["size"])
-                pool["cherenkov_num_bunches"] = num_bunches
+                light_field = init_light_field_from_corsika(bunches=bunches)
+                num_bunches = light_field["x"].shape[0]
 
-                light_field = lfc.add_median_x_y_to_light_field(light_field)
-                light_field = lfc.add_median_cx_cy_to_light_field(light_field)
-                light_field = lfc.add_r_square_to_light_field_wrt_median(
-                    light_field
-                )
-                light_field = lfc.add_cos_theta_to_light_field_wrt_median(
-                    light_field
-                )
-
-                c = lfc.parameterize_light_field(light_field=light_field)
-
-                if "histogram_r" in sopt:
-                    c_r = lfc.histogram_r_in_light_field(
-                        light_field=light_field,
-                        r_bin_edges=sopt["histogram_r"]["r_bin_edges"],
+                if num_bunches >= min_num_cherenkov_photons:
+                    pool = {}
+                    pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
+                    pool["event"] = event_id
+                    pool["particle_azimuth_deg"] = np.rad2deg(
+                        evth[cpw.I.EVTH.AZIMUTH_RAD]
                     )
-                    c.update(c_r)
-
-                if "histogram_theta" in sopt:
-                    c_t = lfc.histogram_theta_in_light_field(
-                        light_field=light_field,
-                        theta_bin_edges=sopt["histogram_theta"][
-                            "theta_bin_edges"
-                        ],
+                    pool["particle_zenith_deg"] = np.rad2deg(
+                        evth[cpw.I.EVTH.ZENITH_RAD]
                     )
-                    c.update(c_t)
+                    pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
+                    pool["cherenkov_num_photons"] = np.sum(light_field["size"])
+                    pool["cherenkov_num_bunches"] = num_bunches
 
-                pool.update(c)
-                pools.append(pool)
+                    light_field = lfc.add_median_x_y_to_light_field(light_field)
+                    light_field = lfc.add_median_cx_cy_to_light_field(light_field)
+                    light_field = lfc.add_r_square_to_light_field_wrt_median(
+                        light_field
+                    )
+                    light_field = lfc.add_cos_theta_to_light_field_wrt_median(
+                        light_field
+                    )
+
+                    c = lfc.parameterize_light_field(light_field=light_field)
+
+                    if "histogram_r" in sopt:
+                        c_r = lfc.histogram_r_in_light_field(
+                            light_field=light_field,
+                            r_bin_edges=sopt["histogram_r"]["r_bin_edges"],
+                        )
+                        c.update(c_r)
+
+                    if "histogram_theta" in sopt:
+                        c_t = lfc.histogram_theta_in_light_field(
+                            light_field=light_field,
+                            theta_bin_edges=sopt["histogram_theta"][
+                                "theta_bin_edges"
+                            ],
+                        )
+                        c.update(c_t)
+
+                    pool.update(c)
+                    pools.append(pool)
 
         return pools, event_seeds
 
