@@ -103,12 +103,18 @@ def estimate_cherenkov_pool(
                     pool["particle_zenith_deg"] = np.rad2deg(
                         evth[cpw.I.EVTH.ZENITH_RAD]
                     )
-                    pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
+                    pool["particle_energy_GeV"] = evth[
+                        cpw.I.EVTH.TOTAL_ENERGY_GEV
+                    ]
                     pool["cherenkov_num_photons"] = np.sum(light_field["size"])
                     pool["cherenkov_num_bunches"] = num_bunches
 
-                    light_field = lfc.add_median_x_y_to_light_field(light_field)
-                    light_field = lfc.add_median_cx_cy_to_light_field(light_field)
+                    light_field = lfc.add_median_x_y_to_light_field(
+                        light_field
+                    )
+                    light_field = lfc.add_median_cx_cy_to_light_field(
+                        light_field
+                    )
                     light_field = lfc.add_r_square_to_light_field_wrt_median(
                         light_field
                     )
