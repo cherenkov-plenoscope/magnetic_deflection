@@ -5,6 +5,7 @@ from . import spherical_coordinates
 import scipy
 from scipy.optimize import curve_fit
 import json_line_logger as jlogging
+import solid_angle_utils
 
 
 FIT_KEYS = {
@@ -22,8 +23,8 @@ def deflection_add_density_fields(deflection):
     dicout["cherenkov_area_m2"] = np.pi * t["cherenkov_radius50_m"] ** 2
     dicout[
         "cherenkov_solid_angle_sr"
-    ] = spherical_coordinates.cone_solid_angle(
-        cone_radial_opening_angle=t["cherenkov_angle50_rad"]
+    ] = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=t["cherenkov_angle50_rad"]
     )
 
     dicout["cherenkov_density_per_m2_per_sr"] = t["cherenkov_num_photons"] / (

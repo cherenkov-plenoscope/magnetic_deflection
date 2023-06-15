@@ -7,6 +7,7 @@ import magnetic_deflection as mdfl
 import plenoirf as irf
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
+import solid_angle_utils
 
 print("start")
 argv = irf.summary.argv_since_py(sys.argv)
@@ -126,8 +127,8 @@ for skey in on_axis_shower_statistics:
 
         den[
             "cherenkov_solid_angle_sr"
-        ] = mdfl.spherical_coordinates.cone_solid_angle(
-            cone_radial_opening_angle=oasst["cherenkov_angle50_rad"]
+        ] = solid_angle_utils.cone.solid_angle(
+            half_angle_rad=oasst["cherenkov_angle50_rad"]
         )
 
         # density in light-field
