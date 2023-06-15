@@ -125,9 +125,7 @@ for skey in on_axis_shower_statistics:
         den["cherenkov_num_photons"] = oasst["cherenkov_num_photons"]
         den["cherenkov_area_m2"] = np.pi * oasst["cherenkov_radius50_m"] ** 2
 
-        den[
-            "cherenkov_solid_angle_sr"
-        ] = solid_angle_utils.cone.solid_angle(
+        den["cherenkov_solid_angle_sr"] = solid_angle_utils.cone.solid_angle(
             half_angle_rad=oasst["cherenkov_angle50_rad"]
         )
 
