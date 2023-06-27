@@ -17,13 +17,14 @@ import numpy as np
 import pkg_resources
 import subprocess
 import glob
+import atmospheric_cherenkov_response
 import json_line_logger as jlogging
 
 
 def init(
     work_dir,
-    particles=examples.PARTICLES,
-    sites=examples.SITES,
+    particles=None,
+    sites=None,
     pointing=examples.POINTING,
     max_energy=64.0,
     num_energy_supports=16,
@@ -31,6 +32,18 @@ def init(
     """
     Make work_dir
     """
+
+    if particles == None:
+        particles = {}
+        for pk in atmospheric_cherenkov_response.particles.list_particles():
+            particles[pk] = atmospheric_cherenkov_response.particles.init_particle(pk)
+
+    if sites == None:
+        sites = {}
+        for sk in atmospheric_cherenkov_response.sites.list_sites():
+            sites[pk] = atmospheric_cherenkov_response.sites.init_site(sk)
+
+
     os.makedirs(work_dir, exist_ok=True)
     os.makedirs(os.path.join(work_dir, "config"), exist_ok=True)
 
@@ -96,8 +109,8 @@ def make_jobs(work_dir, logger=None):
                 particle=CFG["particles"][pkey],
                 particle_key=pkey,
                 pointing=CFG["pointing"],
-                energy_supports_min=min(
-                    CFG["particles"][pkey]["energy_bin_edges_GeV"]
+                energy_supports_min=atmospheric_cherenkov_response.particles.compile_energy(
+                    CFG["particles"][pkey]["population"]["energy"]["start_GeV"]
                 ),
                 **CFG["config"],
             )

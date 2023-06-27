@@ -137,7 +137,7 @@ for skey in counts:
             ax.plot(
                 [energy_start, energy_stop],
                 [ratio, ratio],
-                color=PLT["particles"][pkey]["color"],
+                color=CFG["particles"][pkey]["plotting"]["color"],
                 alpha=1.0,
             )
             ratio_upper = ratio * (1 + rel_unc_ratio)
@@ -145,7 +145,7 @@ for skey in counts:
             ax.fill(
                 [energy_start, energy_start, energy_stop, energy_stop],
                 [ratio_lower, ratio_upper, ratio_upper, ratio_lower],
-                color=PLT["particles"][pkey]["color"],
+                color=CFG["particles"][pkey]["plotting"]["color"],
                 alpha=alpha,
                 linewidth=0.0,
             )

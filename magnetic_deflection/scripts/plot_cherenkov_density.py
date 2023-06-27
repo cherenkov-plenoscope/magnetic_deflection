@@ -84,7 +84,7 @@ if not os.path.exists(raw_statistics_dir):
                     marker=".",
                     markersize=0.1,
                     linewidth=0.0,
-                    color=PLT["particles"][pkey]["color"],
+                    color=CFG["particles"][pkey]["plotting"]["color"],
                     alpha=0.1,
                 )
 
@@ -221,14 +221,14 @@ for dkey in PLT["light_field"]:
                     ax.fill(
                         [E_start, E_start, E_stop, E_stop],
                         [p16, p84, p84, p16],
-                        color=PLT["particles"][pkey]["color"],
+                        color=CFG["particles"][pkey]["plotting"]["color"],
                         alpha=alpha,
                         linewidth=0.0,
                     )
                     ax.plot(
                         [E_start, E_stop],
                         [p50, p50],
-                        color=PLT["particles"][pkey]["color"],
+                        color=CFG["particles"][pkey]["plotting"]["color"],
                         alpha=1.0,
                     )
         ax.loglog()
@@ -268,13 +268,13 @@ for skey in oof:
             ax.plot(
                 [E_start, E_stop],
                 [count, count],
-                color=PLT["particles"][pkey]["color"],
+                color=CFG["particles"][pkey]["plotting"]["color"],
                 alpha=1.0,
             )
             ax.fill(
                 [E_start, E_start, E_stop, E_stop],
                 [0, count, count, 0],
-                color=PLT["particles"][pkey]["color"],
+                color=CFG["particles"][pkey]["plotting"]["color"],
                 alpha=alpha,
                 linewidth=0.0,
             )
@@ -320,17 +320,17 @@ for pset in PARTICLE_SETS:
         for skey in ooc:
             for pkey in PARTICLE_SETS[pset]:
 
-                if PLT["particles"][pkey]["color"] == "black":
-                    site_label = PLT["sites"][skey]["label"]
+                if CFG["particles"][pkey]["plotting"]["color"] == "black":
+                    site_label = CFG["sites"][skey]["plotting"]["label"]
                 else:
                     site_label = None
 
                 ax.plot(
                     ENERGY["coarse"]["bin_edges"][0:-1],
                     ooc[skey][pkey][dkey]["percentile50"],
-                    marker=PLT["sites"][skey]["marker"],
+                    marker=CFG["sites"][skey]["plotting"]["marker"],
                     linewidth=0.0,
-                    color=PLT["particles"][pkey]["color"],
+                    color=CFG["particles"][pkey]["plotting"]["color"],
                     alpha=0.5,
                     label=site_label,
                 )
@@ -339,9 +339,9 @@ for pset in PARTICLE_SETS:
                     ENERGY["coarse"]["bin_edges"][0:-1],
                     ooc[skey][pkey][dkey]["percentile50"],
                     marker=None,
-                    linestyle=PLT["sites"][skey]["linestyle"],
+                    linestyle=CFG["sites"][skey]["plotting"]["linestyle"],
                     linewidth=0.5,
-                    color=PLT["particles"][pkey]["color"],
+                    color=CFG["particles"][pkey]["plotting"]["color"],
                     alpha=0.33,
                 )
 
@@ -378,11 +378,11 @@ for pset in PARTICLE_SETS:
         f.write("Sites\n")
         f.write("=====\n")
         for skey in ooc:
-            f.write("{:s}: {:s}\n".format(skey, PLT["sites"][skey]["marker"]))
+            f.write("{:s}: {:s}\n".format(skey, CFG["sites"][skey]["plotting"]["marker"]))
         f.write("\n")
         f.write("Particles\n")
         f.write("=========\n")
         for pkey in ooc[skey]:
             f.write(
-                "{:s}: {:s}\n".format(pkey, PLT["particles"][pkey]["color"])
+                "{:s}: {:s}\n".format(pkey, CFG["particles"][pkey]["plotting"]["color"])
             )

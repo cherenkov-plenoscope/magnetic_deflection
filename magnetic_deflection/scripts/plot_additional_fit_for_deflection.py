@@ -109,14 +109,14 @@ def latex_table(matrix):
 def make_latex_table_with_power_law_fit(power_law_fit_table):
     matrix = []
     partile_line = ["", "", ""]
-    for pkey in PLT["particles"]:
-        partile_line.append(PLT["particles"][pkey]["label"])
+    for pkey in CFG["particles"]:
+        partile_line.append(CFG["particles"][pkey]["plotting"]["label"])
     matrix.append(partile_line)
     for skey in power_law_fit_table:
         if "Off" in skey:
             continue
         site_line = [
-            PLT["sites"][skey]["label"],
+            CFG["sites"][skey]["plotting"]["label"],
             "",
             "",
             "",
@@ -329,9 +329,9 @@ for skey in deflection_table:
                 ts[pkey]["particle_energy_GeV"],
                 ts[pkey][dkey],
                 "o",
-                color=PLT["particles"][pkey]["color"],
+                color=CFG["particles"][pkey]["plotting"]["color"],
                 alpha=alpha,
-                label=PLT["particles"][pkey]["label"],
+                label=CFG["particles"][pkey]["plotting"]["label"],
             )
         leg = ax.legend()
         if PLOT_TITLE_INFO:

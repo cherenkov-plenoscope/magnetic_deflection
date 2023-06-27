@@ -74,7 +74,7 @@ def make_jobs(
         job["particle"] = {}
         job["particle"]["key"] = particle_key
         job["particle"]["energy_GeV"] = energy_supports[energy_idx]
-        job["particle"]["corsika_id"] = particle["particle_id"]
+        job["particle"]["corsika_id"] = particle["corsika_particle_id"]
 
         job["pointing"] = pointing
 
@@ -95,7 +95,7 @@ def make_jobs(
             "num_showers_per_iteration": num_showers,
             "max_num_showers": max_total_num_showers,
             "max_off_axis_deg": particle[
-                "magnetic_deflection_max_off_axis_deg"
+                "magnetic_deflection"]["max_acceptable_off_axis_angle_deg"
             ],
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
         }
@@ -111,7 +111,7 @@ def make_jobs(
             "num_showers": num_showers,
             "min_num_cherenkov_photons": min_num_cherenkov_photons,
             "off_axis_deg": 3.0
-            * particle["magnetic_deflection_max_off_axis_deg"],
+            * particle["magnetic_deflection"]["max_acceptable_off_axis_angle_deg"],
             "optional": {
                 "histogram_r": {
                     "r_bin_edges": np.array(statistics_r_bin_edges),
