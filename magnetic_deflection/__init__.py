@@ -36,13 +36,14 @@ def init(
     if particles == None:
         particles = {}
         for pk in atmospheric_cherenkov_response.particles.list_particles():
-            particles[pk] = atmospheric_cherenkov_response.particles.init_particle(pk)
+            particles[
+                pk
+            ] = atmospheric_cherenkov_response.particles.init_particle(pk)
 
     if sites == None:
         sites = {}
         for sk in atmospheric_cherenkov_response.sites.list_sites():
             sites[pk] = atmospheric_cherenkov_response.sites.init_site(sk)
-
 
     os.makedirs(work_dir, exist_ok=True)
     os.makedirs(os.path.join(work_dir, "config"), exist_ok=True)

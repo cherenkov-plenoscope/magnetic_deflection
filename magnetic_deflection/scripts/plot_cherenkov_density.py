@@ -378,11 +378,17 @@ for pset in PARTICLE_SETS:
         f.write("Sites\n")
         f.write("=====\n")
         for skey in ooc:
-            f.write("{:s}: {:s}\n".format(skey, CFG["sites"][skey]["plotting"]["marker"]))
+            f.write(
+                "{:s}: {:s}\n".format(
+                    skey, CFG["sites"][skey]["plotting"]["marker"]
+                )
+            )
         f.write("\n")
         f.write("Particles\n")
         f.write("=========\n")
         for pkey in ooc[skey]:
             f.write(
-                "{:s}: {:s}\n".format(pkey, CFG["particles"][pkey]["plotting"]["color"])
+                "{:s}: {:s}\n".format(
+                    pkey, CFG["particles"][pkey]["plotting"]["color"]
+                )
             )
