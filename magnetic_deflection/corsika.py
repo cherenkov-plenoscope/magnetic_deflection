@@ -183,11 +183,11 @@ def make_cherenkov_pools_statistics(
 
 def init_light_field_from_corsika(bunches):
     lf = {}
-    lf["x"] = bunches[:, cpw.I.BUNCH.X] * cpw.CM2M  # cm to m
-    lf["y"] = bunches[:, cpw.I.BUNCH.Y] * cpw.CM2M  # cm to m
-    lf["cx"] = bunches[:, cpw.I.BUNCH.CX]
-    lf["cy"] = bunches[:, cpw.I.BUNCH.CY]
-    lf["t"] = bunches[:, cpw.I.BUNCH.TIME] * 1e-9  # ns to s
-    lf["size"] = bunches[:, cpw.I.BUNCH.BSIZE]
-    lf["wavelength"] = bunches[:, cpw.I.BUNCH.WVL] * 1e-9  # nm to m
+    lf["x"] = bunches[:, cpw.I.BUNCH.X_CM] * cpw.CM2M  # cm to m
+    lf["y"] = bunches[:, cpw.I.BUNCH.Y_CM] * cpw.CM2M  # cm to m
+    lf["cx"] = bunches[:, cpw.I.BUNCH.CX_RAD]
+    lf["cy"] = bunches[:, cpw.I.BUNCH.CY_RAD]
+    lf["t"] = bunches[:, cpw.I.BUNCH.TIME_NS] * 1e-9  # ns to s
+    lf["size"] = bunches[:, cpw.I.BUNCH.BUNCH_SIZE_1]
+    lf["wavelength"] = bunches[:, cpw.I.BUNCH.WAVELENGTH_NM] * 1e-9  # nm to m
     return lf
