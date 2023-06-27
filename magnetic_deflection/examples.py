@@ -1,8 +1,6 @@
 import os
 import numpy as np
 
-POINTING = {"azimuth_deg": 0.0, "zenith_deg": 0.0}
-
 CORSIKA_PRIMARY_MOD_PATH = os.path.abspath(
     os.path.join(
         "build",

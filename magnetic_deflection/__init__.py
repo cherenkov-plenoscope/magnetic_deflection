@@ -25,7 +25,7 @@ def init(
     work_dir,
     particles=None,
     sites=None,
-    pointing=examples.POINTING,
+    pointing=None,
     max_energy=64.0,
     num_energy_supports=16,
 ):
@@ -44,6 +44,11 @@ def init(
         sites = {}
         for sk in atmospheric_cherenkov_response.sites.list_sites():
             sites[pk] = atmospheric_cherenkov_response.sites.init_site(sk)
+
+    if pointing == None:
+        pointing = atmospheric_cherenkov_response.pointing.init_pointing(
+            azimuth_deg=0.0, zenith_deg=0.0
+        )
 
     os.makedirs(work_dir, exist_ok=True)
     os.makedirs(os.path.join(work_dir, "config"), exist_ok=True)
