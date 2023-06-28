@@ -35,18 +35,16 @@ def init(
 
     if particles == None:
         particles = {}
-        for pk in atmospheric_cherenkov_response.particles.list_particles():
-            particles[
-                pk
-            ] = atmospheric_cherenkov_response.particles.init_particle(pk)
+        for pk in atmospheric_cherenkov_response.particles.keys():
+            particles[pk] = atmospheric_cherenkov_response.particles.init(pk)
 
     if sites == None:
         sites = {}
-        for sk in atmospheric_cherenkov_response.sites.list_sites():
-            sites[pk] = atmospheric_cherenkov_response.sites.init_site(sk)
+        for sk in atmospheric_cherenkov_response.sites.keys():
+            sites[pk] = atmospheric_cherenkov_response.sites.init(sk)
 
     if pointing == None:
-        pointing = atmospheric_cherenkov_response.pointing.init_pointing(
+        pointing = atmospheric_cherenkov_response.pointing.init(
             azimuth_deg=0.0, zenith_deg=0.0
         )
 
