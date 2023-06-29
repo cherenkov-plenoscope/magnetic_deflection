@@ -10,6 +10,7 @@ from . import recarray_io
 from . import Records
 from . import debug
 from . import work_dir_structure
+from . import dome
 
 import os
 import pandas
