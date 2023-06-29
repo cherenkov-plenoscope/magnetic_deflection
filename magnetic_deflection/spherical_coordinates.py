@@ -18,14 +18,21 @@ def _azimuth_range(azimuth_deg):
     return azimuth_deg
 
 
-def _az_zd_to_cx_cy(azimuth_deg, zenith_deg):
+def _az_zd_to_cx_cy_cz(azimuth_deg, zenith_deg):
     azimuth_deg = _azimuth_range(azimuth_deg)
     # Adopted from CORSIKA
     az = np.deg2rad(azimuth_deg)
     zd = np.deg2rad(zenith_deg)
     cx = np.cos(az) * np.sin(zd)
     cy = np.sin(az) * np.sin(zd)
-    _cz = np.cos(zd)
+    cz = np.cos(zd)
+    return cx, cy, cz
+
+
+def _az_zd_to_cx_cy(azimuth_deg, zenith_deg):
+    cx, cy, _cz = _az_zd_to_cx_cy_cz(
+        azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+    )
     return cx, cy
 
 
