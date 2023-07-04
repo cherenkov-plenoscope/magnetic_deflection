@@ -16,6 +16,7 @@ setuptools.setup(
     install_requires=[
         "corsika_primary",
         "atmospheric_cherenkov_response_sebastian-achim-mueller",
+        "json_utils_sebastian-achim-mueller",
         "json_line_logger_sebastian-achim-mueller>=0.0.2",
     ],
     classifiers=[

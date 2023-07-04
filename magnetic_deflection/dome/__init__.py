@@ -2,6 +2,7 @@ import numpy as np
 import os
 import atmospheric_cherenkov_response
 import json_numpy
+import josn_utils
 import network_file_system as nfs
 import corsika_primary as cpw
 import pandas
@@ -144,7 +145,7 @@ def add_cherenkov_pools_to_stage(
         out_dir = join(dome_dir, domebin_dir, "stage", "cherenkov")
         os.makedirs(out_dir, exist_ok=True)
         stage_path = join(out_dir, "{:06d}.jsonl".format(run_id))
-        json_numpy.write_lines(
+        json_utils.lines.write(
             path=stage_path, obj_list=cherenkov_pools_stages[domebin]
         )
 
@@ -156,7 +157,7 @@ def add_cherenkov_pools_to_stage(
         out_dir = join(dome_dir, domebin_dir, "stage", "primaries")
         os.makedirs(out_dir, exist_ok=True)
         stage_path = join(out_dir, "{:06d}.jsonl".format(run_id))
-        json_numpy.write_lines(
+        json_utils.lines.write(
             path=stage_path, obj_list=primarie_stages[domebin]
         )
 
@@ -164,8 +165,8 @@ def add_cherenkov_pools_to_stage(
 def make_cherenkov_pools_statistics(
     work_dir, run_id, num_showers,
 ):
-    config = json_numpy.read_tree(os.path.join(work_dir, "config"))
-    dome_binning = json_numpy.read_tree(
+    config = json_utils.tree.read(os.path.join(work_dir, "config"))
+    dome_binning = json_utils.tree.read(
         os.path.join(work_dir, "dome", "binning")
     )
 

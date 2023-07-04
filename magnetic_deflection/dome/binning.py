@@ -1,6 +1,7 @@
 import numpy as np
 import binning_utils
 import os
+import json_utils
 import json_numpy
 import network_file_system as nfs
 import scipy
@@ -202,7 +203,7 @@ class Dome:
                 else:
                     rec.append(required_bin)
 
-                bin_content = json_numpy.read_lines(bin_path)
+                bin_content = json_utils.lines.read(bin_path)
                 bin_content = pandas.DataFrame(bin_content).to_records(
                     index=False
                 )
