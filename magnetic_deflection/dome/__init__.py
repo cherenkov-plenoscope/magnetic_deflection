@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import atmospheric_cherenkov_response
-import json_numpy
+import json_utils
 import josn_utils
 import network_file_system as nfs
 import corsika_primary as cpw
@@ -37,17 +37,17 @@ def init(
     os.makedirs(cfg_dir, exist_ok=True)
 
     with nfs.open(join(cfg_dir, "site.json"), "wt") as f:
-        f.write(json_numpy.dumps(site, indent=4))
+        f.write(json_utils.dumps(site, indent=4))
 
     with nfs.open(join(cfg_dir, "particle.json"), "wt") as f:
-        f.write(json_numpy.dumps(particle, indent=4))
+        f.write(json_utils.dumps(particle, indent=4))
 
     if corsika_primary_path == None:
         corsika_primary_path = examples.CORSIKA_PRIMARY_MOD_PATH
 
     with nfs.open(join(cfg_dir, "executables.json"), "wt") as f:
         f.write(
-            json_numpy.dumps(
+            json_utils.dumps(
                 {"corsika_primary_path": corsika_primary_path}, indent=4
             )
         )

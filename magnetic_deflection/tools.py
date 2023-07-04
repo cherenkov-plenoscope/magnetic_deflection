@@ -3,7 +3,7 @@ import pandas
 import shutil
 import os
 import glob
-import json_numpy
+import json_utils
 import corsika_primary as cpw
 import io
 import tarfile
@@ -70,20 +70,20 @@ def average_std(values, weights):
 
 def write_json(path, obj, indent=4):
     with open(path + ".tmp", "wt") as f:
-        f.write(json_numpy.dumps(obj, indent=indent))
+        f.write(json_utils.dumps(obj, indent=indent))
     shutil.move(path + ".tmp", path)
 
 
 def read_json(path):
     with open(path, "rt") as f:
-        obj = json_numpy.loads(f.read())
+        obj = json_utils.loads(f.read())
     return obj
 
 
 def write_jsonl(path, list_of_obj):
     with open(path + ".tmp", "wt") as f:
         for obj in list_of_obj:
-            f.write(json_numpy.dumps(obj, indent=None))
+            f.write(json_utils.dumps(obj, indent=None))
             f.write("\n")
     shutil.move(path + ".tmp", path)
 
@@ -92,6 +92,6 @@ def read_jsonl(path):
     list_of_obj = []
     with open(path, "rt") as f:
         for line in f.readlines():
-            obj = json_numpy.loads(line)
+            obj = json_utils.loads(line)
             list_of_obj.append(obj)
     return list_of_obj

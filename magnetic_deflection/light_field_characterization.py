@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import json_numpy
+import json_utils
 import pandas
 
 from . import spherical_coordinates as sphcords
@@ -165,7 +165,7 @@ def inspect_pools(
 
     if False:
         print("---")
-        # print(json_numpy.dumps(out, indent=4))
+        # print(json_utils.dumps(out, indent=4))
         asw = np.argsort(weights)
         for i in range(len(asw)):
             j = asw[len(asw) - 1 - i]

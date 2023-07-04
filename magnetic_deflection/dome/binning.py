@@ -2,7 +2,7 @@ import numpy as np
 import binning_utils
 import os
 import json_utils
-import json_numpy
+import json_utils
 import network_file_system as nfs
 import scipy
 import gzip
@@ -37,12 +37,12 @@ def init_dome(
 
     with nfs.open(join(bin_dir, "energy_bin.json"), "wt") as f:
         f.write(
-            json_numpy.dumps(binning_utils.Binning(energy_bin_edges), indent=4)
+            json_utils.dumps(binning_utils.Binning(energy_bin_edges), indent=4)
         )
 
     with nfs.open(join(bin_dir, "direction_bin.json"), "wt") as f:
         f.write(
-            json_numpy.dumps(
+            json_utils.dumps(
                 {
                     "centers": direction_bin_centers,
                     "max_zenith_distance_deg": direction_max_zenith_distance_deg,
@@ -103,7 +103,7 @@ def fibonacci_sphere(num_samples=1000, max_zenith_distance_deg=180):
 
 
 def dome_read_binning(dome_dir):
-    raw = json_numpy.read_tree(os.path.join(dome_dir, "binning"))
+    raw = json_utils.tree.read(os.path.join(dome_dir, "binning"))
     pointing_bin_centers = raw["direction_bin"].pop("centers")
     raw["direction_bin"]["centers_tree"] = scipy.spatial.cKDTree(
         data=pointing_bin_centers,
