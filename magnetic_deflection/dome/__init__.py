@@ -2,7 +2,6 @@ import numpy as np
 import os
 import atmospheric_cherenkov_response
 import json_utils
-import josn_utils
 import network_file_system as nfs
 import corsika_primary as cpw
 import pandas
