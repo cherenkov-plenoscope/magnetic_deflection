@@ -2,7 +2,7 @@ import numpy as np
 import os
 import atmospheric_cherenkov_response
 import json_utils
-import network_file_system as nfs
+import rename_after_writing as rnw
 import corsika_primary as cpw
 import pandas
 import glob
@@ -35,16 +35,16 @@ def init(
     cfg_dir = join(work_dir, "config")
     os.makedirs(cfg_dir, exist_ok=True)
 
-    with nfs.open(join(cfg_dir, "site.json"), "wt") as f:
+    with rnw.open(join(cfg_dir, "site.json"), "wt") as f:
         f.write(json_utils.dumps(site, indent=4))
 
-    with nfs.open(join(cfg_dir, "particle.json"), "wt") as f:
+    with rnw.open(join(cfg_dir, "particle.json"), "wt") as f:
         f.write(json_utils.dumps(particle, indent=4))
 
     if corsika_primary_path == None:
         corsika_primary_path = examples.CORSIKA_PRIMARY_MOD_PATH
 
-    with nfs.open(join(cfg_dir, "executables.json"), "wt") as f:
+    with rnw.open(join(cfg_dir, "executables.json"), "wt") as f:
         f.write(
             json_utils.dumps(
                 {"corsika_primary_path": corsika_primary_path}, indent=4
@@ -94,7 +94,7 @@ def _commit_stage_run_job(job):
             pass
 
     dst_tmp_path = dst_path + ".part"
-    nfs.move(dst_path, dst_tmp_path)
+    rnw.move(dst_path, dst_tmp_path)
 
     with open(dst_tmp_path, "at") as dst_f:
         for src_path in job["paths"]:
@@ -102,7 +102,7 @@ def _commit_stage_run_job(job):
                 for line in src_f.readlines():
                     dst_f.write(line)
             os.remove(src_path)
-    nfs.move(dst_tmp_path, dst_path)
+    rnw.move(dst_tmp_path, dst_path)
 
 
 def _find_files_in_stage(dome_dir):

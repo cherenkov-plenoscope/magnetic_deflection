@@ -3,7 +3,7 @@ import binning_utils
 import os
 import json_utils
 import json_utils
-import network_file_system as nfs
+import rename_after_writing as rnw
 import scipy
 import gzip
 import pandas
@@ -35,12 +35,12 @@ def init_dome(
     bin_dir = join(dome_dir, "binning")
     os.makedirs(bin_dir, exist_ok=True)
 
-    with nfs.open(join(bin_dir, "energy_bin.json"), "wt") as f:
+    with rnw.open(join(bin_dir, "energy_bin.json"), "wt") as f:
         f.write(
             json_utils.dumps(binning_utils.Binning(energy_bin_edges), indent=4)
         )
 
-    with nfs.open(join(bin_dir, "direction_bin.json"), "wt") as f:
+    with rnw.open(join(bin_dir, "direction_bin.json"), "wt") as f:
         f.write(
             json_utils.dumps(
                 {
