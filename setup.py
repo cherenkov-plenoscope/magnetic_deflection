@@ -14,6 +14,7 @@ setuptools.setup(
     license="GPL v3",
     packages=[
         "magnetic_deflection",
+        "magnetic_deflection.dome",
     ],
     install_requires=[
         "corsika_primary",
