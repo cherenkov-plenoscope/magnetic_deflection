@@ -74,32 +74,9 @@ def init_energy_bin_edges(start_GeV, stop_GeV, num_bins):
 
 
 def init_direction_bin_centers(max_zenith_distance_deg, num_bins):
-    return fibonacci_sphere(
-        num_samples=num_bins, max_zenith_distance_deg=max_zenith_distance_deg
+    return binning_utils.sphere.fibonacci_space(
+        size=num_bins, max_zenith_distance_deg=np.deg2rad(max_zenith_distance_deg)
     )
-
-
-def fibonacci_sphere(num_samples=1000, max_zenith_distance_deg=180):
-    """
-    By Fnord
-    """
-    points = []
-    phi = np.pi * (np.sqrt(5.0) - 1.0)  # golden angle in radians
-
-    z_start = 1
-    z_stop = np.cos(np.deg2rad(max_zenith_distance_deg))
-
-    for i, z in enumerate(np.linspace(z_start, z_stop, num_samples)):
-        radius = np.sqrt(1 - z * z)  # radius at z
-
-        theta = phi * i  # golden angle increment
-
-        x = np.cos(theta) * radius
-        y = np.sin(theta) * radius
-
-        points.append([x, y, z])
-
-    return np.array(points)
 
 
 def dome_read_binning(dome_dir):

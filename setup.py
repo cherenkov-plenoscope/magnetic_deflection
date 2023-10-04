@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name="magnetic_deflection",
-    version="0.7.5",
+    version="0.7.6",
     description="Explore magnetic deflection of cosmic-rays below 10GeV.",
     long_description=long_description,
     url="https://github.com/cherenkov-plenoscope",
@@ -19,6 +19,7 @@ setuptools.setup(
         "atmospheric_cherenkov_response_sebastian-achim-mueller",
         "json_utils_sebastian-achim-mueller",
         "json_line_logger_sebastian-achim-mueller>=0.0.2",
+        "binning_utils_sebastian-achim-mueller>=0.0.11",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
