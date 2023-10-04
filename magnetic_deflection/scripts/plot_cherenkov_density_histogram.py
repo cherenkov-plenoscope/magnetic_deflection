@@ -45,7 +45,7 @@ def area_in_bins(bin_edges):
     for bb in range(num_bins):
         start = bin_edges[bb]
         stop = bin_edges[bb + 1]
-        A = (stop ** 2 - start ** 2) * np.pi
+        A = (stop**2 - start**2) * np.pi
         area[bb] = A
     return area
 

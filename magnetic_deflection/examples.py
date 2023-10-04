@@ -46,7 +46,10 @@ PLOTTING = {
         },
     },
     "label_unit_seperator": "$\\,/\\,$",
-    "rcParams": {"mathtext.fontset": "cm", "font.family": "STIXGeneral",},
+    "rcParams": {
+        "mathtext.fontset": "cm",
+        "font.family": "STIXGeneral",
+    },
 }
 
 TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S = 5e11
@@ -54,8 +57,8 @@ TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S = 5e11
 CM_OPENING_ANGLE_DEG = 0.05
 CM_OPENING_ANGLE_RAD = np.deg2rad(CM_OPENING_ANGLE_DEG)
 CM_APERTURE_RADIUS_M = 35.5
-CM_APERTURE_AREA_M2 = np.pi * CM_APERTURE_RADIUS_M ** 2
-CM_SOLID_ANGLE_SR = np.pi * CM_OPENING_ANGLE_RAD ** 2
+CM_APERTURE_AREA_M2 = np.pi * CM_APERTURE_RADIUS_M**2
+CM_SOLID_ANGLE_SR = np.pi * CM_OPENING_ANGLE_RAD**2
 CM_ACCEPTANCE_M2_SR = CM_APERTURE_AREA_M2 * CM_SOLID_ANGLE_SR
 
 CM_NSB_RATE = TYPICAL_NSB_IN_PMT_PER_M2_PER_SR_PER_S * CM_ACCEPTANCE_M2_SR

@@ -49,11 +49,13 @@ for skey in shower_statistics:
             "num_particles_and_cherenkov_onaxis": np.zeros(ENERGY["num_bins"]),
         }
 
-        particle_off_axis_deg = mdfl.spherical_coordinates._angle_between_az_zd_deg(
-            az1_deg=sst["particle_azimuth_deg"],
-            zd1_deg=sst["particle_zenith_deg"],
-            az2_deg=instrument_azimuth_deg,
-            zd2_deg=instrument_zenith_deg,
+        particle_off_axis_deg = (
+            mdfl.spherical_coordinates._angle_between_az_zd_deg(
+                az1_deg=sst["particle_azimuth_deg"],
+                zd1_deg=sst["particle_zenith_deg"],
+                az2_deg=instrument_azimuth_deg,
+                zd2_deg=instrument_zenith_deg,
+            )
         )
         mask_particle_onaxis = (
             particle_off_axis_deg
@@ -65,14 +67,17 @@ for skey in shower_statistics:
             cer_azimuth_deg,
             cer_zenith_deg,
         ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=sst["cherenkov_cx_rad"], cy=sst["cherenkov_cy_rad"],
+            cx=sst["cherenkov_cx_rad"],
+            cy=sst["cherenkov_cy_rad"],
         )
 
-        cherenkov_off_axis_deg = mdfl.spherical_coordinates._angle_between_az_zd_deg(
-            az1_deg=cer_azimuth_deg,
-            zd1_deg=cer_zenith_deg,
-            az2_deg=instrument_azimuth_deg,
-            zd2_deg=instrument_zenith_deg,
+        cherenkov_off_axis_deg = (
+            mdfl.spherical_coordinates._angle_between_az_zd_deg(
+                az1_deg=cer_azimuth_deg,
+                zd1_deg=cer_zenith_deg,
+                az2_deg=instrument_azimuth_deg,
+                zd2_deg=instrument_zenith_deg,
+            )
         )
         mask_cherenkov_onaxis = (
             cherenkov_off_axis_deg

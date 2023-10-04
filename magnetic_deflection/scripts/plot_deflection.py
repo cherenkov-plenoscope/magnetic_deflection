@@ -85,7 +85,6 @@ for skey in CFG["sites"]:
 for skey in CFG["sites"]:
     for pkey in CFG["particles"]:
         for key in mdfl.analysis.FIT_KEYS:
-
             fig = sebplt.figure(FIGSIZE)
             ax = sebplt.add_axes(fig, AXSPAN)
 

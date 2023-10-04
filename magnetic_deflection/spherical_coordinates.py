@@ -37,7 +37,7 @@ def _az_zd_to_cx_cy(azimuth_deg, zenith_deg):
 
 
 def _cx_cy_to_az_zd_deg(cx, cy):
-    inner_sqrt = 1.0 - cx ** 2 - cy ** 2
+    inner_sqrt = 1.0 - cx**2 - cy**2
     if np.isscalar(inner_sqrt):
         if inner_sqrt >= 0:
             cz = np.sqrt(inner_sqrt)

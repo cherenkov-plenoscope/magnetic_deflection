@@ -124,12 +124,16 @@ def _find_files_in_stage(dome_dir):
 
 
 def add_cherenkov_pools_to_stage(
-    work_dir, run_id, num_showers,
+    work_dir,
+    run_id,
+    num_showers,
 ):
     join = os.path.join
 
     cherenkov_pools, steering_dict = make_cherenkov_pools_statistics(
-        work_dir=work_dir, run_id=run_id, num_showers=num_showers,
+        work_dir=work_dir,
+        run_id=run_id,
+        num_showers=num_showers,
     )
     dome = binning.Dome(join(work_dir, "dome"))
 
@@ -162,7 +166,9 @@ def add_cherenkov_pools_to_stage(
 
 
 def make_cherenkov_pools_statistics(
-    work_dir, run_id, num_showers,
+    work_dir,
+    run_id,
+    num_showers,
 ):
     config = json_utils.tree.read(os.path.join(work_dir, "config"))
     dome_binning = json_utils.tree.read(
@@ -263,7 +269,8 @@ def make_cherenkov_pools_stages(dome, cherenkov_pools):
             cherenkov_az_deg,
             cherenkov_zd_deg,
         ) = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=cherenkov_cx_rad, cy=cherenkov_cy_rad,
+            cx=cherenkov_cx_rad,
+            cy=cherenkov_cy_rad,
         )
         domebin_dist, domebin = dome.query(
             azimuth_deg=cherenkov_az_deg,

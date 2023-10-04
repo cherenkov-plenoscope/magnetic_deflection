@@ -41,7 +41,10 @@ cmap_ax = sebplt.add_axes(
     fig=cmap_fig, span=(0.05, 0.75, 0.9, 0.2), style=sebplt.AXES_MATPLOTLIB
 )
 cmap_name = "nipy_spectral"
-cmap_norm = plt_colors.LogNorm(vmin=ENERGY_START_GEV, vmax=ENERGY_STOP_GEV,)
+cmap_norm = plt_colors.LogNorm(
+    vmin=ENERGY_START_GEV,
+    vmax=ENERGY_STOP_GEV,
+)
 cmap_mappable = matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap_name)
 plt.colorbar(cmap_mappable, cax=cmap_ax, orientation="horizontal")
 cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
@@ -82,7 +85,6 @@ ALPHA = 0.5
 
 for skey in shower_statistics:
     for pkey in shower_statistics[skey]:
-
         showers = shower_statistics[skey][pkey]
 
         for fkey in FIELD_OF_VIEW:
@@ -164,7 +166,8 @@ for skey in shower_statistics:
             ax.set_ylim([-1.01 * rfov, 1.01 * rfov])
             fig.savefig(
                 os.path.join(
-                    out_dir, "{:s}_{:s}_{:s}.jpg".format(skey, pkey, fkey),
+                    out_dir,
+                    "{:s}_{:s}_{:s}.jpg".format(skey, pkey, fkey),
                 )
             )
             sebplt.close(fig)

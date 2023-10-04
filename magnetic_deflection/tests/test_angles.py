@@ -23,7 +23,6 @@ def test_azimuth_range_array():
 def test_angles_scalars():
     for az_deg in np.linspace(-380, 380, 25):
         for zd_deg in np.linspace(0, 89, 25):
-
             cx, cy = sphcors._az_zd_to_cx_cy(
                 azimuth_deg=az_deg, zenith_deg=zd_deg
             )

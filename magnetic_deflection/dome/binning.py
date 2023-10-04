@@ -75,7 +75,8 @@ def init_energy_bin_edges(start_GeV, stop_GeV, num_bins):
 
 def init_direction_bin_centers(max_zenith_distance_deg, num_bins):
     return binning_utils.sphere.fibonacci_space(
-        size=num_bins, max_zenith_distance_deg=np.deg2rad(max_zenith_distance_deg)
+        size=num_bins,
+        max_zenith_distance_deg=np.deg2rad(max_zenith_distance_deg),
     )
 
 
@@ -230,13 +231,15 @@ class Dome:
         )
 
         required_bins = make_bins(
-            pointing_bins=pointing_bins, energy_bins=energy_bins,
+            pointing_bins=pointing_bins,
+            energy_bins=energy_bins,
         )
 
         required_bins = self.update_cache(required_bins=required_bins)
 
         cx, cy, cz = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg,
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
         )
         cxcycz = np.array([cx, cy, cz])
 
@@ -253,7 +256,7 @@ class Dome:
             cer[:, 2] = cherenkov_cz_rad
 
             delta = cer - cxcycz
-            delta2_rad2 = np.sum(delta ** 2, axis=1)
+            delta2_rad2 = np.sum(delta**2, axis=1)
             assert delta2_rad2.shape[0] == cherenkov_cz_rad.shape[0]
 
             direction_mask = delta2_rad2 < np.deg2rad(half_angle_deg) ** 2
@@ -289,7 +292,7 @@ class Dome:
 def make_cherenkov_cz_from_leaf(leaf):
     cx = leaf["cherenkov_cx_rad"]
     cy = leaf["cherenkov_cy_rad"]
-    cz = np.sqrt(1.0 - cx ** 2 - cy ** 2)
+    cz = np.sqrt(1.0 - cx**2 - cy**2)
     return cz
 
 

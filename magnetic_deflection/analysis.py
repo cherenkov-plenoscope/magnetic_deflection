@@ -9,10 +9,18 @@ import solid_angle_utils
 
 
 FIT_KEYS = {
-    "particle_azimuth_deg": {"start": 90.0,},
-    "particle_zenith_deg": {"start": 0.0,},
-    "cherenkov_x_m": {"start": 0.0,},
-    "cherenkov_y_m": {"start": 0.0,},
+    "particle_azimuth_deg": {
+        "start": 90.0,
+    },
+    "particle_zenith_deg": {
+        "start": 0.0,
+    },
+    "cherenkov_x_m": {
+        "start": 0.0,
+    },
+    "cherenkov_y_m": {
+        "start": 0.0,
+    },
 }
 
 
@@ -58,7 +66,9 @@ def deflection_smooth_when_possible(
 
         if "particle_energy_GeV" in sm:
             np.testing.assert_array_almost_equal(
-                x=sm["particle_energy_GeV"], y=energy_supports, decimal=3,
+                x=sm["particle_energy_GeV"],
+                y=energy_supports,
+                decimal=3,
             )
         else:
             sm["particle_energy_GeV"] = energy_supports
@@ -68,7 +78,11 @@ def deflection_smooth_when_possible(
 
 
 def deflection_extend_to_high_energy(
-    deflection, charge_sign, energy_start=200, energy_stop=600, num_points=20,
+    deflection,
+    charge_sign,
+    energy_start=200,
+    energy_stop=600,
+    num_points=20,
 ):
     sm = {}
     for key in FIT_KEYS:
@@ -87,7 +101,9 @@ def deflection_extend_to_high_energy(
 
 
 def deflection_fit_power_law(
-    deflection, charge_sign, logger=jlogging.LoggerStdout(),
+    deflection,
+    charge_sign,
+    logger=jlogging.LoggerStdout(),
 ):
     t = deflection
     fits = {}

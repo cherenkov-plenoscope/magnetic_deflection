@@ -142,7 +142,6 @@ def make_latex_table_with_power_law_fit(power_law_fit_table):
             for param_key in fit_map:
                 value_line = ["", "", fit_map[param_key]["latex_key"]]
                 for pkey in power_law_fit_table[skey]:
-
                     power_law_fit = power_law_fit_table[skey][pkey][
                         variable_key
                     ]["power_law"]
@@ -263,10 +262,15 @@ for skey in deflection_table:
                     _y_low = unc80_lower[ibin]
                     _y_high = unc80_upper[ibin]
                     ax.plot(
-                        [_x, _x], np.array([_y_low, _y_high]), "k-",
+                        [_x, _x],
+                        np.array([_y_low, _y_high]),
+                        "k-",
                     )
                 ax.plot(
-                    energy_bins_ext, key_mean80_ext, "bo", alpha=0.3,
+                    energy_bins_ext,
+                    key_mean80_ext,
+                    "bo",
+                    alpha=0.3,
                 )
 
             if PLOT_POWER_LAW_FIT:

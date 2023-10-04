@@ -243,10 +243,12 @@ for skey in CFG["sites"]:
             job["cache_dir"] = str(cache_dir)
             job["steering_card"] = str(steer["steering_card"])
             job["steering_card"] = replace_EVTNR_in_steering_card(
-                steering_card=job["steering_card"], evtnr=event_id,
+                steering_card=job["steering_card"],
+                evtnr=event_id,
             )
             job["steering_card"] = replace_NSHOW_in_steering_card(
-                steering_card=job["steering_card"], nshow=1,
+                steering_card=job["steering_card"],
+                nshow=1,
             )
             job["primary_bytes"] = bytes(steer["primary_bytes"])
             job["skey"] = skey
@@ -274,12 +276,19 @@ def run_job(job):
         job["ckey"],
     )
     os.makedirs(job_dir, exist_ok=True)
-    job_key = "{:06d}_{:06d}".format(job["run"], job["event"],)
+    job_key = "{:06d}_{:06d}".format(
+        job["run"],
+        job["event"],
+    )
 
     pool_path = os.path.join(job_dir, job_key + "_cherenkov_pool.tar")
     hist_path = os.path.join(
         job["out_dir"],
-        "{:s}_{:s}_{:s}".format(job["skey"], job["pkey"], job["ckey"],)
+        "{:s}_{:s}_{:s}".format(
+            job["skey"],
+            job["pkey"],
+            job["ckey"],
+        )
         + "_"
         + job_key
         + "_cherenkov_pool_histogram_xy.jpg",
@@ -400,8 +409,10 @@ def run_job(job):
             reproduction_valid = False
             return 0
 
-        stats_on_the_fly = mdfl.light_field_characterization.parameterize_light_field(
-            light_field=light_field
+        stats_on_the_fly = (
+            mdfl.light_field_characterization.parameterize_light_field(
+                light_field=light_field
+            )
         )
 
         if (
@@ -478,7 +489,9 @@ def run_job(job):
             np.pi * job["shower_statistic"]["cherenkov_radius50_m"][0] ** 2
         )
         ax_cut.plot(
-            prm_dict["energy_GeV"], cherenkov_area_m2, "xk",
+            prm_dict["energy_GeV"],
+            cherenkov_area_m2,
+            "xk",
         )
 
         if reproduction_valid:
@@ -486,7 +499,10 @@ def run_job(job):
         else:
             cmap = "Greys"
             ax.plot(
-                0, 0, "xr", markersize=4,
+                0,
+                0,
+                "xr",
+                markersize=4,
             )
         sebplt.ax_add_circle(
             ax=ax,

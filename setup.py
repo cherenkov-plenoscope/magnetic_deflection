@@ -5,14 +5,16 @@ with open("README.md", "r") as f:
 
 setuptools.setup(
     name="magnetic_deflection",
-    version="0.7.6",
+    version="0.7.7",
     description="Explore magnetic deflection of cosmic-rays below 10GeV.",
     long_description=long_description,
     url="https://github.com/cherenkov-plenoscope",
     author="Sebastian Achim Mueller",
     author_email="sebastian-achim.mueller@mpi-hd.mpg.de",
     license="GPL v3",
-    packages=["magnetic_deflection",],
+    packages=[
+        "magnetic_deflection",
+    ],
     install_requires=[
         "corsika_primary",
         "rename_after_writing",

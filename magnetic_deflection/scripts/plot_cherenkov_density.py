@@ -203,12 +203,10 @@ ooc = ooo["coarse"]
 alpha = 0.2
 for dkey in PLT["light_field"]:
     for skey in cherenkov_density:
-
         fig = sebplt.figure(FIGSIZE)
         ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
 
         for pkey in cherenkov_density[skey]:
-
             for ebin in range(ENERGY["fine"]["num_bins"]):
                 E_start = ENERGY["fine"]["bin_edges"][ebin]
                 E_stop = ENERGY["fine"]["bin_edges"][ebin + 1]
@@ -255,7 +253,6 @@ for dkey in PLT["light_field"]:
 # num showers
 # -----------
 for skey in oof:
-
     fig = sebplt.figure(FIGSIZE)
     ax = sebplt.add_axes(fig=fig, span=(0.15, 0.2, 0.8, 0.75))
 
@@ -319,7 +316,6 @@ for pset in PARTICLE_SETS:
 
         for skey in ooc:
             for pkey in PARTICLE_SETS[pset]:
-
                 if CFG["particles"][pkey]["plotting"]["color"] == "black":
                     site_label = CFG["sites"][skey]["plotting"]["label"]
                 else:

@@ -8,24 +8,30 @@ from . import tools
 
 
 def make_radius_square_wrt_center_position(
-    photon_x_m, photon_y_m, center_x_m, center_y_m,
+    photon_x_m,
+    photon_y_m,
+    center_x_m,
+    center_y_m,
 ):
     assert len(photon_x_m) == len(photon_y_m)
 
     rel_x = photon_x_m - center_x_m
     rel_y = photon_y_m - center_y_m
-    return rel_x ** 2 + rel_y ** 2
+    return rel_x**2 + rel_y**2
 
 
 def make_cos_theta_wrt_center_direction(
-    photon_cx_rad, photon_cy_rad, center_cx_rad, center_cy_rad,
+    photon_cx_rad,
+    photon_cy_rad,
+    center_cx_rad,
+    center_cy_rad,
 ):
     assert len(photon_cx_rad) == len(photon_cy_rad)
 
-    center_cz_rad = np.sqrt(1.0 - center_cx_rad ** 2 - center_cy_rad ** 2)
+    center_cz_rad = np.sqrt(1.0 - center_cx_rad**2 - center_cy_rad**2)
     center_direction = np.array([center_cx_rad, center_cy_rad, center_cz_rad])
 
-    photon_cz_rad = np.sqrt(1.0 - photon_cx_rad ** 2 - photon_cy_rad ** 2)
+    photon_cz_rad = np.sqrt(1.0 - photon_cx_rad**2 - photon_cy_rad**2)
     dot_product = np.array(
         [
             photon_cx_rad * center_direction[0],
@@ -102,7 +108,7 @@ def histogram_r_in_light_field(light_field, r_bin_edges):
     out = {}
 
     num_bins_r = len(r_bin_edges) - 1
-    r_square_bin_edges = r_bin_edges ** 2
+    r_square_bin_edges = r_bin_edges**2
     hr = np.histogram(
         lf["r_square"], bins=r_square_bin_edges, weights=lf["size"]
     )[0]
@@ -135,7 +141,8 @@ def inspect_pools(
     cers = cers.to_records(index=False)
 
     cer_azimuth_deg, cer_zenith_deg = sphcords._cx_cy_to_az_zd_deg(
-        cx=cers["cherenkov_cx_rad"], cy=cers["cherenkov_cy_rad"],
+        cx=cers["cherenkov_cx_rad"],
+        cy=cers["cherenkov_cy_rad"],
     )
 
     cer_off_axis_deg = sphcords._angle_between_az_zd_deg(
@@ -173,7 +180,8 @@ def inspect_pools(
             if w_percent > 1:
                 print(
                     "weight {:03d} %, off-axis {:.2f} deg".format(
-                        w_percent, cer_off_axis_deg[j],
+                        w_percent,
+                        cer_off_axis_deg[j],
                     )
                 )
 

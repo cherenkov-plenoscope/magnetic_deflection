@@ -43,7 +43,12 @@ def test_append_numpy_recarray():
     A = Records.init(dtypes={"a": "i4", "b": "f4"})
     A = Records.append_dict(A, {"a": 4, "b": 2.5})
 
-    R = _list_of_dicts_to_records([{"a": 2, "b": 1.3}, {"a": 42, "b": 4.2},],)
+    R = _list_of_dicts_to_records(
+        [
+            {"a": 2, "b": 1.3},
+            {"a": 42, "b": 4.2},
+        ],
+    )
 
     A = Records.append_numpy_recarray(A, R)
 
