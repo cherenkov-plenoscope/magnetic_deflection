@@ -15,6 +15,7 @@ setuptools.setup(
     packages=[
         "magnetic_deflection",
         "magnetic_deflection.dome",
+        "magnetic_deflection.allsky",
     ],
     install_requires=[
         "corsika_primary",
