@@ -76,7 +76,7 @@ def init_energy_bin_edges(start_GeV, stop_GeV, num_bins):
 def init_direction_bin_centers(max_zenith_distance_deg, num_bins):
     return binning_utils.sphere.fibonacci_space(
         size=num_bins,
-        max_zenith_distance_deg=np.deg2rad(max_zenith_distance_deg),
+        max_zenith_distance_rad=np.deg2rad(max_zenith_distance_deg),
     )
 
 

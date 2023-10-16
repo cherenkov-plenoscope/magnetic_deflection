@@ -11,6 +11,13 @@ from .. import corsika
 from .. import spherical_coordinates
 from .. import examples
 
+"""
+Goals
+-----
+-   Answer from what direction (A) a particle needs to be thrown in order to
+    see its Cherenkov-light from direction (B).
+"""
+
 
 def init(
     work_dir,
@@ -60,6 +67,18 @@ def init(
         energy_stop_GeV=energy_stop_GeV,
         energy_num_bins=energy_num_bins,
     )
+
+
+def status(work_dir):
+    config = json_utils.tree.read(os.path.join(work_dir, "config"))
+    dome = binning.Dome(os.path.join(work_dir, "dome"))
+
+    s = "Dome\n"
+    s += "====\n"
+    s += "site: {:s}\n".format(config["site"]["key"])
+    s += "particle: {:s}\n".format(config["particle"]["key"])
+
+    print(s)
 
 
 def commit_stage(work_dir):
