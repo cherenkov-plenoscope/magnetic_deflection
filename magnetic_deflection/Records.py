@@ -1,7 +1,7 @@
-import pandas
+import numpy as np
 import array
 
-MAP_NUMPY_DTYPES_ON_ARRAY_CTYPES = {
+DTYPES2CTYPES = {
     "i1": "b",
     "u1": "B",
     "i2": "h",
@@ -34,7 +34,7 @@ def init(dtypes={"a": "i8"}):
         dtype_key = str.replace(dtype_key, "<", "")
         dtype_key = str.replace(dtype_key, ">", "")
         dtype_key = str.replace(dtype_key, "|", "")
-        ctype = MAP_NUMPY_DTYPES_ON_ARRAY_CTYPES[dtype_key]
+        ctype = DTYPES2CTYPES[dtype_key]
         records[key] = array.array(ctype, [])
     return records
 
@@ -60,7 +60,35 @@ def append_numpy_recarray(records, recarray):
 
 
 def to_numpy_recarray(records):
-    return pandas.DataFrame(records).to_records(index=False)
+    CTYPE2DTYPE = _make_ctype2dtype()
+
+    # make dtype for recarray
+    recarray_dtype = []
+    for key in records:
+        key_ctype = records[key].typecode
+        key_dtype = CTYPE2DTYPE[key_ctype]
+        recarray_dtype.append((key, key_dtype))
+
+    lens = []
+    for key in records:
+        lens.append(len(records[key]))
+    lens = np.array(lens)
+    if len(lens) > 0:
+        assert np.all(lens[0] == lens)
+        size = lens[0]
+    else:
+        size = 0
+
+    out = np.core.records.recarray(
+        shape=size,
+        dtype=recarray_dtype,
+    )
+
+    # copy records into recarray
+    for key in records:
+        out[key] = np.array(records[key])
+
+    return out
 
 
 def get_dtypes_from_numpy_recarray(recarray):
@@ -68,3 +96,11 @@ def get_dtypes_from_numpy_recarray(recarray):
     for key in recarray.dtype.names:
         out[key] = recarray.dtype[key].str
     return out
+
+
+def _make_ctype2dtype():
+    ctype2dtype = {}
+    for dtype in DTYPES2CTYPES:
+        ctype = DTYPES2CTYPES[dtype]
+        ctype2dtype[ctype] = dtype
+    return ctype2dtype
