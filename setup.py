@@ -1,22 +1,34 @@
+import os
 import setuptools
 
-with open("README.md", "r") as f:
+with open("README.rst", "r", encoding="utf-8") as f:
     long_description = f.read()
 
+
+with open(os.path.join("magnetic_deflection", "version.py")) as f:
+    txt = f.read()
+    last_line = txt.splitlines()[-1]
+    version_string = last_line.split()[-1]
+    version = version_string.strip("\"'")
+
+
 setuptools.setup(
-    name="magnetic_deflection",
-    version="0.7.8",
+    name="magnetic_deflection_cherenkov-plenoscope-project",
+    version=version,
     description="Explore magnetic deflection of cosmic-rays below 10GeV.",
     long_description=long_description,
-    url="https://github.com/cherenkov-plenoscope",
+    long_description_content_type="text/x-rst",
+    url="https://github.com/cherenkov-plenoscope/magnetic_deflection",
     author="Sebastian Achim Mueller",
     author_email="sebastian-achim.mueller@mpi-hd.mpg.de",
-    license="GPL v3",
     packages=[
         "magnetic_deflection",
         "magnetic_deflection.dome",
         "magnetic_deflection.allsky",
     ],
+    package_data={
+        "magnetic_deflection": [os.path.join("scripts", "*.py")],
+    },
     install_requires=[
         "corsika_primary",
         "rename_after_writing",
@@ -27,7 +39,7 @@ setuptools.setup(
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Natural Language :: English",
         "Intended Audience :: Science/Research",
