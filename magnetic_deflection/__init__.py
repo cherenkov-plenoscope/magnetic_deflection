@@ -1,3 +1,4 @@
+from .version import __version__
 from . import discovery
 from . import map_and_reduce
 from . import examples
