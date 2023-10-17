@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/atmospheric_cherenkov_response_cherenkov-plenoscope-project
+      url: https://pypi.org/project/magnetic_deflection_cherenkov-plenoscope-project
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python
