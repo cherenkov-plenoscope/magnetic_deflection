@@ -3,6 +3,8 @@ from .. import spherical_coordinates
 from scipy import spatial
 import binning_utils
 import numpy as np
+import svg_cartesian_plot as splt
+import copy
 
 
 class Binning:
@@ -14,18 +16,17 @@ class Binning:
 
         Compiles the Binning from the config-dict read from work_dir/config.
         """
+        self.config = copy.deepcopy(config)
         self.energy = binning_utils.Binning(
             _init_energy_bin_edges(
-                start_GeV=config["energy"]["start_GeV"],
-                stop_GeV=config["energy"]["stop_GeV"],
-                num_bins=config["energy"]["num_bins"],
+                start_GeV=self.config["energy"]["start_GeV"],
+                stop_GeV=self.config["energy"]["stop_GeV"],
+                num_bins=self.config["energy"]["num_bins"],
             )
         )
         centers = binning_utils.sphere.fibonacci_space(
-            size=config["direction"]["num_bins"],
-            max_zenith_distance_rad=np.deg2rad(
-                config["direction"]["cherenkov_max_zenith_distance_deg"]
-            ),
+            size=self.config["direction"]["num_bins"],
+            max_zenith_distance_rad=90,
         )
         self.direction = scipy.spatial.cKDTree(data=centers)
 
@@ -135,6 +136,81 @@ class Binning:
             ee = np.arange(min(ee), max(ee) + 1)
 
         return (pp, ee)
+
+    def direction_voronoi_mesh(self):
+        """
+        Returns a mesh of vertices and faces which represent the
+        voronoi-diagram of the directional binning.
+
+        This is only a projection in x and y of the hemisphere.
+        """
+        direction_bin_centers = self.direction.data.copy()
+        points_xy = direction_bin_centers[:, 0:2]
+        voro = scipy.spatial.Voronoi(points=points_xy)
+        return voro.vertices, voro.regions
+
+    def plot(self, path):
+        COLOR_GREY = (128, 128, 128)
+        COLOR_BLACK = (0, 0, 0)
+        COLOR_RED = (255, 0, 0)
+        COLOR_BLUE = (0, 0, 255)
+
+        fig = splt.Fig(cols=1080, rows=1080)
+        ax_dir = splt.Ax(fig=fig)
+
+        ax_dir["xlim"] = [-1, 1]
+        ax_dir["ylim"] = [-1, 1]
+
+        splt.hemisphere.ax_add_grid(
+            ax=ax_dir,
+            zenith_step_deg=15,
+            azimuth_step_deg=45,
+            radius=1.0,
+            stroke=COLOR_GREY,
+        )
+        splt.hemisphere.ax_add_grid_text(
+            ax=ax_dir,
+            zenith_step_deg=15,
+            azimuth_step_deg=45,
+            radius=1.0,
+            stroke=COLOR_BLACK,
+            font_family="math",
+            font_size=15,
+        )
+
+        max_par_zd_deg = self.config["direction"][
+            "particle_max_zenith_distance_deg"
+        ]
+        splt.shapes.ax_add_circle(
+            ax=ax_dir,
+            xy=[0, 0],
+            radius=np.sin(np.deg2rad(max_par_zd_deg)),
+            stroke=COLOR_RED,
+        )
+
+        max_cer_zd_deg = self.config["direction"][
+            "cherenkov_max_zenith_distance_deg"
+        ]
+        splt.shapes.ax_add_circle(
+            ax=ax_dir,
+            xy=[0, 0],
+            radius=np.sin(np.deg2rad(max_cer_zd_deg)),
+            stroke=COLOR_BLUE,
+        )
+
+        mesh_vertices, mesh_faces = self.direction_voronoi_mesh()
+
+        splt.hemisphere.ax_add_mesh(
+            ax=ax_dir,
+            vertices=mesh_vertices,
+            faces=mesh_faces,
+            max_radius=1.0,
+            stroke=(0, 0, 0),
+            fill=(50, 100, 255),
+            fill_opacity=0.3,
+        )
+
+        splt.fig_write(fig=fig, path=path)
 
 
 def _init_energy_bin_edges(start_GeV, stop_GeV, num_bins):

@@ -3,8 +3,6 @@ allsky
 ======
 Allsky allows you to populate, store, query the statistics of atmospheric
 showers and their deflection due to earth's magnetic field.
-
-
 """
 import os
 import json_utils
@@ -13,6 +11,7 @@ import atmospheric_cherenkov_response
 import binning_utils
 import corsika_primary
 from . import binning
+from . import storage
 
 
 def init(
@@ -107,6 +106,14 @@ def init(
 
     config = read_config(work_dir=work_dir)
     assert_config_valid(config=config)
+
+    # storage
+    # -------
+    stroage.init(
+        storage_dir=os.path.join(work_dir, "storage"),
+        direction_num_bins=direction_num_bins,
+        energy_num_bins=energy_num_bins,
+    )
 
 
 def read_config(work_dir):
