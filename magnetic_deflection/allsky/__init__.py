@@ -11,6 +11,7 @@ import json_utils
 import rename_after_writing as rnw
 import atmospheric_cherenkov_response
 import binning_utils
+import corsika_primary
 from . import binning
 
 
@@ -21,8 +22,8 @@ def init(
     energy_start_GeV=0.25,
     energy_stop_GeV=64,
     energy_num_bins=8,
-    direction_cherenkov_max_zenith_distance_deg=60,
-    direction_particle_max_zenith_distance_deg=75,
+    direction_cherenkov_max_zenith_distance_deg=70,
+    direction_particle_max_zenith_distance_deg=70,
     direction_num_bins=256,
     population_target_direction_cone_half_angle_deg=3.0,
     population_target_energy_geomspace_factor=1.5,
@@ -36,6 +37,21 @@ def init(
     path : str
         Directory to store the allsky.
     """
+    assert energy_start_GeV > 0.0
+    assert energy_stop_GeV > 0.0
+    assert energy_stop_GeV > energy_start_GeV
+    assert energy_num_bins >= 1
+    assert direction_cherenkov_max_zenith_distance_deg >= 0.0
+    assert direction_particle_max_zenith_distance_deg >= 0.0
+    assert (
+        direction_particle_max_zenith_distance_deg
+        <= corsika_primary.MAX_ZENITH_DEG
+    )
+    assert direction_num_bins >= 1
+    assert population_target_direction_cone_half_angle_deg >= 0.0
+    assert population_target_energy_geomspace_factor >= 0.0
+    assert population_target_num_showers >= 1
+
     os.makedirs(work_dir, exist_ok=True)
     config_dir = os.path.join(work_dir, "config")
     os.makedirs(config_dir, exist_ok=True)
@@ -151,7 +167,26 @@ def rebin(
     raise NotImplementedError("to be done...")
 
 
+def open(work_dir):
+    """
+    Open an AllSky.
+
+    Parameters
+    ----------
+    work_dir : str
+        Path to the AllSky's working directory.
+    """
+    return AllSky(work_dir=work_dir)
+
+
 class AllSky:
     def __init__(self, work_dir):
+        self.work_dir = work_dir
         self.config = read_config(work_dir=work_dir)
         self.binning = binning.Binning(config=self.config["binning"])
+
+    def __repr__(self):
+        out = "{:s}(work_dir='{:s}')".format(
+            self.__class__.__name__, self.work_dir
+        )
+        return out
