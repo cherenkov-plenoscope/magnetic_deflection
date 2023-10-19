@@ -11,8 +11,8 @@ import atmospheric_cherenkov_response
 import binning_utils
 import corsika_primary
 from . import binning
-from . import storage
-
+from . import store
+from . import dynamicsizerecarray
 
 def init(
     work_dir,
@@ -104,13 +104,29 @@ def init(
             )
         )
 
+    with rnw.open(os.path.join(config_dir, "corsika_primary.json"), "wt") as f:
+        f.write(
+            json_utils.dumps(
+                {
+                    "path": os.path.join(
+                        "build",
+                        "corsika",
+                        "modified",
+                        "corsika-75600",
+                        "run",
+                        "corsika75600Linux_QGSII_urqmd",
+                    ),
+                },
+            )
+        )
+
     config = read_config(work_dir=work_dir)
     assert_config_valid(config=config)
 
     # storage
     # -------
-    stroage.init(
-        storage_dir=os.path.join(work_dir, "storage"),
+    store.init(
+        store_dir=os.path.join(work_dir, "store"),
         direction_num_bins=direction_num_bins,
         energy_num_bins=energy_num_bins,
     )
@@ -191,6 +207,11 @@ class AllSky:
         self.work_dir = work_dir
         self.config = read_config(work_dir=work_dir)
         self.binning = binning.Binning(config=self.config["binning"])
+        self.store = store.Store(
+            store_dir=os.path.join(work_dir, "store"),
+            energy_num_bins=self.config["binning"]["energy"]["num_bins"],
+            direction_num_bins=self.config["binning"]["direction"]["num_bins"],
+        )
 
     def __repr__(self):
         out = "{:s}(work_dir='{:s}')".format(

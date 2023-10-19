@@ -212,6 +212,14 @@ class Binning:
 
         splt.fig_write(fig=fig, path=path)
 
+    def __repr__(self):
+        out = "{:s}(num bins: energy={:d}, direction={:d})".format(
+            self.__class__.__name__,
+            self.config["energy"]["num_bins"],
+            self.config["direction"]["num_bins"],
+        )
+        return out
+
 
 def _init_energy_bin_edges(start_GeV, stop_GeV, num_bins):
     return np.geomspace(start_GeV, stop_GeV, num_bins + 1)
