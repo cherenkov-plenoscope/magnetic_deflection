@@ -15,7 +15,7 @@ def test_init_conflicting_parameters():
             recarray=np.core.records.recarray(
                 shape=0,
                 dtype=[("key", "i8")],
-            )
+            ),
         )
 
 
@@ -32,9 +32,7 @@ def test_init_from_recarray():
             dtype=[("a", "i8"), ("b", "u2")],
         )
 
-        dra = dynamicsizerecarray.DynamicSizeRecarray(
-            recarray=recarray
-        )
+        dra = dynamicsizerecarray.DynamicSizeRecarray(recarray=recarray)
 
         assert dra.size == size
 
@@ -46,7 +44,7 @@ def test_append_record():
 
     SIZE = 1024
     for i in range(SIZE):
-        record = {"a": 2*i, "b": i}
+        record = {"a": 2 * i, "b": i}
         dra.append_record(record=record)
         assert len(dra) == i + 1
         assert dra.size == len(dra)
@@ -73,7 +71,7 @@ def test_append_recarray():
             shape=BLOCK_SIZE,
             dtype=[("a", "i8"), ("b", "u2")],
         )
-        recarray["a"] = 2 *i * np.ones(BLOCK_SIZE)
+        recarray["a"] = 2 * i * np.ones(BLOCK_SIZE)
         recarray["b"] = i * np.ones(BLOCK_SIZE)
 
         dra.append_recarray(recarray=recarray)

@@ -6,13 +6,18 @@ showers and their deflection due to earth's magnetic field.
 """
 import os
 import json_utils
+import copy
 import rename_after_writing as rnw
 import atmospheric_cherenkov_response
 import binning_utils
 import corsika_primary
 from . import binning
 from . import store
+from . import production
 from . import dynamicsizerecarray
+from .. import corsika
+from .. import spherical_coordinates
+
 
 def init(
     work_dir,
@@ -64,6 +69,11 @@ def init(
         f.write(json_utils.dumps(particle, indent=4))
 
     with rnw.open(
+        os.path.join(config_dir, "cherenkov_pool_statistics.json"), "wt"
+    ) as f:
+        f.write(json_utils.dumps({"min_num_cherenkov_photons": 0}, indent=4))
+
+    with rnw.open(
         os.path.join(config_dir, "population_target.json"), "wt"
     ) as f:
         f.write(
@@ -109,6 +119,11 @@ def init(
             json_utils.dumps(
                 {
                     "path": os.path.join(
+                        "/",
+                        "home",
+                        "relleums",
+                        "Desktop",
+                        "starter_kit",
                         "build",
                         "corsika",
                         "modified",
@@ -130,6 +145,10 @@ def init(
         direction_num_bins=direction_num_bins,
         energy_num_bins=energy_num_bins,
     )
+
+    # run_id
+    # ------
+    production.init(production_dir=os.path.join(work_dir, "production"))
 
 
 def read_config(work_dir):
@@ -212,6 +231,98 @@ class AllSky:
             energy_num_bins=self.config["binning"]["energy"]["num_bins"],
             direction_num_bins=self.config["binning"]["direction"]["num_bins"],
         )
+        self.production = production.Production(
+            production_dir=os.path.join(self.work_dir, "production")
+        )
+
+    def populate(self, num_showers=1000):
+        assert num_showers > 0
+        assert os.path.exists(self.config["corsika_primary"]["path"])
+
+        self.production.lock()
+
+        corsika_steering_dict = production.make_steering(
+            run_id=self.production.get_next_run_id_and_bumb(),
+            site=self.config["site"],
+            particle_id=self.config["particle"]["corsika_particle_id"],
+            particle_energy_start_GeV=self.binning.energy["start"],
+            particle_energy_stop_GeV=self.binning.energy["stop"],
+            particle_energy_power_slope=-2.0,
+            particle_cone_azimuth_deg=0.0,
+            particle_cone_zenith_deg=0.0,
+            particle_cone_opening_angle_deg=self.config["binning"][
+                "direction"
+            ]["particle_max_zenith_distance_deg"],
+            num_showers=num_showers,
+        )
+
+        showers, corsika_seeds = corsika.estimate_cherenkov_pool(
+            corsika_primary_path=self.config["corsika_primary"]["path"],
+            corsika_steering_dict=corsika_steering_dict,
+            min_num_cherenkov_photons=self.config["cherenkov_pool_statistics"][
+                "min_num_cherenkov_photons"
+            ],
+        )
+
+        # staging
+        # -------
+        cherenkov_stage = self.store.make_empty_stage()
+        particle_stage = self.store.make_empty_stage()
+
+        for shower in showers:
+            # cherenkov
+            # ---------
+            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=shower["cherenkov_cx_rad"], cy=shower["cherenkov_cy_rad"]
+            )
+
+            (delta_phi_deg, delta_energy), (dbin, ebin) = self.binning.query(
+                azimuth_deg=cer_az_deg,
+                zenith_deg=cer_zd_deg,
+                energy_GeV=shower["particle_energy_GeV"],
+            )
+            #print("cer", shower["run"], shower["event"], dbin, ebin)
+            valid_bin = self.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
+            if delta_phi_deg > 10.0 or not valid_bin:
+                msg = ""
+                msg += "Warning: Shower ({:d},{:d}) is ".format(
+                    shower["run"], shower["event"]
+                )
+                msg += "{:f}deg off the closest cherenkov-bin-center".format(
+                    delta_phi_deg
+                )
+                print(msg)
+            else:
+                cherenkov_stage["showers"][dbin][ebin].append(copy.deepcopy(shower))
+
+            # prticle
+            # -------
+            (delta_phi_deg, delta_energy), (dbin, ebin) = self.binning.query(
+                azimuth_deg=shower["particle_azimuth_deg"],
+                zenith_deg=shower["particle_zenith_deg"],
+                energy_GeV=shower["particle_energy_GeV"],
+            )
+            #print("par", shower["run"], shower["event"], dbin, ebin)
+            valid_bin = self.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
+            if delta_phi_deg > 10.0 or not valid_bin:
+                msg = ""
+                msg += "Warning: Shower ({:d},{:d}) is ".format(
+                    shower["run"], shower["event"]
+                )
+                msg += "{:f}deg off the closest particle-bin-center".format(
+                    delta_phi_deg
+                )
+                print(msg)
+            else:
+                particle_stage["showers"][dbin][ebin].append(copy.deepcopy(shower))
+
+
+        # write to stage
+        # --------------
+        self.store.add_cherenkov_to_stage(cherenkov_stage=cherenkov_stage)
+        self.store.add_particle_to_stage(particle_stage=particle_stage)
+
+        self.production.unlock()
 
     def __repr__(self):
         out = "{:s}(work_dir='{:s}')".format(

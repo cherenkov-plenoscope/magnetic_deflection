@@ -149,6 +149,11 @@ class Binning:
         voro = scipy.spatial.Voronoi(points=points_xy)
         return voro.vertices, voro.regions
 
+    def is_valid_dbin_ebin(self, dbin, ebin):
+        dvalid = 0 <= dbin < self.config["direction"]["num_bins"]
+        evalid = 0 <= ebin < self.config["energy"]["num_bins"]
+        return dvalid and evalid
+
     def plot(self, path):
         COLOR_GREY = (128, 128, 128)
         COLOR_BLACK = (0, 0, 0)

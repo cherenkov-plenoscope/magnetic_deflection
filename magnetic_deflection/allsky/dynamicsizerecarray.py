@@ -52,7 +52,7 @@ class DynamicSizeRecarray:
             shape=self.size,
             dtype=self.recarray.dtype,
         )
-        out = self.recarray[0:self.size]
+        out = self.recarray[0 : self.size]
         return out
 
     def append_record(self, record):
@@ -70,6 +70,20 @@ class DynamicSizeRecarray:
         for key in self.recarray.dtype.names:
             self.recarray[self.size][key] = record[key]
         self.size += 1
+
+    def append_records(self, records):
+        """
+        Append the records to the dynamic racarray.
+        The size of the dynamic recarray will increase by len(records).
+
+        Parameters
+        ----------
+        record : list of dicts
+            A list of records. Every record must have the keys of the internal,
+            dynamic recarray.
+        """
+        for record in records:
+            self.append_record(record=record)
 
     def append_recarray(self, recarray):
         """
@@ -101,7 +115,7 @@ class DynamicSizeRecarray:
             )
             start = 0
             stop = self.size
-            self.recarray[start:stop] = swp[0:self.size]
+            self.recarray[start:stop] = swp[0 : self.size]
             del swp
 
     def __len__(self):
