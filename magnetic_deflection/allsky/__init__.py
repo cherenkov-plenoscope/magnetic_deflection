@@ -71,7 +71,7 @@ def init(
     with rnw.open(
         os.path.join(config_dir, "cherenkov_pool_statistics.json"), "wt"
     ) as f:
-        f.write(json_utils.dumps({"min_num_cherenkov_photons": 0}, indent=4))
+        f.write(json_utils.dumps({"min_num_cherenkov_photons": 1}, indent=4))
 
     with rnw.open(
         os.path.join(config_dir, "population_target.json"), "wt"
@@ -256,44 +256,68 @@ class AllSky:
             num_showers=num_showers,
         )
 
-        showers, corsika_seeds = corsika.estimate_cherenkov_pool(
+        showers = production.estimate_cherenkov_pool(
             corsika_primary_path=self.config["corsika_primary"]["path"],
             corsika_steering_dict=corsika_steering_dict,
             min_num_cherenkov_photons=self.config["cherenkov_pool_statistics"][
                 "min_num_cherenkov_photons"
             ],
         )
+        assert len(showers) == len(corsika_steering_dict["primaries"])
 
         # staging
         # -------
         cherenkov_stage = self.store.make_empty_stage()
         particle_stage = self.store.make_empty_stage()
 
-        for shower in showers:
-            # cherenkov
-            # ---------
-            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=shower["cherenkov_cx_rad"], cy=shower["cherenkov_cy_rad"]
-            )
+        num_not_enough_light = 0
 
-            (delta_phi_deg, delta_energy), (dbin, ebin) = self.binning.query(
-                azimuth_deg=cer_az_deg,
-                zenith_deg=cer_zd_deg,
-                energy_GeV=shower["particle_energy_GeV"],
-            )
-            #print("cer", shower["run"], shower["event"], dbin, ebin)
-            valid_bin = self.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
-            if delta_phi_deg > 10.0 or not valid_bin:
-                msg = ""
-                msg += "Warning: Shower ({:d},{:d}) is ".format(
-                    shower["run"], shower["event"]
+        for shower in showers:
+            if (
+                shower["cherenkov_num_photons"]
+                >= self.config["cherenkov_pool_statistics"][
+                    "min_num_cherenkov_photons"
+                ]
+            ):
+                # cherenkov
+                # ---------
+                (
+                    cer_az_deg,
+                    cer_zd_deg,
+                ) = spherical_coordinates._cx_cy_to_az_zd_deg(
+                    cx=shower["cherenkov_cx_rad"],
+                    cy=shower["cherenkov_cy_rad"],
                 )
-                msg += "{:f}deg off the closest cherenkov-bin-center".format(
-                    delta_phi_deg
+
+                (delta_phi_deg, delta_energy), (
+                    dbin,
+                    ebin,
+                ) = self.binning.query(
+                    azimuth_deg=cer_az_deg,
+                    zenith_deg=cer_zd_deg,
+                    energy_GeV=shower["particle_energy_GeV"],
                 )
-                print(msg)
+                # print("cer", shower["run"], shower["event"], dbin, ebin)
+                valid_bin = self.binning.is_valid_dbin_ebin(
+                    dbin=dbin, ebin=ebin
+                )
+                if delta_phi_deg > 10.0 or not valid_bin:
+                    msg = ""
+                    msg += "Warning: Shower ({:d},{:d}) is ".format(
+                        shower["run"], shower["event"]
+                    )
+                    msg += (
+                        "{:f}deg off the closest cherenkov-bin-center".format(
+                            delta_phi_deg
+                        )
+                    )
+                    print(msg)
+                else:
+                    cherenkov_stage["showers"][dbin][ebin].append(
+                        copy.deepcopy(shower)
+                    )
             else:
-                cherenkov_stage["showers"][dbin][ebin].append(copy.deepcopy(shower))
+                num_not_enough_light += 1
 
             # prticle
             # -------
@@ -302,7 +326,7 @@ class AllSky:
                 zenith_deg=shower["particle_zenith_deg"],
                 energy_GeV=shower["particle_energy_GeV"],
             )
-            #print("par", shower["run"], shower["event"], dbin, ebin)
+            # print("par", shower["run"], shower["event"], dbin, ebin)
             valid_bin = self.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
             if delta_phi_deg > 10.0 or not valid_bin:
                 msg = ""
@@ -314,8 +338,15 @@ class AllSky:
                 )
                 print(msg)
             else:
-                particle_stage["showers"][dbin][ebin].append(copy.deepcopy(shower))
+                particle_stage["showers"][dbin][ebin].append(
+                    copy.deepcopy(shower)
+                )
 
+        print(
+            "not_enough_light: {:d} of {:d}".format(
+                num_not_enough_light, len(showers)
+            )
+        )
 
         # write to stage
         # --------------

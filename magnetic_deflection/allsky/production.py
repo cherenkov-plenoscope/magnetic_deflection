@@ -1,11 +1,13 @@
 import numpy as np
 import corsika_primary as cpw
-from .. import corsika
+import tempfile
 import rename_after_writing as rnw
 import os
 import glob
 import uuid
 import json_line_logger
+from .. import light_field_characterization as lfc
+from .. import corsika
 
 
 def make_steering(
@@ -73,40 +75,73 @@ def make_steering(
     return steering
 
 
+def estimate_cherenkov_pool(
+    corsika_primary_path,
+    corsika_steering_dict,
+    min_num_cherenkov_photons,
+):
+    pools = []
 
-def make_statistics(corsika_steering_dict, cherenkov_pools):
-    event_number2idx = {}
-    for idx, cherenkov_pool in enumerate(cherenkov_pools):
-        event_number2idx[cherenkov_pools["event"]] = idx
+    with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
+        with cpw.CorsikaPrimary(
+            corsika_path=corsika_primary_path,
+            steering_dict=corsika_steering_dict,
+            particle_output_path=os.path.join(tmp_dir, "corsika.par.dat"),
+            stdout_path=os.path.join(tmp_dir, "corsika.stdout"),
+            stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
+        ) as corsika_run:
+            for event in corsika_run:
+                evth, bunch_reader = event
 
-    outpools = []
-    for event_idx, particle in corsika_steering_dict["primaries"]:
-        event_number = event_idx + 1
+                bunches = np.vstack([b for b in bunch_reader])
 
-        if event_number in event_number2idx:
-            # there was enough light to carachterize the cherenkov-pool
-            outpool = cherenkov_pools[event_number2idx[event_number]]
-        else:
-            # there was NOT enough light to carachterize the cherenkov-pool
-            outpool = {
-                "run": corsika_steering_dict["run_id"],
-                "event": event_number,
-                "particle_azimuth_deg": float(np.rad2deg(particle["azimuth_rad"])),
-                "particle_zenith_deg": float(np.rad2deg(particle["zenith_rad"])),
-                "particle_energy_GeV": float(particle["energy_GeV"]),
-                "cherenkov_num_photons": float("nan"),
-                "cherenkov_num_bunches": float("nan"),
-                "cherenkov_x_m": float("nan"),
-                "cherenkov_y_m": float("nan"),
-                "cherenkov_radius50_m": float("nan"),
-                "cherenkov_cx_rad": float("nan"),
-                "cherenkov_cy_rad": float("nan"),
-                "cherenkov_angle50_rad": float("nan"),
-                "cherenkov_t_s": float("nan"),
-                "cherenkov_t_std_s": float("nan"),
-            }
-        outpools.append(outpool)
-    return outpools
+                event_id = int(evth[cpw.I.EVTH.EVENT_NUMBER])
+                light_field = corsika.init_light_field_from_corsika(
+                    bunches=bunches
+                )
+                num_bunches = light_field["x"].shape[0]
+
+                pool = {}
+                pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
+                pool["event"] = event_id
+                pool["particle_azimuth_deg"] = np.rad2deg(
+                    evth[cpw.I.EVTH.AZIMUTH_RAD]
+                )
+                pool["particle_zenith_deg"] = np.rad2deg(
+                    evth[cpw.I.EVTH.ZENITH_RAD]
+                )
+                pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
+                pool["cherenkov_num_photons"] = np.sum(light_field["size"])
+                pool["cherenkov_num_bunches"] = num_bunches
+
+                if pool["cherenkov_num_photons"] > min_num_cherenkov_photons:
+                    light_field = lfc.add_median_x_y_to_light_field(
+                        light_field
+                    )
+                    light_field = lfc.add_median_cx_cy_to_light_field(
+                        light_field
+                    )
+                    light_field = lfc.add_r_square_to_light_field_wrt_median(
+                        light_field
+                    )
+                    light_field = lfc.add_cos_theta_to_light_field_wrt_median(
+                        light_field
+                    )
+                    c = lfc.parameterize_light_field(light_field=light_field)
+                    pool.update(c)
+                else:
+                    pool["cherenkov_x_m"] = float("nan")
+                    pool["cherenkov_y_m"] = float("nan")
+                    pool["cherenkov_radius50_m"] = float("nan")
+                    pool["cherenkov_cx_rad"] = float("nan")
+                    pool["cherenkov_cy_rad"] = float("nan")
+                    pool["cherenkov_angle50_rad"] = float("nan")
+                    pool["cherenkov_t_s"] = float("nan")
+                    pool["cherenkov_t_std_s"] = float("nan")
+
+                pools.append(pool)
+
+        return pools
 
 
 def init(production_dir):

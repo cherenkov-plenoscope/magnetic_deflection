@@ -144,6 +144,17 @@ class Store:
                     )
                     showers_write(path=stage_path, showers=showers)
 
+    def commit_stage(self):
+        num = {}
+        for key in ["cherenkov", "particle"]:
+            num[key] = 0
+            for dbin in range(self.direction_num_bins):
+                for ebin in range(self.energy_num_bins):
+                    num[key] += self._commit_stage_dbin_ebin(
+                        dbin=dbin, ebin=ebin, key=key
+                    )
+        return num
+
     def _commit_stage_dbin_ebin(self, dbin, ebin, key):
         bin_dir = self.bin_dir(direction_bin=dbin, energy_bin=ebin)
         stage_dir = os.path.join(bin_dir, "{:s}_stage".format(key))
@@ -158,6 +169,7 @@ class Store:
             additional_showers = showers_read(path=stage_path)
             showers_dyn.append_recarray(additional_showers)
             os.rename(stage_path, stage_path + ".consumed")
+        num_showers_in_stage = int(showers_dyn.size)
 
         if os.path.exists(showers_path):
             existing_showers = showers_read(path=showers_path)
@@ -165,6 +177,7 @@ class Store:
 
         showers = showers_dyn.to_recarray()
         showers_write(path=showers_path, showers=showers)
+        return num_showers_in_stage
 
 
 def showers_write(path, showers):
@@ -218,5 +231,3 @@ def shower_record_size_in_bytes():
         dtype=showers_dtype(),
     )
     return len(rr.tobytes())
-
-
