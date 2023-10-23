@@ -416,35 +416,41 @@ class AllSky:
         max_cer_zd_deg = self.config["binning"]["direction"][
             "cherenkov_max_zenith_distance_deg"
         ]
-        splt.shapes.ax_add_circle(
-            ax=ax["particle"],
-            xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_par_zd_deg)),
-            stroke=splt.color.css("red"),
-        )
-        splt.shapes.ax_add_circle(
-            ax=ax["cherenkov"],
-            xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_cer_zd_deg)),
-            stroke=splt.color.css("blue"),
-        )
 
-        (
-            dbin_solid_angle,
-            dbin_solid_angle_au,
-        ) = self.binning.direction_bins_solid_angle()
-        dbin_solid_angle_valid = dbin_solid_angle > (2 * np.pi * 1e-3)
-        print("num dbin_solid_angle_valid", np.sum(dbin_solid_angle_valid))
+        all_faces = self.binning.direction_delaunay_mesh()
+        all_faces_sol = self.binning.direction_delaunay_mesh_solid_angles()
+        vertices = self.binning.direction.data.copy()
+
+        faces = []
+        faces_sol = []
+        for i in range(len(all_faces)):
+            all_face = all_faces[i]
+            all_face_sol = all_faces_sol[i]
+            face_fully_below_horizon = True
+            face_fully_above_horizon = True
+            for ivert in all_face:
+                vert = vertices[ivert]
+                if vert[2] > 0.0:
+                    face_fully_below_horizon = False
+                if vert[2] <= 0.0:
+                    face_fully_above_horizon = False
+
+            if not face_fully_below_horizon:
+                faces.append(all_face)
+                faces_sol.append(all_face_sol)
 
         cmaps = {}
         for key in ["cherenkov", "particle"]:
-            vnum = np.sum(self.store._population(key=key), axis=1)
-            v = np.zeros(len(vnum))
-            v[dbin_solid_angle_valid] = (
-                vnum[dbin_solid_angle_valid]
-                / dbin_solid_angle[dbin_solid_angle_valid]
-            )
-            vertices, faces = self.binning.direction_voronoi_mesh()
+            vertex_values = np.sum(self.store._population(key=key), axis=1)
+
+            v = np.zeros(len(faces))
+            for iface in range(len(faces)):
+                face = faces[iface]
+                vert0_val = vertex_values[face[0]]
+                vert1_val = vertex_values[face[1]]
+                vert2_val = vertex_values[face[2]]
+                v[iface] = (1 / 3) * (vert0_val + vert1_val + vert2_val)
+                # v[iface] /= faces_sol[iface]
 
             vmin = 0.0
             vmax = np.max(v)
@@ -452,6 +458,7 @@ class AllSky:
 
             mesh_look = splt.hemisphere.init_mesh_look(
                 num_faces=len(faces),
+                stroke=None,
                 fill=splt.color.css("RoyalBlue"),
                 fill_opacity=1.0,
             )
@@ -466,11 +473,25 @@ class AllSky:
                 max_radius=1.0,
                 **mesh_look,
             )
+
             splt.color.ax_add_colormap(
                 ax=ax["particle_cmap"],
                 colormap=cmaps[key],
                 fn=64,
             )
+
+        splt.shapes.ax_add_circle(
+            ax=ax["particle"],
+            xy=[0, 0],
+            radius=np.sin(np.deg2rad(max_par_zd_deg)),
+            stroke=splt.color.css("red"),
+        )
+        splt.shapes.ax_add_circle(
+            ax=ax["cherenkov"],
+            xy=[0, 0],
+            radius=np.sin(np.deg2rad(max_cer_zd_deg)),
+            stroke=splt.color.css("blue"),
+        )
 
         splt.hemisphere.ax_add_grid(ax=ax["particle"])
         splt.hemisphere.ax_add_grid(ax=ax["cherenkov"])
@@ -484,6 +505,263 @@ class AllSky:
         )
         splt.ax_add_text(
             ax=ax["particle"],
+            xy=[0.0, 1.1],
+            text="Particle",
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=30,
+        )
+
+        splt.fig_write(fig=fig, path=path)
+
+    def query_cherenkov_ball_with_weights(
+        self,
+        azimuth_deg,
+        zenith_deg,
+        energy_GeV,
+        energy_factor,
+        half_angle_deg,
+        cut_off_weight=0.05,
+    ):
+        overhead_half_angle_deg = 4.0 * half_angle_deg
+        overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
+        overhead_energy_stop_GeV = energy_GeV * (1 + energy_factor) ** 2
+
+        # print("E", overhead_energy_start_GeV, overhead_energy_stop_GeV)
+
+        dbins, ebins = self.binning.query_ball(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            half_angle_deg=overhead_half_angle_deg,
+            energy_start_GeV=overhead_energy_start_GeV,
+            energy_stop_GeV=overhead_energy_stop_GeV,
+        )
+
+        debins = []
+        for dbin in dbins:
+            for ebin in ebins:
+                debins.append((dbin, ebin))
+
+        if len(debins) == 0:
+            raise RuntimeError("Not enough population")
+
+        # load bins
+        # ---------
+        if not hasattr(self, "cache"):
+            self.cache = {}
+
+        for debin in debins:
+            if not debin in self.cache:
+                self.cache[debin] = self.store.read(
+                    debin[0],
+                    debin[1],
+                    key="cherenkov",
+                )
+
+        colls = []
+        dweights = []
+        eweights = []
+        for debin in debins:
+            page = self.cache[debin]
+
+            # direction weights
+            # -----------------
+            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=page["cherenkov_cx_rad"],
+                cy=page["cherenkov_cy_rad"],
+            )
+            arc_deg = spherical_coordinates._angle_between_az_zd_deg(
+                az1_deg=azimuth_deg,
+                zd1_deg=zenith_deg,
+                az2_deg=cer_az_deg,
+                zd2_deg=cer_zd_deg,
+            )
+            arc_weight = gauss1d(x=arc_deg, mean=0.0, sigma=half_angle_deg)
+            mask_arc_weight_irrelevant = arc_weight <= cut_off_weight
+            # print("arc-cut", np.sum(mask_arc_weight_irrelevant)/len(arc_weight))
+            arc_weight[mask_arc_weight_irrelevant] = 0.0
+
+            # energy weights
+            # --------------
+            energy_weight = gauss1d(
+                x=page["particle_energy_GeV"] / energy_GeV,
+                mean=1.0,
+                sigma=energy_factor,
+            )
+            mask_energy_weight_irrelevant = energy_weight <= cut_off_weight
+            # print("ene-cut", np.sum(mask_energy_weight_irrelevant)/len(energy_weight))
+            energy_weight[mask_energy_weight_irrelevant] = 0.0
+
+            page_mask = np.logical_and(arc_weight > 0.0, energy_weight > 0.0)
+            # print("page-good", np.sum(page_mask)/len(page_mask))
+
+            colls.append(page[page_mask])
+            dweights.append(arc_weight[page_mask])
+            eweights.append(energy_weight[page_mask])
+
+        return np.hstack(colls), np.hstack(dweights), np.hstack(eweights)
+
+    def query_cherenkov_ball(
+        self,
+        azimuth_deg,
+        zenith_deg,
+        energy_GeV,
+        energy_factor,
+        half_angle_deg,
+        keys=[
+            "particle_azimuth_deg",
+            "particle_zenith_deg",
+            "cherenkov_x_m",
+            "cherenkov_y_m",
+            "cherenkov_radius50_m",
+            "cherenkov_angle50_rad",
+            "cherenkov_t_s",
+            "cherenkov_t_std_s",
+            "cherenkov_num_photons",
+            "cherenkov_num_bunches",
+        ],
+    ):
+        """
+        Returns the direction a primary particle must have in order to see its
+        Cherenkov-light from a certain direction.
+
+        Parameters
+        ----------
+        azimuth_deg : float
+            Chernekov-light's median azimuth-angle.
+        zenith_deg : float
+            Cherenkov-light's median zenith-angle.
+        energy_GeV : float
+            Primary particle's energy.
+        energy_factor : float
+            Showers with energies in the range (1 - energy_factor) to
+            (1 + energy_factor) are taken into account.
+        half_angle_deg : float
+            Showers within this cone are taken into account.
+        keys : list of str
+            Keys to average and return
+        """
+        colls, dweights, eweights = self.query_cherenkov_ball_with_weights(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            energy_GeV=energy_GeV,
+            energy_factor=energy_factor,
+            half_angle_deg=half_angle_deg,
+        )
+        weights = dweights * eweights
+        sum_weights = np.sum(weights)
+        weights /= sum_weights
+
+        if len(weights) == 0 or sum_weights == 0:
+            raise RuntimeError("Not enough population.")
+
+        out = {}
+        for key in keys:
+            out[key] = weighted_avg_and_std(
+                values=colls[key],
+                weights=weights,
+            )
+
+        # sample center in population
+        # ---------------------------
+        cer_cx_rad, cer_cx_rad_std = weighted_avg_and_std(
+            values=colls["cherenkov_cx_rad"],
+            weights=weights,
+        )
+        cer_cy_rad, cer_cy_rad_std = weighted_avg_and_std(
+            values=colls["cherenkov_cy_rad"],
+            weights=weights,
+        )
+        ene_GeV, ene_GeV_std = weighted_avg_and_std(
+            values=colls["particle_energy_GeV"],
+            weights=weights,
+        )
+        cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+            cx=cer_cx_rad,
+            cy=cer_cy_rad,
+        )
+
+        out["sample"] = {}
+        out["sample"]["cherenkov_azimuth_deg"] = cer_az_deg
+        out["sample"]["cherenkov_zenith_deg"] = cer_zd_deg
+        out["sample"]["energy_GeV"] = ene_GeV
+        out["sample"]["weights_num"] = len(weights)
+        out["sample"]["weights_sum"] = sum_weights
+        return out
+
+    def plot_cherenkov_distortion(
+        self,
+        path,
+        energy_GeV=5.0,
+        energy_factor=0.1,
+        num_tracex=100,
+    ):
+        fig = splt.Fig(cols=1080, rows=1080)
+        ax = {}
+        ax = splt.hemisphere.Ax(fig=fig)
+        ax["span"] = (0.1, 0.1, 0.8, 0.8)
+
+        cer_directions = binning_utils.sphere.fibonacci_space(
+            size=num_tracex,
+            max_zenith_distance_rad=np.deg2rad(60),
+        )
+        par_directions = []
+        for cer_direction in cer_directions:
+            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=cer_direction[0],
+                cy=cer_direction[1],
+            )
+            got_it = False
+
+            half_angle_deg = 2
+            energy_factor = 0.1
+            while not got_it:
+                try:
+                    print(half_angle_deg, energy_factor)
+                    par_direction = self.query_cherenkov_ball(
+                        azimuth_deg=cer_az_deg,
+                        zenith_deg=cer_zd_deg,
+                        energy_GeV=energy_GeV,
+                        energy_factor=energy_factor,
+                        half_angle_deg=half_angle_deg,
+                    )
+                    got_it = True
+                except RuntimeError as err:
+                    half_angle_deg = half_angle_deg**1.1
+                    energy_factor = energy_factor**0.9
+
+            print(par_direction)
+            par_directions.append(par_direction)
+
+        for i in range(len(cer_directions)):
+            par_direction = par_directions[i]
+            if par_direction["sample"]["weights_sum"] * energy_GeV > 50:
+                cer_direction = cer_directions[i][0:2]
+                par_direction = spherical_coordinates._az_zd_to_cx_cy(
+                    azimuth_deg=par_directions[i]["particle_azimuth_deg"][0],
+                    zenith_deg=par_directions[i]["particle_zenith_deg"][0],
+                )
+                cer_direction = np.array(cer_direction)
+                par_direction = np.array(par_direction)
+
+                splt.ax_add_line(
+                    ax=ax,
+                    xy_start=par_direction,
+                    xy_stop=0.5 * (par_direction + cer_direction),
+                    stroke=splt.color.css("red"),
+                )
+
+                splt.ax_add_line(
+                    ax=ax,
+                    xy_start=0.5 * (par_direction + cer_direction),
+                    xy_stop=cer_direction,
+                    stroke=splt.color.css("blue"),
+                )
+
+        splt.hemisphere.ax_add_grid(ax=ax)
+
+        splt.ax_add_text(
+            ax=ax,
             xy=[0.0, 1.1],
             text="Particle",
             fill=splt.color.css("black"),
@@ -598,3 +876,23 @@ def _population_run_job(job):
     allsky.store.add_particle_to_stage(particle_stage=particle_stage)
 
     return True
+
+
+def _relative_weigth(x, xp, xmin, xmax):
+    assert xmin < xp < xmax
+
+
+def gauss1d(x, mean, sigma):
+    return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
+
+
+def weighted_avg_and_std(values, weights):
+    """
+    Return the weighted average and standard deviation.
+
+    values, weights -- NumPy ndarrays with the same shape.
+    """
+    average = np.average(values, weights=weights)
+    # Fast and numerically precise:
+    variance = np.average((values - average) ** 2, weights=weights)
+    return (average, np.sqrt(variance))

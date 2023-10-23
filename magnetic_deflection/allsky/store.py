@@ -180,6 +180,11 @@ class Store:
         showers_write(path=showers_path, showers=showers)
         return num_showers_in_stage
 
+    def read(self, dbin, ebin, key):
+        bin_dir = self.bin_dir(direction_bin=dbin, energy_bin=ebin)
+        showers_path = os.path.join(bin_dir, "{:s}.rec".format(key))
+        return showers_read(path=showers_path)
+
 
 def showers_write(path, showers):
     assert showers.dtype == showers_dtype()
