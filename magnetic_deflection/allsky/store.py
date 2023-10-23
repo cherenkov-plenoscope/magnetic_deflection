@@ -168,7 +168,8 @@ class Store:
         for stage_path in stage_paths:
             additional_showers = showers_read(path=stage_path)
             showers_dyn.append_recarray(additional_showers)
-            os.rename(stage_path, stage_path + ".consumed")
+            # os.rename(stage_path, stage_path + ".consumed")
+            os.remove(stage_path)
         num_showers_in_stage = int(showers_dyn.size)
 
         if os.path.exists(showers_path):

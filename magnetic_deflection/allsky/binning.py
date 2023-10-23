@@ -28,6 +28,7 @@ class Binning:
             size=self.config["direction"]["num_bins"],
             max_zenith_distance_rad=90,
         )
+        self.max_zenith_distance_deg = np.mod(np.rad2deg(90), 360)
         self.direction = scipy.spatial.cKDTree(data=centers)
 
     def query(self, azimuth_deg, zenith_deg, energy_GeV):
@@ -147,73 +148,120 @@ class Binning:
         direction_bin_centers = self.direction.data.copy()
         points_xy = direction_bin_centers[:, 0:2]
         voro = scipy.spatial.Voronoi(points=points_xy)
-        return voro.vertices, voro.regions
+
+        # assign the original directional bin-centers to the regions
+        # found by the voronoi algorithm
+        bin_center_regions = []
+        for point_region in voro.point_region:
+            bin_center_regions.append(voro.regions[point_region])
+
+        return voro.vertices, bin_center_regions
+
+    def direction_num_bins(self):
+        return len(self.direction.data)
+
+    def direction_bins_solid_angle(self):
+        if not hasattr(self, "_direction_bins_solid_angle"):
+            self._direction_bins_solid_angle = (
+                self.estimate_direction_bins_solid_angle()
+            )
+        return self._direction_bins_solid_angle
+
+    def estimate_direction_bins_solid_angle(
+        self, seed=43, accuracy=1e-2, max_iterations=1000
+    ):
+        prng = np.random.Generator(np.random.PCG64(seed))
+        num_ii = np.zeros(self.direction_num_bins())
+        num_total = 0
+        bunch_size = 1000 * 1000
+
+        valid = np.zeros(self.direction_num_bins(), dtype=np.int64)
+
+        itr = 0
+        while True:
+            itr += 1
+            # make random points on hemisphere (positive z-axis)
+            points = prng.uniform(low=-1, high=1, size=(bunch_size, 3))
+
+            points[:, 2] = np.abs(points[:, 2])
+            norms = np.linalg.norm(points, axis=1)
+            points[:, 0] /= norms
+            points[:, 1] /= norms
+            points[:, 2] /= norms
+
+            dd, ii = self.direction.query(points)
+            for i in ii:
+                num_ii[i] += 1
+
+            num_total += len(points)
+            num_ii_au = np.sqrt(num_ii)
+            valid = num_ii > np.sqrt(num_total)
+
+            num_ii_ru = num_ii_au / num_ii
+            print(
+                "{: 6d}: num. bins valid {: 3d}, ".format(itr, np.sum(valid)),
+                "rel. unc.: min: {: .6e}, med: {: .6e}, max: {: .6e}.".format(
+                    np.min(num_ii_ru[valid]),
+                    np.median(num_ii_ru[valid]),
+                    np.max(num_ii_ru[valid]),
+                ),
+            )
+            if np.max(num_ii_ru[valid]) < accuracy:
+                break
+
+            if itr > max_iterations:
+                raise RuntimeError("Too many iterations")
+
+        hemisphere_solid_angle = 2 * np.pi
+        return (
+            hemisphere_solid_angle * num_ii / num_total,
+            hemisphere_solid_angle * num_ii_ru,
+        )
 
     def is_valid_dbin_ebin(self, dbin, ebin):
         dvalid = 0 <= dbin < self.config["direction"]["num_bins"]
         evalid = 0 <= ebin < self.config["energy"]["num_bins"]
         return dvalid and evalid
 
-    def plot(self, path):
-        COLOR_GREY = (128, 128, 128)
-        COLOR_BLACK = (0, 0, 0)
-        COLOR_RED = (255, 0, 0)
-        COLOR_BLUE = (0, 0, 255)
-
+    def plot(self, path, fill="blue"):
         fig = splt.Fig(cols=1080, rows=1080)
-        ax_dir = splt.Ax(fig=fig)
-
-        ax_dir["xlim"] = [-1, 1]
-        ax_dir["ylim"] = [-1, 1]
-
-        splt.hemisphere.ax_add_grid(
-            ax=ax_dir,
-            zenith_step_deg=15,
-            azimuth_step_deg=45,
-            radius=1.0,
-            stroke=COLOR_GREY,
-        )
-        splt.hemisphere.ax_add_grid_text(
-            ax=ax_dir,
-            zenith_step_deg=15,
-            azimuth_step_deg=45,
-            radius=1.0,
-            stroke=COLOR_BLACK,
-            font_family="math",
-            font_size=15,
-        )
+        ax = splt.hemisphere.Ax(fig=fig)
 
         max_par_zd_deg = self.config["direction"][
             "particle_max_zenith_distance_deg"
         ]
         splt.shapes.ax_add_circle(
-            ax=ax_dir,
+            ax=ax,
             xy=[0, 0],
             radius=np.sin(np.deg2rad(max_par_zd_deg)),
-            stroke=COLOR_RED,
+            stroke=splt.color.css("red"),
         )
-
         max_cer_zd_deg = self.config["direction"][
             "cherenkov_max_zenith_distance_deg"
         ]
         splt.shapes.ax_add_circle(
-            ax=ax_dir,
+            ax=ax,
             xy=[0, 0],
             radius=np.sin(np.deg2rad(max_cer_zd_deg)),
-            stroke=COLOR_BLUE,
+            stroke=splt.color.css("blue"),
         )
 
-        mesh_vertices, mesh_faces = self.direction_voronoi_mesh()
+        vertices, faces = self.direction_voronoi_mesh()
+        mesh_look = splt.hemisphere.init_mesh_look(
+            num_faces=len(faces),
+            fill=splt.color.css("RoyalBlue"),
+            fill_opacity=0.5,
+        )
 
         splt.hemisphere.ax_add_mesh(
-            ax=ax_dir,
-            vertices=mesh_vertices,
-            faces=mesh_faces,
+            ax=ax,
+            vertices=vertices,
+            faces=faces,
             max_radius=1.0,
-            stroke=(0, 0, 0),
-            fill=(50, 100, 255),
-            fill_opacity=0.3,
+            **mesh_look,
         )
+
+        splt.hemisphere.ax_add_grid(ax=ax)
 
         splt.fig_write(fig=fig, path=path)
 
