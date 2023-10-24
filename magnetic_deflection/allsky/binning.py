@@ -24,12 +24,23 @@ class Binning:
                 num_bins=self.config["energy"]["num_bins"],
             )
         )
+        self.max_zenith_distance_deg = 90
         centers = binning_utils.sphere.fibonacci_space(
             size=self.config["direction"]["num_bins"],
-            max_zenith_distance_rad=90,
+            max_zenith_distance_rad=np.deg2rad(self.max_zenith_distance_deg),
         )
-        self.max_zenith_distance_deg = np.mod(np.rad2deg(90), 360)
+        _hemisphere_solid_angle = 2.0 * np.pi
+        _expected_num_delaunay_faces = (
+            2.0 * self.config["direction"]["num_bins"]
+        )
+        self.direction_voronoi_face_expected_solid_angle = (
+            _hemisphere_solid_angle / _expected_num_delaunay_faces
+        )
         self.direction = scipy.spatial.cKDTree(data=centers)
+        self.horizon_vertices = []
+        for az_deg in np.linspace(0, 360, 36, endpoint=False):
+            self.horizon_vertices.append([np.cos(az_deg), np.sin(az_deg), 0.0])
+        self.horizon_vertices = np.array(self.horizon_vertices)
 
     def query(self, azimuth_deg, zenith_deg, energy_GeV):
         """
@@ -161,27 +172,30 @@ class Binning:
         return voro.vertices, bin_center_regions
 
     def direction_delaunay_mesh(self):
-        points_xy = self._project_direction_bin_centers_in_xy_plane()
-        delaunay = scipy.spatial.Delaunay(points=points_xy)
+        direction_bin_centers = self.direction.data.copy()
+        direction_horizon = self.horizon_vertices
+        vertices = np.vstack([direction_bin_centers, direction_horizon])
+        delaunay = scipy.spatial.Delaunay(points=vertices[:, 0:2])
         delaunay_faces = delaunay.simplices
-        return delaunay_faces
+        return vertices, delaunay_faces
 
     def direction_delaunay_mesh_solid_angles(self):
-        faces = self.direction_delaunay_mesh()
-        vertices = self.direction.data.copy()
+        vertices, faces = self.direction_delaunay_mesh()
         sol = np.zeros(len(faces))
         for i in range(len(faces)):
             face = faces[i]
-            sol[i] = solid_angle_of_triangle_on_unitsphere(
+            face_solid_angle = solid_angle_of_triangle_on_unitsphere(
                 v0=vertices[face[0]],
                 v1=vertices[face[1]],
                 v2=vertices[face[2]],
             )
+            sol[i] = face_solid_angle
         return sol
 
     def direction_num_bins(self):
         return len(self.direction.data)
 
+    """
     def direction_bins_solid_angle(self):
         if not hasattr(self, "_direction_bins_solid_angle"):
             self._direction_bins_solid_angle = (
@@ -239,6 +253,7 @@ class Binning:
             hemisphere_solid_angle * num_ii / num_total,
             hemisphere_solid_angle * num_ii_ru,
         )
+    """
 
     def is_valid_dbin_ebin(self, dbin, ebin):
         dvalid = 0 <= dbin < self.config["direction"]["num_bins"]

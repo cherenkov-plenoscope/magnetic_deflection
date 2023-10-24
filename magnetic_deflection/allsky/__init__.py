@@ -13,6 +13,7 @@ import binning_utils
 import corsika_primary
 import svg_cartesian_plot as splt
 import numpy as np
+import pprint
 from . import binning
 from . import store
 from . import production
@@ -417,43 +418,27 @@ class AllSky:
             "cherenkov_max_zenith_distance_deg"
         ]
 
-        all_faces = self.binning.direction_delaunay_mesh()
-        all_faces_sol = self.binning.direction_delaunay_mesh_solid_angles()
-        vertices = self.binning.direction.data.copy()
-
-        faces = []
-        faces_sol = []
-        for i in range(len(all_faces)):
-            all_face = all_faces[i]
-            all_face_sol = all_faces_sol[i]
-            face_fully_below_horizon = True
-            face_fully_above_horizon = True
-            for ivert in all_face:
-                vert = vertices[ivert]
-                if vert[2] > 0.0:
-                    face_fully_below_horizon = False
-                if vert[2] <= 0.0:
-                    face_fully_above_horizon = False
-
-            if not face_fully_below_horizon:
-                faces.append(all_face)
-                faces_sol.append(all_face_sol)
+        vertices, faces = self.binning.direction_delaunay_mesh()
+        faces_sol = self.binning.direction_delaunay_mesh_solid_angles()
 
         cmaps = {}
         for key in ["cherenkov", "particle"]:
-            vertex_values = np.sum(self.store._population(key=key), axis=1)
+            dbin_vertex_values = np.sum(
+                self.store._population(key=key), axis=1
+            )
 
             v = np.zeros(len(faces))
             for iface in range(len(faces)):
                 face = faces[iface]
-                vert0_val = vertex_values[face[0]]
-                vert1_val = vertex_values[face[1]]
-                vert2_val = vertex_values[face[2]]
-                v[iface] = (1 / 3) * (vert0_val + vert1_val + vert2_val)
-                # v[iface] /= faces_sol[iface]
+                vals = []
+                for ee in range(3):
+                    if face[ee] < len(dbin_vertex_values):
+                        vals.append(dbin_vertex_values[face[ee]])
+                v[iface] = np.sum(vals) / len(vals)
+                v[iface] /= faces_sol[iface]
 
             vmin = 0.0
-            vmax = np.max(v)
+            vmax = np.max([np.max(v), 1e-6])
             cmaps[key] = splt.color.Map("viridis", start=vmin, stop=vmax)
 
             mesh_look = splt.hemisphere.init_mesh_look(
@@ -521,8 +506,29 @@ class AllSky:
         energy_GeV,
         energy_factor,
         half_angle_deg,
+        min_num_cherenkov_photons,
         cut_off_weight=0.05,
     ):
+        """
+        Parameters
+        ----------
+        azimuth_deg : float
+            Median azimuth angle of Cherenkov-photons in shower.
+        zenith_deg : float
+            Median zenith angle of Cherenkov-photons in shower.
+        energy_GeV : float
+            Primary particle's energy.
+        energy_factor :
+            Query only showers with energies which have energies from:
+            energy_GeV*(1-energy_factor) to energy_GeV*(1+energy_factor).
+        half_angle_deg : float > 0
+            Cone's half angle to query showers in based on the median direction
+            of their Cherenkov-photons.
+        min_num_cherenkov_photons : float
+            Only take showers into account with this many photons.
+        cut_off_weight : float
+            Ignore showers with weights below this threshold.
+        """
         overhead_half_angle_deg = 4.0 * half_angle_deg
         overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
         overhead_energy_stop_GeV = energy_GeV * (1 + energy_factor) ** 2
@@ -592,8 +598,13 @@ class AllSky:
             # print("ene-cut", np.sum(mask_energy_weight_irrelevant)/len(energy_weight))
             energy_weight[mask_energy_weight_irrelevant] = 0.0
 
-            page_mask = np.logical_and(arc_weight > 0.0, energy_weight > 0.0)
-            # print("page-good", np.sum(page_mask)/len(page_mask))
+            weight_mask = np.logical_and(arc_weight > 0.0, energy_weight > 0.0)
+            cherenkov_intensity_mask = (
+                page["cherenkov_num_photons"] >= min_num_cherenkov_photons
+            )
+
+            page_mask = np.logical_and(weight_mask, cherenkov_intensity_mask)
+            # print("cherenkov_intensity_mask: ", np.sum(page_mask)/len(page_mask))
 
             colls.append(page[page_mask])
             dweights.append(arc_weight[page_mask])
@@ -608,18 +619,7 @@ class AllSky:
         energy_GeV,
         energy_factor,
         half_angle_deg,
-        keys=[
-            "particle_azimuth_deg",
-            "particle_zenith_deg",
-            "cherenkov_x_m",
-            "cherenkov_y_m",
-            "cherenkov_radius50_m",
-            "cherenkov_angle50_rad",
-            "cherenkov_t_s",
-            "cherenkov_t_std_s",
-            "cherenkov_num_photons",
-            "cherenkov_num_bunches",
-        ],
+        min_num_cherenkov_photons=1e3,
     ):
         """
         Returns the direction a primary particle must have in order to see its
@@ -638,8 +638,6 @@ class AllSky:
             (1 + energy_factor) are taken into account.
         half_angle_deg : float
             Showers within this cone are taken into account.
-        keys : list of str
-            Keys to average and return
         """
         colls, dweights, eweights = self.query_cherenkov_ball_with_weights(
             azimuth_deg=azimuth_deg,
@@ -647,6 +645,7 @@ class AllSky:
             energy_GeV=energy_GeV,
             energy_factor=energy_factor,
             half_angle_deg=half_angle_deg,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
         )
         weights = dweights * eweights
         sum_weights = np.sum(weights)
@@ -655,12 +654,50 @@ class AllSky:
         if len(weights) == 0 or sum_weights == 0:
             raise RuntimeError("Not enough population.")
 
+        keys = [
+            "cherenkov_x_m",
+            "cherenkov_y_m",
+            "cherenkov_radius50_m",
+            "cherenkov_angle50_rad",
+            "cherenkov_t_s",
+            "cherenkov_t_std_s",
+            "cherenkov_num_photons",
+            "cherenkov_num_bunches",
+        ]
+
         out = {}
         for key in keys:
             out[key] = weighted_avg_and_std(
                 values=colls[key],
                 weights=weights,
             )
+
+        par_cx_rad, par_cy_rad = spherical_coordinates._az_zd_to_cx_cy(
+            azimuth_deg=colls["particle_azimuth_deg"],
+            zenith_deg=colls["particle_zenith_deg"],
+        )
+        par_cx_rad_avg_std = weighted_avg_and_std(
+            values=par_cx_rad,
+            weights=weights,
+        )
+        par_cy_rad_avg_std = weighted_avg_and_std(
+            values=par_cy_rad,
+            weights=weights,
+        )
+        (
+            par_az_deg_avg,
+            par_zd_deg_avg,
+        ) = spherical_coordinates._cx_cy_to_az_zd_deg(
+            cx=par_cx_rad_avg_std[0],
+            cy=par_cy_rad_avg_std[0],
+        )
+        delta_deg = np.hypot(
+            np.rad2deg(par_cx_rad_avg_std[1]),
+            np.rad2deg(par_cy_rad_avg_std[1]),
+        )
+
+        out["particle_azimuth_deg"] = (par_az_deg_avg, delta_deg)
+        out["particle_zenith_deg"] = (par_zd_deg_avg, delta_deg)
 
         # sample center in population
         # ---------------------------
@@ -689,12 +726,13 @@ class AllSky:
         out["sample"]["weights_sum"] = sum_weights
         return out
 
-    def plot_cherenkov_distortion(
+    def plot_deflection(
         self,
         path,
         energy_GeV=5.0,
         energy_factor=0.1,
-        num_tracex=100,
+        num_traces=100,
+        min_num_cherenkov_photons=1e3,
     ):
         fig = splt.Fig(cols=1080, rows=1080)
         ax = {}
@@ -702,7 +740,7 @@ class AllSky:
         ax["span"] = (0.1, 0.1, 0.8, 0.8)
 
         cer_directions = binning_utils.sphere.fibonacci_space(
-            size=num_tracex,
+            size=num_traces,
             max_zenith_distance_rad=np.deg2rad(60),
         )
         par_directions = []
@@ -717,25 +755,26 @@ class AllSky:
             energy_factor = 0.1
             while not got_it:
                 try:
-                    print(half_angle_deg, energy_factor)
+                    # print(half_angle_deg, energy_factor)
                     par_direction = self.query_cherenkov_ball(
                         azimuth_deg=cer_az_deg,
                         zenith_deg=cer_zd_deg,
                         energy_GeV=energy_GeV,
                         energy_factor=energy_factor,
                         half_angle_deg=half_angle_deg,
+                        min_num_cherenkov_photons=min_num_cherenkov_photons,
                     )
                     got_it = True
                 except RuntimeError as err:
                     half_angle_deg = half_angle_deg**1.1
                     energy_factor = energy_factor**0.9
 
-            print(par_direction)
+            # print(par_direction)
             par_directions.append(par_direction)
 
         for i in range(len(cer_directions)):
             par_direction = par_directions[i]
-            if par_direction["sample"]["weights_sum"] * energy_GeV > 50:
+            if par_direction["sample"]["weights_sum"] * energy_GeV > 100:
                 cer_direction = cer_directions[i][0:2]
                 par_direction = spherical_coordinates._az_zd_to_cx_cy(
                     azimuth_deg=par_directions[i]["particle_azimuth_deg"][0],
@@ -762,11 +801,43 @@ class AllSky:
 
         splt.ax_add_text(
             ax=ax,
-            xy=[0.0, 1.1],
-            text="Particle",
+            xy=[0.2, 1.15],
+            text="primary particle",
+            fill=splt.color.css("red"),
+            font_family="math",
+            font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[-0.6, 1.15],
+            text="median Cherenkov",
+            fill=splt.color.css("blue"),
+            font_family="math",
+            font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.3, 1.0],
+            text="energy: {: 8.3f}GeV".format(energy_GeV),
             fill=splt.color.css("black"),
             font_family="math",
             font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.1, -1.05],
+            text="site: {:s}".format(self.config["site"]["comment"]),
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=15,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.1, -1.1],
+            text="particle: {:s}".format(self.config["particle"]["key"]),
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=15,
         )
 
         splt.fig_write(fig=fig, path=path)
