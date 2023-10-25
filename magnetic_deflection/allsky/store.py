@@ -43,7 +43,8 @@ def init(store_dir, num_ene_bins, num_dir_bins):
                 showers=showers.init(size=0),
             )
             os.makedirs(
-                os.path.join(dir_ene_bin_path, "cherenkov_stage"), exist_ok=True
+                os.path.join(dir_ene_bin_path, "cherenkov_stage"),
+                exist_ok=True,
             )
 
             showers.write(

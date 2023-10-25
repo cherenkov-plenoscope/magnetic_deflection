@@ -124,7 +124,7 @@ class Binning:
         direction_unit_vector = np.array([cx, cy, cz])
         dbins = self.query_ball_direction(
             direction_unit_vector=direction_unit_vector,
-            half_angle_deg=half_angle_deg
+            half_angle_deg=half_angle_deg,
         )
         ebins = self.query_ball_energy(
             energy_start_GeV=energy_start_GeV, energy_stop_GeV=energy_stop_GeV
@@ -147,8 +147,12 @@ class Binning:
         assert energy_start_GeV > 0
         assert energy_stop_GeV > 0
         assert energy_stop_GeV >= energy_start_GeV
-        ebin_start = np.digitize(x=energy_start_GeV, bins=self.energy["edges"]) - 1
-        ebin_stop = np.digitize(x=energy_stop_GeV, bins=self.energy["edges"]) - 1
+        ebin_start = (
+            np.digitize(x=energy_start_GeV, bins=self.energy["edges"]) - 1
+        )
+        ebin_stop = (
+            np.digitize(x=energy_stop_GeV, bins=self.energy["edges"]) - 1
+        )
         ee = np.arange(ebin_start, ebin_stop + 1, 1)
         mask = np.logical_and(ee >= 0, ee < self.energy["num"])
         return ee[mask]
@@ -170,10 +174,12 @@ class Binning:
         sol = np.zeros(len(faces))
         for i in range(len(faces)):
             face = faces[i]
-            face_solid_angle = spherical_coordinates.solid_angle_of_triangle_on_unitsphere(
-                v0=vertices[face[0]],
-                v1=vertices[face[1]],
-                v2=vertices[face[2]],
+            face_solid_angle = (
+                spherical_coordinates.solid_angle_of_triangle_on_unitsphere(
+                    v0=vertices[face[0]],
+                    v1=vertices[face[1]],
+                    v2=vertices[face[2]],
+                )
             )
             sol[i] = face_solid_angle
         return sol

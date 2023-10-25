@@ -315,9 +315,7 @@ class AllSky:
 
         cmaps = {}
         for key in ["cherenkov", "particle"]:
-            dbin_vertex_values = np.sum(
-                self.store.population(key=key), axis=1
-            )
+            dbin_vertex_values = np.sum(self.store.population(key=key), axis=1)
 
             v = np.zeros(len(faces))
             for iface in range(len(faces)):
@@ -510,7 +508,11 @@ class AllSky:
         half_angle_deg : float
             Showers within this cone are taken into account.
         """
-        colls, dir_weights, ene_weights = self.query_cherenkov_ball_with_weights(
+        (
+            colls,
+            dir_weights,
+            ene_weights,
+        ) = self.query_cherenkov_ball_with_weights(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             energy_GeV=energy_GeV,
@@ -610,8 +612,12 @@ class AllSky:
 
         for i in range(len(cherenkov_directions)):
             vertex_unitxyz = cherenkov_directions[i]
-            vertex_az_deg, vertex_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=vertex_unitxyz[0], cy=vertex_unitxyz[1],
+            (
+                vertex_az_deg,
+                vertex_zd_deg,
+            ) = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=vertex_unitxyz[0],
+                cy=vertex_unitxyz[1],
             )
 
             defl = self.query_cherenkov_ball(
@@ -624,7 +630,8 @@ class AllSky:
             )
 
             cx, cy = spherical_coordinates._az_zd_to_cx_cy(
-                out["particle_azimuth_deg"], out["particle_zenith_deg"],
+                out["particle_azimuth_deg"],
+                out["particle_zenith_deg"],
             )
             particle_directions[i, 0] = cx
             particle_directions[i, 1] = cy
@@ -807,7 +814,9 @@ def _population_run_job(job):
                 energy_GeV=shower["particle_energy_GeV"],
             )
             # print("cer", shower["run"], shower["event"], dir_ene_bin)
-            valid_bin = allsky.binning.is_valid_dir_ene_bin(dir_ene_bin=dir_ene_bin)
+            valid_bin = allsky.binning.is_valid_dir_ene_bin(
+                dir_ene_bin=dir_ene_bin
+            )
             if delta_phi_deg > 10.0 or not valid_bin:
                 msg = ""
                 msg += "Warning: Shower ({:d},{:d}) is ".format(
@@ -835,7 +844,9 @@ def _population_run_job(job):
             energy_GeV=shower["particle_energy_GeV"],
         )
         # print("par", shower["run"], shower["event"], dir_ene_bin)
-        valid_bin = allsky.binning.is_valid_dir_ene_bin(dir_ene_bin=dir_ene_bin)
+        valid_bin = allsky.binning.is_valid_dir_ene_bin(
+            dir_ene_bin=dir_ene_bin
+        )
         if delta_phi_deg > 10.0 or not valid_bin:
             msg = ""
             msg += "Warning: Shower ({:d},{:d}) is ".format(
@@ -846,7 +857,9 @@ def _population_run_job(job):
             )
             print(msg)
         else:
-            particle_stage["records"][dir_ene_bin].append(copy.deepcopy(shower))
+            particle_stage["records"][dir_ene_bin].append(
+                copy.deepcopy(shower)
+            )
 
     # add to stage
     # ------------
