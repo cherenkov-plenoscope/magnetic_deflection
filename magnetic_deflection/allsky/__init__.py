@@ -226,6 +226,12 @@ def open(work_dir):
 
 class AllSky:
     def __init__(self, work_dir):
+        if not _looks_like_a_valid_all_sky_work_dir(work_dir=work_dir):
+            raise FileNotFoundError(
+                "Does not look like an AllSky() work_dir: '{:s}'.".format(
+                    work_dir
+                )
+            )
         self.work_dir = work_dir
         self.config = read_config(work_dir=work_dir)
         self.binning = binning.Binning(config=self.config["binning"])
@@ -726,6 +732,40 @@ class AllSky:
         out["sample"]["weights_sum"] = sum_weights
         return out
 
+    def deflect(
+        self,
+        cherenkov_directions,
+        energy_GeV,
+        energy_factor,
+        half_angle_deg,
+        min_num_cherenkov_photons=1e3,
+    ):
+        cherenkov_directions = np.array(cherenkov_directions)
+        particle_directions = np.zeros(shape=cherenkov_directions.shape)
+
+        for i in range(len(cherenkov_directions)):
+            vertex_unitxyz = cherenkov_directions[i]
+            vertex_az_deg, vertex_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=vertex_unitxyz[0], cy=vertex_unitxyz[1],
+            )
+
+            defl = self.query_cherenkov_ball(
+                azimuth_deg=vertex_az_deg,
+                zenith_deg=vertex_zd_deg,
+                energy_GeV=energy_GeV,
+                energy_factor=energy_factor,
+                half_angle_deg=half_angle_deg,
+                min_num_cherenkov_photons=min_num_cherenkov_photons,
+            )
+
+            cx, cy = spherical_coordinates._az_zd_to_cx_cy(
+                out["particle_azimuth_deg"], out["particle_zenith_deg"],
+            )
+            particle_directions[i, 0] = cx
+            particle_directions[i, 1] = cy
+        return particle_directions
+
+
     def plot_deflection(
         self,
         path,
@@ -967,3 +1007,10 @@ def weighted_avg_and_std(values, weights):
     # Fast and numerically precise:
     variance = np.average((values - average) ** 2, weights=weights)
     return (average, np.sqrt(variance))
+
+
+def _looks_like_a_valid_all_sky_work_dir(work_dir):
+    for dirname in ["config", "store", "production"]:
+        if not os.path.isdir(os.path.join(work_dir, dirname)):
+            return False
+    return True
