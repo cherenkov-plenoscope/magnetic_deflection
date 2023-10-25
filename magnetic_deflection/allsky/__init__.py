@@ -145,8 +145,8 @@ def init(
     # -------
     store.init(
         store_dir=os.path.join(work_dir, "store"),
-        direction_num_bins=direction_num_bins,
-        energy_num_bins=energy_num_bins,
+        num_dir_bins=direction_num_bins,
+        num_ene_bins=energy_num_bins,
     )
 
     # run_id
@@ -243,8 +243,6 @@ class AllSky:
         self.binning = binning.Binning(config=self.config["binning"])
         self.store = store.Store(
             store_dir=os.path.join(work_dir, "store"),
-            energy_num_bins=self.config["binning"]["energy"]["num_bins"],
-            direction_num_bins=self.config["binning"]["direction"]["num_bins"],
         )
         self.production = production.Production(
             production_dir=os.path.join(self.work_dir, "production")
@@ -318,7 +316,7 @@ class AllSky:
         cmaps = {}
         for key in ["cherenkov", "particle"]:
             dbin_vertex_values = np.sum(
-                self.store._population(key=key), axis=1
+                self.store.population(key=key), axis=1
             )
 
             v = np.zeros(len(faces))
@@ -429,7 +427,7 @@ class AllSky:
 
         # print("E", overhead_energy_start_GeV, overhead_energy_stop_GeV)
 
-        dbins, ebins = self.binning.query_ball(
+        dir_ene_bins = self.binning.query_ball(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             half_angle_deg=overhead_half_angle_deg,
@@ -437,38 +435,20 @@ class AllSky:
             energy_stop_GeV=overhead_energy_stop_GeV,
         )
 
-        debins = []
-        for dbin in dbins:
-            for ebin in ebins:
-                debins.append((dbin, ebin))
-
-        if len(debins) == 0:
+        if len(dir_ene_bins) == 0:
             raise RuntimeError("Not enough population")
-
-        # load bins
-        # ---------
-        if not hasattr(self, "cache"):
-            self.cache = {}
-
-        for debin in debins:
-            if not debin in self.cache:
-                self.cache[debin] = self.store.read(
-                    debin[0],
-                    debin[1],
-                    key="cherenkov",
-                )
 
         colls = []
         dweights = []
         eweights = []
-        for debin in debins:
-            page = self.cache[debin]
+        for dir_ene_bin in dir_ene_bins:
+            cer_bin = self.store.get_cherenkov_bin(dir_ene_bin=dir_ene_bin)
 
             # direction weights
             # -----------------
             cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=page["cherenkov_cx_rad"],
-                cy=page["cherenkov_cy_rad"],
+                cx=cer_bin["cherenkov_cx_rad"],
+                cy=cer_bin["cherenkov_cy_rad"],
             )
             arc_deg = spherical_coordinates._angle_between_az_zd_deg(
                 az1_deg=azimuth_deg,
@@ -478,31 +458,28 @@ class AllSky:
             )
             arc_weight = gauss1d(x=arc_deg, mean=0.0, sigma=half_angle_deg)
             mask_arc_weight_irrelevant = arc_weight <= cut_off_weight
-            # print("arc-cut", np.sum(mask_arc_weight_irrelevant)/len(arc_weight))
             arc_weight[mask_arc_weight_irrelevant] = 0.0
 
             # energy weights
             # --------------
             energy_weight = gauss1d(
-                x=page["particle_energy_GeV"] / energy_GeV,
+                x=cer_bin["particle_energy_GeV"] / energy_GeV,
                 mean=1.0,
                 sigma=energy_factor,
             )
             mask_energy_weight_irrelevant = energy_weight <= cut_off_weight
-            # print("ene-cut", np.sum(mask_energy_weight_irrelevant)/len(energy_weight))
             energy_weight[mask_energy_weight_irrelevant] = 0.0
 
             weight_mask = np.logical_and(arc_weight > 0.0, energy_weight > 0.0)
             cherenkov_intensity_mask = (
-                page["cherenkov_num_photons"] >= min_num_cherenkov_photons
+                cer_bin["cherenkov_num_photons"] >= min_num_cherenkov_photons
             )
 
-            page_mask = np.logical_and(weight_mask, cherenkov_intensity_mask)
-            # print("cherenkov_intensity_mask: ", np.sum(page_mask)/len(page_mask))
+            mask = np.logical_and(weight_mask, cherenkov_intensity_mask)
 
-            colls.append(page[page_mask])
-            dweights.append(arc_weight[page_mask])
-            eweights.append(energy_weight[page_mask])
+            colls.append(cer_bin[mask])
+            dweights.append(arc_weight[mask])
+            eweights.append(energy_weight[mask])
 
         return np.hstack(colls), np.hstack(dweights), np.hstack(eweights)
 
@@ -533,7 +510,7 @@ class AllSky:
         half_angle_deg : float
             Showers within this cone are taken into account.
         """
-        colls, dweights, eweights = self.query_cherenkov_ball_with_weights(
+        colls, dir_weights, ene_weights = self.query_cherenkov_ball_with_weights(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             energy_GeV=energy_GeV,
@@ -541,7 +518,7 @@ class AllSky:
             half_angle_deg=half_angle_deg,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
         )
-        weights = dweights * eweights
+        weights = dir_weights * ene_weights
         sum_weights = np.sum(weights)
         weights /= sum_weights
 
@@ -652,7 +629,6 @@ class AllSky:
             particle_directions[i, 0] = cx
             particle_directions[i, 1] = cy
         return particle_directions
-
 
     def plot_deflection(
         self,
@@ -800,8 +776,8 @@ def _population_run_job(job):
 
     # staging
     # -------
-    cherenkov_stage = allsky.store.make_empty_stage()
-    particle_stage = allsky.store.make_empty_stage()
+    cherenkov_stage = allsky.store.make_empty_stage(run_id=job["run_id"])
+    particle_stage = allsky.store.make_empty_stage(run_id=job["run_id"])
 
     num_not_enough_light = 0
 
@@ -822,16 +798,16 @@ def _population_run_job(job):
                 cy=shower["cherenkov_cy_rad"],
             )
 
-            (delta_phi_deg, delta_energy), (
-                dbin,
-                ebin,
+            (
+                (delta_phi_deg, delta_energy),
+                dir_ene_bin,
             ) = allsky.binning.query(
                 azimuth_deg=cer_az_deg,
                 zenith_deg=cer_zd_deg,
                 energy_GeV=shower["particle_energy_GeV"],
             )
-            # print("cer", shower["run"], shower["event"], dbin, ebin)
-            valid_bin = allsky.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
+            # print("cer", shower["run"], shower["event"], dir_ene_bin)
+            valid_bin = allsky.binning.is_valid_dir_ene_bin(dir_ene_bin=dir_ene_bin)
             if delta_phi_deg > 10.0 or not valid_bin:
                 msg = ""
                 msg += "Warning: Shower ({:d},{:d}) is ".format(
@@ -842,7 +818,7 @@ def _population_run_job(job):
                 )
                 print(msg)
             else:
-                cherenkov_stage["showers"][dbin][ebin].append(
+                cherenkov_stage["records"][dir_ene_bin].append(
                     copy.deepcopy(shower)
                 )
         else:
@@ -850,13 +826,16 @@ def _population_run_job(job):
 
         # prticle
         # -------
-        (delta_phi_deg, delta_energy), (dbin, ebin) = allsky.binning.query(
+        (
+            (delta_phi_deg, delta_energy),
+            dir_ene_bin,
+        ) = allsky.binning.query(
             azimuth_deg=shower["particle_azimuth_deg"],
             zenith_deg=shower["particle_zenith_deg"],
             energy_GeV=shower["particle_energy_GeV"],
         )
-        # print("par", shower["run"], shower["event"], dbin, ebin)
-        valid_bin = allsky.binning.is_valid_dbin_ebin(dbin=dbin, ebin=ebin)
+        # print("par", shower["run"], shower["event"], dir_ene_bin)
+        valid_bin = allsky.binning.is_valid_dir_ene_bin(dir_ene_bin=dir_ene_bin)
         if delta_phi_deg > 10.0 or not valid_bin:
             msg = ""
             msg += "Warning: Shower ({:d},{:d}) is ".format(
@@ -867,7 +846,7 @@ def _population_run_job(job):
             )
             print(msg)
         else:
-            particle_stage["showers"][dbin][ebin].append(copy.deepcopy(shower))
+            particle_stage["records"][dir_ene_bin].append(copy.deepcopy(shower))
 
     # add to stage
     # ------------
@@ -875,10 +854,6 @@ def _population_run_job(job):
     allsky.store.add_particle_to_stage(particle_stage=particle_stage)
 
     return True
-
-
-def _relative_weigth(x, xp, xmin, xmax):
-    assert xmin < xp < xmax
 
 
 def gauss1d(x, mean, sigma):
@@ -889,10 +864,9 @@ def weighted_avg_and_std(values, weights):
     """
     Return the weighted average and standard deviation.
 
-    values, weights -- NumPy ndarrays with the same shape.
+    values, weights -- numpy arrays with the same shape.
     """
     average = np.average(values, weights=weights)
-    # Fast and numerically precise:
     variance = np.average((values - average) ** 2, weights=weights)
     return (average, np.sqrt(variance))
 

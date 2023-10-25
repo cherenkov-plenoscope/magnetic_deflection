@@ -2,238 +2,228 @@ import os
 import uuid
 import glob
 import numpy as np
+import json_numpy
 import rename_after_writing as rnw
 from . import dynamicsizerecarray
+from . import showers
 
 
-DIRECTION_BIN_DIR_STR = "{direction_bin:06d}"
-ENERGY_BIN_DIR_STR = "{energy_bin:06d}"
+DIRECTION_BIN_DIR_STR = "{dir_bin:06d}"
+ENERGY_BIN_DIR_STR = "{ene_bin:06d}"
 
 
-def init(store_dir, energy_num_bins, direction_num_bins):
-    assert direction_num_bins >= 1
-    assert energy_num_bins >= 1
+def init(store_dir, num_ene_bins, num_dir_bins):
+    num_dir_bins = int(num_dir_bins)
+    num_ene_bins = int(num_ene_bins)
+    assert num_dir_bins >= 1
+    assert num_ene_bins >= 1
 
     os.makedirs(store_dir, exist_ok=True)
-
-    for d_bin in range(direction_num_bins):
-        d_dir = os.path.join(
-            store_dir, DIRECTION_BIN_DIR_STR.format(direction_bin=d_bin)
-        )
-        os.makedirs(d_dir, exist_ok=True)
-
-        for e_bin in range(energy_num_bins):
-            d_e_dir = os.path.join(
-                d_dir, ENERGY_BIN_DIR_STR.format(energy_bin=e_bin)
+    with rnw.open(os.path.join(store_dir, "num_bins.json"), "wt") as f:
+        f.write(
+            json_numpy.dumps(
+                {"ene": int(num_ene_bins), "dir": int(num_dir_bins)}
             )
-            os.makedirs(d_e_dir, exist_ok=True)
+        )
 
-            showers_write(
-                path=os.path.join(d_e_dir, "cherenkov.rec"),
-                showers=showers_init(size=0),
+    for dir_bin in range(num_dir_bins):
+        dir_bin_path = os.path.join(
+            store_dir, DIRECTION_BIN_DIR_STR.format(dir_bin=dir_bin)
+        )
+        os.makedirs(dir_bin_path, exist_ok=True)
+
+        for ene_bin in range(num_ene_bins):
+            dir_ene_bin_path = os.path.join(
+                dir_bin_path, ENERGY_BIN_DIR_STR.format(ene_bin=ene_bin)
+            )
+            os.makedirs(dir_ene_bin_path, exist_ok=True)
+
+            showers.write(
+                path=os.path.join(dir_ene_bin_path, "cherenkov.rec"),
+                showers=showers.init(size=0),
             )
             os.makedirs(
-                os.path.join(d_e_dir, "cherenkov_stage"), exist_ok=True
+                os.path.join(dir_ene_bin_path, "cherenkov_stage"), exist_ok=True
             )
 
-            showers_write(
-                path=os.path.join(d_e_dir, "particle.rec"),
-                showers=showers_init(size=0),
+            showers.write(
+                path=os.path.join(dir_ene_bin_path, "particle.rec"),
+                showers=showers.init(size=0),
             )
-            os.makedirs(os.path.join(d_e_dir, "particle_stage"), exist_ok=True)
+            os.makedirs(
+                os.path.join(dir_ene_bin_path, "particle_stage"), exist_ok=True
+            )
 
 
 class Store:
-    def __init__(self, store_dir, energy_num_bins, direction_num_bins):
-        assert energy_num_bins >= 1
-        assert direction_num_bins >= 1
-
+    def __init__(self, store_dir):
         self.store_dir = store_dir
-        self.energy_num_bins = energy_num_bins
-        self.direction_num_bins = direction_num_bins
+        with open(os.path.join(self.store_dir, "num_bins.json"), "rt") as f:
+            num_bins = json_numpy.loads(f.read())
+        self.num_ene_bins = num_bins["ene"]
+        self.num_dir_bins = num_bins["dir"]
+        self.cache = {"cherenkov": {}, "particle": {}}
+
+    def __contains__(self, dir_ene_bin):
+        return self.contains_dir_ene_bin(dir_ene_bin=dir_ene_bin)
+
+    def get_bin(self, dir_ene_bin, key):
+        if not dir_ene_bin in self.cache[key]:
+            self.cache[key][dir_ene_bin] = self.read_bin(
+                dir_ene_bin=dir_ene_bin,
+                key=key,
+            )
+        return self.cache[key][dir_ene_bin]
+
+    def get_cherenkov_bin(self, dir_ene_bin):
+        return self.get_bin(dir_ene_bin=dir_ene_bin, key="cherenkov")
 
     def __repr__(self):
         out = "{:s}(num bins: energy={:d}, direction={:d})".format(
             self.__class__.__name__,
-            self.energy_num_bins,
-            self.direction_num_bins,
+            self.num_ene_bins,
+            self.num_dir_bins,
         )
         return out
 
-    def bin_dir(self, direction_bin, energy_bin):
+    def dir_ene_bin_path(self, dir_ene_bin):
         """
         Returns the path of a direction-energy-bin.
         """
-        self.assert_bin_indices(
-            direction_bin=direction_bin, energy_bin=energy_bin
-        )
+        assert self.contains_dir_ene_bin(dir_ene_bin=dir_ene_bin)
+        dir_bin, ene_bin = dir_ene_bin
         return os.path.join(
             self.store_dir,
-            DIRECTION_BIN_DIR_STR.format(direction_bin=direction_bin),
-            ENERGY_BIN_DIR_STR.format(energy_bin=energy_bin),
+            DIRECTION_BIN_DIR_STR.format(dir_bin=dir_bin),
+            ENERGY_BIN_DIR_STR.format(ene_bin=ene_bin),
         )
 
-    def assert_bin_indices(self, direction_bin, energy_bin):
-        assert 0 <= direction_bin < self.direction_num_bins
-        assert 0 <= energy_bin < self.energy_num_bins
+    def contains_dir_ene_bin(self, dir_ene_bin):
+        dir_bin, ene_bin = dir_ene_bin
+        if dir_bin < 0 or dir_bin >= self.num_dir_bins:
+            return False
+        if ene_bin < 0 or ene_bin >= self.num_ene_bins:
+            return False
+        return True
 
-    def _num_showers_in_file(self, direction_bin, energy_bin, filename):
-        return showers_num_in_file(
+    def _num_showers_in_file(self, dir_ene_bin, filename):
+        return showers.num_records_in_file(
             path=os.path.join(
-                self.bin_dir(
-                    direction_bin=direction_bin,
-                    energy_bin=energy_bin,
-                ),
+                self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin),
                 filename,
             )
         )
 
-    def _population(self, key):
+    def population(self, key):
         pop = np.zeros(
-            shape=(self.direction_num_bins, self.energy_num_bins),
+            shape=(self.num_dir_bins, self.num_ene_bins),
             dtype=np.uint64,
         )
-        for dbin in range(self.direction_num_bins):
-            for ebin in range(self.energy_num_bins):
-                pop[dbin, ebin] = self._num_showers_in_file(
-                    dbin,
-                    ebin,
-                    filename="{key:s}.rec".format(key=key),
+        for dir_bin in self.list_dir_bins():
+            for ene_bin in self.list_ene_bins():
+                pop[dir_bin, ene_bin] = self._num_showers_in_file(
+                    dir_ene_bin=(dir_bin, ene_bin),
+                    filename="{:s}.rec".format(key),
                 )
         return pop
 
     def population_cherenkov(self):
-        return self._population(key="cherenkov")
+        return self.population(key="cherenkov")
 
     def population_particle(self):
-        return self._population(key="particle")
+        return self.population(key="particle")
 
-    def make_empty_stage(self):
+    def make_empty_stage(self, run_id):
         stage = {}
-        stage["uuid"] = str(uuid.uuid4())
-        stage["showers"] = []
-        for dbin in range(self.direction_num_bins):
-            stage["showers"].append([])
-
-        for dbin in range(self.direction_num_bins):
-            for ebin in range(self.energy_num_bins):
-                stage["showers"][dbin].append([])
+        stage["run_id"] = int(run_id)
+        stage["records"] = {}
+        for dir_ene_bin in self.list_dir_ene_bins():
+            stage["records"][dir_ene_bin] = []
         return stage
 
     def add_cherenkov_to_stage(self, cherenkov_stage):
-        self._add_to_stage(stage=cherenkov_stage, key="cherenkov")
+        self.add_to_stage(stage=cherenkov_stage, key="cherenkov")
 
     def add_particle_to_stage(self, particle_stage):
-        self._add_to_stage(stage=particle_stage, key="particle")
+        self.add_to_stage(stage=particle_stage, key="particle")
 
-    def _add_to_stage(self, stage, key):
-        for dbin in range(self.direction_num_bins):
-            for ebin in range(self.energy_num_bins):
-                showers_records = stage["showers"][dbin][ebin]
-                if len(showers_records) > 0:
-                    showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
-                        dtype=showers_dtype()
-                    )
-                    showers_dyn.append_records(showers_records)
-                    showers = showers_dyn.to_recarray()
+    def add_to_stage(self, stage, key):
+        for dir_ene_bin in self.list_dir_ene_bins():
+            staged_records = stage["records"][dir_ene_bin]
+            if len(staged_records) > 0:
+                _dyn = dynamicsizerecarray.DynamicSizeRecarray(
+                    dtype=showers.dtype()
+                )
+                _dyn.append_records(staged_records)
+                staged_showers = _dyn.to_recarray()
 
-                    stage_path = os.path.join(
-                        self.bin_dir(direction_bin=dbin, energy_bin=ebin),
-                        "{:s}_stage".format(key),
-                        "{uuid:s}.rec".format(uuid=stage["uuid"]),
-                    )
-                    showers_write(path=stage_path, showers=showers)
+                stage_path = os.path.join(
+                    self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin),
+                    "{:s}_stage".format(key),
+                    "{:06d}.rec".format(stage["run_id"]),
+                )
+                showers.write(path=stage_path, showers=staged_showers)
 
     def commit_stage(self):
         num = {}
         for key in ["cherenkov", "particle"]:
             num[key] = 0
-            for dbin in range(self.direction_num_bins):
-                for ebin in range(self.energy_num_bins):
-                    num[key] += self._commit_stage_dbin_ebin(
-                        dbin=dbin, ebin=ebin, key=key
-                    )
+            for dir_ene_bin in self.list_dir_ene_bins():
+                num[key] += self.commit_bin_stage(
+                    dir_ene_bin=dir_ene_bin, key=key
+                )
         return num
 
-    def _commit_stage_dbin_ebin(self, dbin, ebin, key):
-        bin_dir = self.bin_dir(direction_bin=dbin, energy_bin=ebin)
-        stage_dir = os.path.join(bin_dir, "{:s}_stage".format(key))
-        showers_path = os.path.join(bin_dir, "{:s}.rec".format(key))
-        stage_paths = glob.glob(os.path.join(stage_dir, "*.rec"))
+    def list_dir_ene_bins(self):
+        dir_ene_bins = []
+        for dir_bin in self.list_dir_bins():
+            for ene_bin in self.list_ene_bins():
+                dir_ene_bins.append((dir_bin, ene_bin))
+        return dir_ene_bins
 
-        showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
-            dtype=showers_dtype()
+    def list_dir_bins(self):
+        return np.arange(0, self.num_dir_bins)
+
+    def list_ene_bins(self):
+        return np.arange(0, self.num_ene_bins)
+
+    def commit_bin_stage(self, dir_ene_bin, key):
+        join = os.path.join
+        dir_ene_bin_dir = self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin)
+        stage_dir = join(dir_ene_bin_dir, "{:s}_stage".format(key))
+        existing_showers_path = join(dir_ene_bin_dir, "{:s}.rec".format(key))
+        staged_showers_paths = glob.glob(join(stage_dir, "*.rec"))
+
+        all_showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
+            dtype=showers.dtype()
         )
 
-        for stage_path in stage_paths:
-            additional_showers = showers_read(path=stage_path)
-            showers_dyn.append_recarray(additional_showers)
-            # os.rename(stage_path, stage_path + ".consumed")
-            os.remove(stage_path)
-        num_showers_in_stage = int(showers_dyn.size)
+        for staged_showers_path in staged_showers_paths:
+            additional_showers = showers.read(path=staged_showers_path)
+            all_showers_dyn.append_recarray(additional_showers)
+            os.remove(staged_showers_path)
 
-        if os.path.exists(showers_path):
-            existing_showers = showers_read(path=showers_path)
-            showers_dyn.append_recarray(existing_showers)
+        num_showers_in_stage = int(all_showers_dyn.size)
 
-        showers = showers_dyn.to_recarray()
-        showers_write(path=showers_path, showers=showers)
+        if os.path.exists(existing_showers_path):
+            existing_showers = showers.read(path=existing_showers_path)
+            all_showers_dyn.append_recarray(existing_showers)
+
+        all_showers = all_showers_dyn.to_recarray()
+        showers.write(path=existing_showers_path, showers=all_showers)
         return num_showers_in_stage
 
-    def read(self, dbin, ebin, key):
-        bin_dir = self.bin_dir(direction_bin=dbin, energy_bin=ebin)
-        showers_path = os.path.join(bin_dir, "{:s}.rec".format(key))
-        return showers_read(path=showers_path)
+    def read_bin(self, dir_ene_bin, key):
+        """
+        Reads the 'key'-showers in 'dir_ene_bin' from the store and returns it.
 
-
-def showers_write(path, showers):
-    assert showers.dtype == showers_dtype()
-    with rnw.open(path, "wb") as f:
-        f.write(showers.tobytes())
-
-
-def showers_read(path):
-    with open(path, "rb") as f:
-        showers = np.fromstring(f.read(), dtype=showers_dtype())
-    return showers
-
-
-def showers_num_in_file(path):
-    stat = os.stat(path)
-    size_in_bytes = stat.st_size
-    return size_in_bytes // shower_record_size_in_bytes()
-
-
-def showers_dtype():
-    return [
-        ("run", "u4"),
-        ("event", "u4"),
-        ("particle_azimuth_deg", "f4"),
-        ("particle_zenith_deg", "f4"),
-        ("particle_energy_GeV", "f4"),
-        ("cherenkov_num_photons", "f4"),
-        ("cherenkov_num_bunches", "f4"),
-        ("cherenkov_x_m", "f4"),
-        ("cherenkov_y_m", "f4"),
-        ("cherenkov_radius50_m", "f4"),
-        ("cherenkov_cx_rad", "f4"),
-        ("cherenkov_cy_rad", "f4"),
-        ("cherenkov_angle50_rad", "f4"),
-        ("cherenkov_t_s", "f4"),
-        ("cherenkov_t_std_s", "f4"),
-    ]
-
-
-def showers_init(size=0):
-    return np.core.records.recarray(
-        shape=size,
-        dtype=showers_dtype(),
-    )
-
-
-def shower_record_size_in_bytes():
-    rr = np.core.records.recarray(
-        shape=1,
-        dtype=showers_dtype(),
-    )
-    return len(rr.tobytes())
+        Parameters
+        ----------
+        dir_ene_bin : tuple(int, int)
+            Direction- and energy-bin index.
+        key : str
+            Either 'cherenkov' or 'particle'.
+        """
+        dir_ene_bin_dir = self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin)
+        showers_path = os.path.join(dir_ene_bin_dir, "{:s}.rec".format(key))
+        return showers.read(path=showers_path)

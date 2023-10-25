@@ -111,42 +111,47 @@ class Binning:
 
         Returns
         -------
-        (dd, ee)
+        [(dbin-0, ebin-0), (dbin-1, ebin-1), ... ]
 
-        dd : np.array
+        dbin : int
             Indices of direction-bins which are within the query's radius.
-        ee : np.array
+        ebin : int
             Indices of energy-bins which are within the query's radius.
         """
-        assert energy_start_GeV > 0
-        assert energy_stop_GeV > 0
-        assert energy_stop_GeV > energy_start_GeV
-        assert half_angle_deg >= 0
-
         cx, cy, cz = spherical_coordinates._az_zd_to_cx_cy_cz(
             azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
         )
-        pointing = np.array([cx, cy, cz])
-        dd = self.direction.query_ball_point(
-            x=pointing, r=np.deg2rad(half_angle_deg)
+        direction_unit_vector = np.array([cx, cy, cz])
+        dbins = self.query_ball_direction(
+            direction_unit_vector=direction_unit_vector,
+            half_angle_deg=half_angle_deg
         )
-        dd = np.array(dd)
+        ebins = self.query_ball_energy(
+            energy_start_GeV=energy_start_GeV, energy_stop_GeV=energy_stop_GeV
+        )
+        debins = []
+        for dbin in dbins:
+            for ebin in ebins:
+                debins.append((dbin, ebin))
+        return debins
 
-        ebin_start = np.digitize(energy_start_GeV, self.energy["edges"]) - 1
-        ebin_stop = np.digitize(energy_stop_GeV, self.energy["edges"]) - 1
+    def query_ball_direction(self, direction_unit_vector, half_angle_deg):
+        assert half_angle_deg >= 0
+        assert 0.95 <= np.linalg.norm(direction_unit_vector) <= 1.05
+        dd = self.direction.query_ball_point(
+            x=direction_unit_vector, r=np.deg2rad(half_angle_deg)
+        )
+        return np.array(dd)
 
-        ee = set()
-
-        if ebin_start >= 0 and ebin_start < self.energy["num"]:
-            ee.add(ebin_start)
-        if ebin_stop >= 0 and ebin_stop < self.energy["num"]:
-            ee.add(ebin_stop)
-
-        ee = np.array(list(ee))
-        if len(ee) == 2:
-            ee = np.arange(min(ee), max(ee) + 1)
-
-        return (dd, ee)
+    def query_ball_energy(self, energy_start_GeV, energy_stop_GeV):
+        assert energy_start_GeV > 0
+        assert energy_stop_GeV > 0
+        assert energy_stop_GeV >= energy_start_GeV
+        ebin_start = np.digitize(x=energy_start_GeV, bins=self.energy["edges"]) - 1
+        ebin_stop = np.digitize(x=energy_stop_GeV, bins=self.energy["edges"]) - 1
+        ee = np.arange(ebin_start, ebin_stop + 1, 1)
+        mask = np.logical_and(ee >= 0, ee < self.energy["num"])
+        return ee[mask]
 
     def _project_direction_bin_centers_in_xy_plane(self):
         direction_bin_centers = self.direction.data.copy()
@@ -176,9 +181,10 @@ class Binning:
     def direction_num_bins(self):
         return len(self.direction.data)
 
-    def is_valid_dbin_ebin(self, dbin, ebin):
-        dvalid = 0 <= dbin < self.config["direction"]["num_bins"]
-        evalid = 0 <= ebin < self.config["energy"]["num_bins"]
+    def is_valid_dir_ene_bin(self, dir_ene_bin):
+        dir_bin, ene_bin = dir_ene_bin
+        dvalid = 0 <= dir_bin < self.config["direction"]["num_bins"]
+        evalid = 0 <= ene_bin < self.config["energy"]["num_bins"]
         return dvalid and evalid
 
     def plot(self, path, fill="blue"):
