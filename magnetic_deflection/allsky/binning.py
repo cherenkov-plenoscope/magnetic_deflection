@@ -17,13 +17,12 @@ class Binning:
         Compiles the Binning from the config-dict read from work_dir/config.
         """
         self.config = copy.deepcopy(config)
-        self.energy = binning_utils.Binning(
-            _init_energy_bin_edges(
-                start_GeV=self.config["energy"]["start_GeV"],
-                stop_GeV=self.config["energy"]["stop_GeV"],
-                num_bins=self.config["energy"]["num_bins"],
-            )
+        _energy_bin_edges = np.geomspace(
+            self.config["energy"]["start_GeV"],
+            self.config["energy"]["stop_GeV"],
+            self.config["energy"]["num_bins"] + 1,
         )
+        self.energy = binning_utils.Binning(bin_edges=_energy_bin_edges)
         self.max_zenith_distance_deg = 90
         centers = binning_utils.sphere.fibonacci_space(
             size=self.config["direction"]["num_bins"],
@@ -166,7 +165,7 @@ class Binning:
         sol = np.zeros(len(faces))
         for i in range(len(faces)):
             face = faces[i]
-            face_solid_angle = solid_angle_of_triangle_on_unitsphere(
+            face_solid_angle = spherical_coordinates.solid_angle_of_triangle_on_unitsphere(
                 v0=vertices[face[0]],
                 v1=vertices[face[1]],
                 v2=vertices[face[2]],
@@ -231,100 +230,3 @@ class Binning:
             self.config["direction"]["num_bins"],
         )
         return out
-
-
-def _init_energy_bin_edges(start_GeV, stop_GeV, num_bins):
-    return np.geomspace(start_GeV, stop_GeV, num_bins + 1)
-
-
-def solid_angle_of_triangle_on_unitsphere_approx(v0, v1, v2):
-    cross = np.cross
-    norm = np.linalg.norm
-    l01 = v1 - v0
-    l21 = v1 - v2
-    return norm(cross(l01, l21)) / 2.0
-
-
-def solid_angle_of_triangle_on_unitsphere(
-    v0,
-    v1,
-    v2,
-    delta_r=1e-6,
-    delta_phi=np.deg2rad(60),
-):
-    """
-    According to girads theorem:
-
-    solid angle = radius ** 2 * excess-angle
-
-    excess-angle = (alpha + beta + gamma - pi)
-
-    alpha: angle between line(v0, v1) and line(v0, v2)
-    beta: angle between line(v1, v0) and line(v1, v2)
-    gamma: angle between line(v2, v0) and line(v2, v1)
-
-    v0, v1, v2 are the vertices of the triangle:
-    """
-    dot = np.dot
-    norm = np.linalg.norm
-    acos = np.arccos
-
-    assert np.abs(norm(v0) - 1) <= delta_r
-    assert np.abs(norm(v1) - 1) <= delta_r
-    assert np.abs(norm(v2) - 1) <= delta_r
-
-    alpha = angle_between(surface_tangent(v0, v1), surface_tangent(v0, v2))
-    beta = angle_between(surface_tangent(v1, v0), surface_tangent(v1, v2))
-    gamma = angle_between(surface_tangent(v2, v0), surface_tangent(v2, v1))
-
-    excess_angle = alpha + beta + gamma - np.pi
-    return excess_angle
-
-
-def angle_between(a, b):
-    dot = np.dot
-    norm = np.linalg.norm
-    acos = np.arccos
-    return acos(dot(a, b) / (norm(a) * norm(b)))
-
-
-def surface_tangent(a, b, delta_r=1e-6):
-    """
-    Returns the direction of the great-circle-arc which goes from point a to
-    b and is located in point a.
-
-    Parameters
-    ----------
-    a : vector dim 3
-        Point 'a' on the unit-sphere.
-    b : vector dim 3
-        Point 'b' on the unit-sphere.
-
-    Returns
-    -------
-    tangent : vector dim 3
-        Direction-vector perpendicular to a and pointing in the
-        great-circle-arc's direction towards b.
-    """
-    norm = np.linalg.norm
-    assert np.abs(norm(a) - 1) <= delta_r
-    assert np.abs(norm(b) - 1) <= delta_r
-
-    ray_support = b
-    ray_direction = a
-    lam = ray_parameter_for_closest_distance_to_point(
-        support_vector=ray_support,
-        direction_vector=ray_direction,
-        point=a,
-    )
-    closest_point = ray_support + lam * ray_direction
-    tangent = closest_point - a
-    assert np.abs(angle_between(tangent, a) - np.pi / 2) < 1e-6
-    return tangent
-
-
-def ray_parameter_for_closest_distance_to_point(
-    support_vector, direction_vector, point
-):
-    d = np.dot(direction_vector, point)
-    return d - np.dot(support_vector, direction_vector)
