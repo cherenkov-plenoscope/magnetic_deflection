@@ -58,13 +58,13 @@ class Binning:
 
         Retruns
         -------
-        (p_angle_deg, e_distance_GeV), (pbin, ebin)
+        (d_angle_deg, e_distance_GeV), (dbin, ebin)
 
-        p_angle_deg : float
+        d_angle_deg : float
             Angle to the closest direction-bin-center.
         e_distance_GeV : float
             Absolute energy-distance to the closest bin-edge in energy.
-        pbin : int
+        dbin : int
             Index of the closest direction-bin.
         ebin : int
             Index of the closest energy-bin.
@@ -73,7 +73,7 @@ class Binning:
             azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
         )
         pointing = np.array([cx, cy, cz])
-        p_angle_rad, pbin = self.direction.query(pointing)
+        p_angle_rad, dbin = self.direction.query(pointing)
         ebin = np.digitize(energy_GeV, self.energy["edges"]) - 1
 
         ee = self.energy["edges"] / energy_GeV
@@ -82,8 +82,8 @@ class Binning:
 
         e_distance_GeV = np.abs(self.energy["edges"][eclose] - energy_GeV)
 
-        p_angle_deg = np.rad2deg(p_angle_rad)
-        return (p_angle_deg, e_distance_GeV), (pbin, ebin)
+        d_angle_deg = np.rad2deg(p_angle_rad)
+        return (d_angle_deg, e_distance_GeV), (dbin, ebin)
 
     def query_ball(
         self,
@@ -112,9 +112,9 @@ class Binning:
 
         Returns
         -------
-        (pp, ee)
+        (dd, ee)
 
-        pp : np.array
+        dd : np.array
             Indices of direction-bins which are within the query's radius.
         ee : np.array
             Indices of energy-bins which are within the query's radius.
@@ -128,10 +128,10 @@ class Binning:
             azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
         )
         pointing = np.array([cx, cy, cz])
-        pp = self.direction.query_ball_point(
+        dd = self.direction.query_ball_point(
             x=pointing, r=np.deg2rad(half_angle_deg)
         )
-        pp = np.array(pp)
+        dd = np.array(dd)
 
         ebin_start = np.digitize(energy_start_GeV, self.energy["edges"]) - 1
         ebin_stop = np.digitize(energy_stop_GeV, self.energy["edges"]) - 1
@@ -147,29 +147,11 @@ class Binning:
         if len(ee) == 2:
             ee = np.arange(min(ee), max(ee) + 1)
 
-        return (pp, ee)
+        return (dd, ee)
 
     def _project_direction_bin_centers_in_xy_plane(self):
         direction_bin_centers = self.direction.data.copy()
         return direction_bin_centers[:, 0:2]
-
-    def direction_voronoi_mesh(self):
-        """
-        Returns a mesh of vertices and faces which represent the
-        voronoi-diagram of the directional binning.
-
-        This is only a projection in x and y of the hemisphere.
-        """
-        points_xy = self._project_direction_bin_centers_in_xy_plane()
-        voro = scipy.spatial.Voronoi(points=points_xy)
-
-        # assign the original directional bin-centers to the regions
-        # found by the voronoi algorithm
-        bin_center_regions = []
-        for point_region in voro.point_region:
-            bin_center_regions.append(voro.regions[point_region])
-
-        return voro.vertices, bin_center_regions
 
     def direction_delaunay_mesh(self):
         direction_bin_centers = self.direction.data.copy()
@@ -194,66 +176,6 @@ class Binning:
 
     def direction_num_bins(self):
         return len(self.direction.data)
-
-    """
-    def direction_bins_solid_angle(self):
-        if not hasattr(self, "_direction_bins_solid_angle"):
-            self._direction_bins_solid_angle = (
-                self.estimate_direction_bins_solid_angle()
-            )
-        return self._direction_bins_solid_angle
-
-    def estimate_direction_bins_solid_angle(
-        self, seed=43, accuracy=1e-2, max_iterations=1000
-    ):
-        prng = np.random.Generator(np.random.PCG64(seed))
-        num_ii = np.zeros(self.direction_num_bins())
-        num_total = 0
-        bunch_size = 1000 * 1000
-
-        valid = np.zeros(self.direction_num_bins(), dtype=np.int64)
-
-        itr = 0
-        while True:
-            itr += 1
-            # make random points on hemisphere (positive z-axis)
-            points = prng.uniform(low=-1, high=1, size=(bunch_size, 3))
-
-            points[:, 2] = np.abs(points[:, 2])
-            norms = np.linalg.norm(points, axis=1)
-            points[:, 0] /= norms
-            points[:, 1] /= norms
-            points[:, 2] /= norms
-
-            dd, ii = self.direction.query(points)
-            for i in ii:
-                num_ii[i] += 1
-
-            num_total += len(points)
-            num_ii_au = np.sqrt(num_ii)
-            valid = num_ii > np.sqrt(num_total)
-
-            num_ii_ru = num_ii_au / num_ii
-            print(
-                "{: 6d}: num. bins valid {: 3d}, ".format(itr, np.sum(valid)),
-                "rel. unc.: min: {: .6e}, med: {: .6e}, max: {: .6e}.".format(
-                    np.min(num_ii_ru[valid]),
-                    np.median(num_ii_ru[valid]),
-                    np.max(num_ii_ru[valid]),
-                ),
-            )
-            if np.max(num_ii_ru[valid]) < accuracy:
-                break
-
-            if itr > max_iterations:
-                raise RuntimeError("Too many iterations")
-
-        hemisphere_solid_angle = 2 * np.pi
-        return (
-            hemisphere_solid_angle * num_ii / num_total,
-            hemisphere_solid_angle * num_ii_ru,
-        )
-    """
 
     def is_valid_dbin_ebin(self, dbin, ebin):
         dvalid = 0 <= dbin < self.config["direction"]["num_bins"]

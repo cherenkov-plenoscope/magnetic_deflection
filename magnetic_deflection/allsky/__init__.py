@@ -226,6 +226,12 @@ def open(work_dir):
 
 class AllSky:
     def __init__(self, work_dir):
+        """
+        Parameters
+        ----------
+        work_dir : str
+            Path to the AllSky's working directory.
+        """
         if not _looks_like_a_valid_all_sky_work_dir(work_dir=work_dir):
             raise FileNotFoundError(
                 "Does not look like an AllSky() work_dir: '{:s}'.".format(
