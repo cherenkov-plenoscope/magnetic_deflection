@@ -13,11 +13,11 @@ import binning_utils
 import corsika_primary
 import svg_cartesian_plot as splt
 import numpy as np
-import pprint
 from . import binning
 from . import store
 from . import production
 from . import dynamicsizerecarray
+from . import viewcone
 from .. import corsika
 from .. import spherical_coordinates
 
@@ -325,7 +325,7 @@ class AllSky:
                     if face[ee] < len(dbin_vertex_values):
                         vals.append(dbin_vertex_values[face[ee]])
                 v[iface] = np.sum(vals) / len(vals)
-                v[iface] /= faces_sol[iface]
+                #v[iface] /= faces_sol[iface]
 
             vmin = 0.0
             vmax = np.max([np.max(v), 1e-6])
