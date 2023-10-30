@@ -64,10 +64,8 @@ def init(
     os.makedirs(work_dir, exist_ok=True)
 
     with rnw.open(os.path.join(work_dir, "version.json"), "wt") as f:
-        f.write(json_utils.dumps(
-            {
-                "magnetic_deflection": __version__
-            }, indent=4)
+        f.write(
+            json_utils.dumps({"magnetic_deflection": __version__}, indent=4)
         )
 
     config_dir = os.path.join(work_dir, "config")
@@ -256,11 +254,13 @@ class AllSky:
         # -------
         self.version = self.version_of_when_work_dir_was_initiated()
         if self.version != __version__:
-            print((
-                "Warning: The AllSky in '{:s}' ".format(self.work_dir),
-                "was initiated with version {:s}, ".format(self.version),
-                "but this is version {:s}.".format(__version__),
-            ))
+            print(
+                (
+                    "Warning: The AllSky in '{:s}' ".format(self.work_dir),
+                    "was initiated with version {:s}, ".format(self.version),
+                    "but this is version {:s}.".format(__version__),
+                )
+            )
 
         # allskys' content
         # ----------------
@@ -356,7 +356,7 @@ class AllSky:
                     if face[ee] < len(dbin_vertex_values):
                         vals.append(dbin_vertex_values[face[ee]])
                 v[iface] = np.sum(vals) / len(vals)
-                #v[iface] /= faces_sol[iface]
+                # v[iface] /= faces_sol[iface]
 
             vmin = 0.0
             vmax = np.max([np.max(v), 1e-6])
@@ -432,7 +432,7 @@ class AllSky:
         cut_off_weight=0.05,
         max_num_showers=10000,
     ):
-        ll, dirw, enew  = self.query_cherenkov_ball_with_weights(
+        ll, dirw, enew = self.query_cherenkov_ball_with_weights(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             energy_GeV=energy_GeV,
@@ -456,10 +456,10 @@ class AllSky:
             vertices_uxyz=fov_ring_verts_uxyz,
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
-            mount="cable_robot_mount"
+            mount="cable_robot_mount",
         )
         par_ring_verts_uxyz = viewcone.make_ring(
-            half_angle_deg=half_angle_deg/5,
+            half_angle_deg=half_angle_deg / 5,
             endpoint=False,
             fn=3,
         )
@@ -468,7 +468,7 @@ class AllSky:
                 vertices_uxyz=par_ring_verts_uxyz,
                 azimuth_deg=ll[i]["particle_azimuth_deg"],
                 zenith_deg=ll[i]["particle_zenith_deg"],
-                mount="altitude_azimuth_mount"
+                mount="altitude_azimuth_mount",
             )
             splt.ax_add_path(
                 ax=ax,
@@ -757,7 +757,10 @@ class AllSky:
             for icer in range(len(directions_uxyz)):
                 cherenkov_direction_uxyz = cherenkov_directions_uxyz[icer]
 
-                cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                (
+                    cer_az_deg,
+                    cer_zd_deg,
+                ) = spherical_coordinates._cx_cy_to_az_zd_deg(
                     cx=cherenkov_direction_uxyz[0],
                     cy=cherenkov_direction_uxyz[1],
                 )
@@ -787,7 +790,7 @@ class AllSky:
 
                 particle_uxyz = mdfl.spherical_coordinates._az_zd_to_cx_cy_cz(
                     azimuth_deg=deflection["particle_azimuth_deg"][0],
-                    zenith_deg=deflection["particle_zenith_deg"][0]
+                    zenith_deg=deflection["particle_zenith_deg"][0],
                 )
                 traces[icer, iene, :] = np.array(particle_uxyz)
         return traces

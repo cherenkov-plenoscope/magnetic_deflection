@@ -42,7 +42,6 @@ def init(
     )
 
 
-
 def make_mesh(half_angle_deg, fn=2):
     """
     Returns a mesh (vertices, faces) with all vertices on the unitsphere.
@@ -90,9 +89,9 @@ def make_ring(half_angle_deg, fn=6, endpoint=True):
     cos = np.cos
     zd = np.deg2rad(half_angle_deg)
 
-    for az in np.linspace(0.0, 2*np.pi, fn, endpoint=endpoint):
-        xx = sin(zd)*cos(az)
-        yy = sin(zd)*sin(az)
+    for az in np.linspace(0.0, 2 * np.pi, fn, endpoint=endpoint):
+        xx = sin(zd) * cos(az)
+        yy = sin(zd) * sin(az)
         zz = cos(zd)
         verts.append([xx, yy, zz])
     return np.array(verts)
