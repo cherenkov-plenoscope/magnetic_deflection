@@ -1,4 +1,5 @@
 import sebastians_matplotlib_addons as sebplt
+import magnetic_deflection as mdfl
 import svg_cartesian_plot as splt
 import numpy as np
 import os

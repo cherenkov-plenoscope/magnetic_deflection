@@ -4,6 +4,7 @@ allsky
 Allsky allows you to populate, store, query the statistics of atmospheric
 showers and their deflection due to earth's magnetic field.
 """
+import builtins
 import os
 import json_utils
 import copy
@@ -20,6 +21,7 @@ from . import dynamicsizerecarray
 from . import viewcone
 from .. import corsika
 from .. import spherical_coordinates
+from ..version import __version__
 
 
 def init(
@@ -60,6 +62,14 @@ def init(
     assert population_target_num_showers >= 1
 
     os.makedirs(work_dir, exist_ok=True)
+
+    with rnw.open(os.path.join(work_dir, "version.json"), "wt") as f:
+        f.write(json_utils.dumps(
+            {
+                "magnetic_deflection": __version__
+            }, indent=4)
+        )
+
     config_dir = os.path.join(work_dir, "config")
     os.makedirs(config_dir, exist_ok=True)
 
@@ -232,6 +242,8 @@ class AllSky:
         work_dir : str
             Path to the AllSky's working directory.
         """
+        # sniff
+        # -----
         if not _looks_like_a_valid_all_sky_work_dir(work_dir=work_dir):
             raise FileNotFoundError(
                 "Does not look like an AllSky() work_dir: '{:s}'.".format(
@@ -239,6 +251,19 @@ class AllSky:
                 )
             )
         self.work_dir = work_dir
+
+        # version
+        # -------
+        self.version = self.version_of_when_work_dir_was_initiated()
+        if self.version != __version__:
+            print((
+                "Warning: The AllSky in '{:s}' ".format(self.work_dir),
+                "was initiated with version {:s}, ".format(self.version),
+                "but this is version {:s}.".format(__version__),
+            ))
+
+        # allskys' content
+        # ----------------
         self.config = read_config(work_dir=work_dir)
         self.binning = binning.Binning(config=self.config["binning"])
         self.store = store.Store(
@@ -247,6 +272,12 @@ class AllSky:
         self.production = production.Production(
             production_dir=os.path.join(self.work_dir, "production")
         )
+
+    def version_of_when_work_dir_was_initiated(self):
+        version_path = os.path.join(self.work_dir, "version.json")
+        with builtins.open(version_path, "rt") as f:
+            vers = json_utils.loads(f.read())
+        return vers["magnetic_deflection"]
 
     def _population_make_jobs(self, num_jobs, num_showers_per_job=1000):
         jobs = []
@@ -385,6 +416,115 @@ class AllSky:
             fill=splt.color.css("black"),
             font_family="math",
             font_size=30,
+        )
+
+        splt.fig_write(fig=fig, path=path)
+
+    def plot_query_cherenkov_ball_with_weights(
+        self,
+        azimuth_deg,
+        zenith_deg,
+        energy_GeV,
+        energy_factor,
+        half_angle_deg,
+        min_num_cherenkov_photons,
+        path,
+        cut_off_weight=0.05,
+        max_num_showers=10000,
+    ):
+        ll, dirw, enew  = self.query_cherenkov_ball_with_weights(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            energy_GeV=energy_GeV,
+            energy_factor=energy_factor,
+            half_angle_deg=half_angle_deg,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
+            cut_off_weight=0.05,
+        )
+
+        fig = splt.Fig(cols=1080, rows=1080)
+        ax = {}
+        ax = splt.hemisphere.Ax(fig=fig)
+        ax["span"] = (0.1, 0.1, 0.8, 0.8)
+
+        fov_ring_verts_uxyz = viewcone.make_ring(
+            half_angle_deg=half_angle_deg,
+            endpoint=False,
+            fn=137,
+        )
+        fov_ring_verts_uxyz = viewcone.rotate(
+            vertices_uxyz=fov_ring_verts_uxyz,
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            mount="cable_robot_mount"
+        )
+        par_ring_verts_uxyz = viewcone.make_ring(
+            half_angle_deg=half_angle_deg/5,
+            endpoint=False,
+            fn=3,
+        )
+        for i in range(min([len(ll), max_num_showers])):
+            rot_par_ring_verts_uxyz = viewcone.rotate(
+                vertices_uxyz=par_ring_verts_uxyz,
+                azimuth_deg=ll[i]["particle_azimuth_deg"],
+                zenith_deg=ll[i]["particle_zenith_deg"],
+                mount="altitude_azimuth_mount"
+            )
+            splt.ax_add_path(
+                ax=ax,
+                xy=rot_par_ring_verts_uxyz[:, 0:2],
+                stroke=None,
+                fill=splt.color.css("red"),
+                fill_opacity=dirw[i] * enew[i],
+            )
+
+        splt.ax_add_path(
+            ax=ax,
+            xy=fov_ring_verts_uxyz[:, 0:2],
+            stroke=splt.color.css("blue"),
+            fill=None,
+        )
+        splt.hemisphere.ax_add_grid(ax=ax)
+
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.2, 1.15],
+            text="primary particle",
+            fill=splt.color.css("red"),
+            font_family="math",
+            font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[-0.6, 1.15],
+            text="median Cherenkov",
+            fill=splt.color.css("blue"),
+            font_family="math",
+            font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.3, 1.0],
+            text="energy: {: 8.3f}GeV".format(energy_GeV),
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=30,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.1, -1.05],
+            text="site: {:s}".format(self.config["site"]["comment"]),
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=15,
+        )
+        splt.ax_add_text(
+            ax=ax,
+            xy=[0.1, -1.1],
+            text="particle: {:s}".format(self.config["particle"]["key"]),
+            fill=splt.color.css("black"),
+            font_family="math",
+            font_size=15,
         )
 
         splt.fig_write(fig=fig, path=path)
@@ -599,43 +739,58 @@ class AllSky:
         out["sample"]["weights_sum"] = sum_weights
         return out
 
-    def deflect(
+    def query_cherenkov_traces(
         self,
-        cherenkov_directions,
-        energy_GeV,
-        energy_factor,
-        half_angle_deg,
+        directions_uxyz,
+        energies_GeV,
+        half_angle_deg=2,
+        energy_factor=0.1,
         min_num_cherenkov_photons=1e3,
     ):
-        cherenkov_directions = np.array(cherenkov_directions)
-        particle_directions = np.zeros(shape=cherenkov_directions.shape)
+        traces = np.nan * np.ones(
+            shape=(len(directions_uxyz), len(energies_GeV), 3)
+        )
 
-        for i in range(len(cherenkov_directions)):
-            vertex_unitxyz = cherenkov_directions[i]
-            (
-                vertex_az_deg,
-                vertex_zd_deg,
-            ) = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=vertex_unitxyz[0],
-                cy=vertex_unitxyz[1],
-            )
+        for iene in range(len(energies_GeV)):
+            energy_GeV = energies_GeV[iene]
 
-            defl = self.query_cherenkov_ball(
-                azimuth_deg=vertex_az_deg,
-                zenith_deg=vertex_zd_deg,
-                energy_GeV=energy_GeV,
-                energy_factor=energy_factor,
-                half_angle_deg=half_angle_deg,
-                min_num_cherenkov_photons=min_num_cherenkov_photons,
-            )
+            for icer in range(len(directions_uxyz)):
+                cherenkov_direction_uxyz = cherenkov_directions_uxyz[icer]
 
-            cx, cy = spherical_coordinates._az_zd_to_cx_cy(
-                out["particle_azimuth_deg"],
-                out["particle_zenith_deg"],
-            )
-            particle_directions[i, 0] = cx
-            particle_directions[i, 1] = cy
-        return particle_directions
+                cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+                    cx=cherenkov_direction_uxyz[0],
+                    cy=cherenkov_direction_uxyz[1],
+                )
+
+                got_it = False
+                num_queries = 0
+                _half_angle_deg = half_angle_deg
+                _energy_factor = energy_factor
+                while not got_it:
+                    num_queries += 1
+                    if num_queries > 15:
+                        raise RuntimeError("Too many iterations.")
+                    try:
+                        # print(_half_angle_deg, _energy_factor)
+                        deflection = self.query_cherenkov_ball(
+                            azimuth_deg=cer_az_deg,
+                            zenith_deg=cer_zd_deg,
+                            energy_GeV=energy_GeV,
+                            energy_factor=_energy_factor,
+                            half_angle_deg=_half_angle_deg,
+                            min_num_cherenkov_photons=min_num_cherenkov_photons,
+                        )
+                        got_it = True
+                    except RuntimeError as err:
+                        _half_angle_deg = _half_angle_deg**1.1
+                        _energy_factor = _energy_factor**0.9
+
+                particle_uxyz = mdfl.spherical_coordinates._az_zd_to_cx_cy_cz(
+                    azimuth_deg=deflection["particle_azimuth_deg"][0],
+                    zenith_deg=deflection["particle_zenith_deg"][0]
+                )
+                traces[icer, iene, :] = np.array(particle_uxyz)
+        return traces
 
     def plot_deflection(
         self,
