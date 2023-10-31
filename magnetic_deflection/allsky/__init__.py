@@ -738,21 +738,6 @@ def _population_run_job(job):
     return True
 
 
-def gauss1d(x, mean, sigma):
-    return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
-
-
-def weighted_avg_and_std(values, weights):
-    """
-    Return the weighted average and standard deviation.
-
-    values, weights -- numpy arrays with the same shape.
-    """
-    average = np.average(values, weights=weights)
-    variance = np.average((values - average) ** 2, weights=weights)
-    return (average, np.sqrt(variance))
-
-
 def _looks_like_a_valid_all_sky_work_dir(work_dir):
     for dirname in ["config", "store", "production"]:
         if not os.path.isdir(os.path.join(work_dir, dirname)):
