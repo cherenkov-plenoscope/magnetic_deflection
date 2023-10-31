@@ -8,16 +8,13 @@ def dtype():
         # identification
         ("run", "u4"),
         ("event", "u4"),
-
         # primary particle
         ("particle_cx_rad", "f4"),
         ("particle_cy_rad", "f4"),
         ("particle_energy_GeV", "f4"),
-
         # size
         ("cherenkov_num_photons", "f4"),
         ("cherenkov_num_bunches", "f4"),
-
         # geometry
         ("cherenkov_x_m", "f4"),
         ("cherenkov_y_m", "f4"),
@@ -27,7 +24,6 @@ def dtype():
         ("cherenkov_cy_rad", "f4"),
         ("cherenkov_half_angle50_rad", "f4"),
         ("cherenkov_half_angle90_rad", "f4"),
-
         # time
         ("cherenkov_t_s", "f4"),
         ("cherenkov_duration50_s", "f4"),

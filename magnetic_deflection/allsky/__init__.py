@@ -477,8 +477,8 @@ class AllSky:
         for i in range(min([len(ll), max_num_showers])):
             (
                 particle_azimuth_deg,
-                particle_zenith_deg
-            )= spherical_coordinates._cx_cy_to_az_zd_deg(
+                particle_zenith_deg,
+            ) = spherical_coordinates._cx_cy_to_az_zd_deg(
                 ll[i]["particle_cx_rad"],
                 ll[i]["particle_cy_rad"],
             )
