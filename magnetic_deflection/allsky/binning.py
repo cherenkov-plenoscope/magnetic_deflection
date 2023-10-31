@@ -212,7 +212,7 @@ class Binning:
             stroke=splt.color.css("blue"),
         )
 
-        vertices, faces = self.direction_voronoi_mesh()
+        vertices, faces = self.direction_delaunay_mesh()
         mesh_look = splt.hemisphere.init_mesh_look(
             num_faces=len(faces),
             fill=splt.color.css("RoyalBlue"),
