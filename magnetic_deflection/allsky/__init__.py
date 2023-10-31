@@ -316,8 +316,8 @@ class AllSky:
         self.production.unlock()
 
     def __repr__(self):
-        out = "{:s}(work_dir='{:s}')".format(
-            self.__class__.__name__, self.work_dir
+        out = "{:s}(work_dir='{:s}', version='{:s}')".format(
+            self.__class__.__name__, self.work_dir, self.version
         )
         return out
 
