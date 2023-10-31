@@ -4,8 +4,8 @@ import glob
 import numpy as np
 import json_numpy
 import rename_after_writing as rnw
-from . import dynamicsizerecarray
-from . import showers
+from .. import dynamicsizerecarray
+from . import page
 
 
 DIRECTION_BIN_DIR_STR = "{dir_bin:06d}"
@@ -38,18 +38,18 @@ def init(store_dir, num_ene_bins, num_dir_bins):
             )
             os.makedirs(dir_ene_bin_path, exist_ok=True)
 
-            showers.write(
+            page.write(
                 path=os.path.join(dir_ene_bin_path, "cherenkov.rec"),
-                showers=showers.init(size=0),
+                page=page.init(size=0),
             )
             os.makedirs(
                 os.path.join(dir_ene_bin_path, "cherenkov_stage"),
                 exist_ok=True,
             )
 
-            showers.write(
+            page.write(
                 path=os.path.join(dir_ene_bin_path, "particle.rec"),
-                showers=showers.init(size=0),
+                page=page.init(size=0),
             )
             os.makedirs(
                 os.path.join(dir_ene_bin_path, "particle_stage"), exist_ok=True
@@ -108,7 +108,7 @@ class Store:
         return True
 
     def _num_showers_in_file(self, dir_ene_bin, filename):
-        return showers.num_records_in_file(
+        return page.num_records_in_file(
             path=os.path.join(
                 self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin),
                 filename,
@@ -153,7 +153,7 @@ class Store:
             staged_records = stage["records"][dir_ene_bin]
             if len(staged_records) > 0:
                 _dyn = dynamicsizerecarray.DynamicSizeRecarray(
-                    dtype=showers.dtype()
+                    dtype=page.dtype()
                 )
                 _dyn.append_records(staged_records)
                 staged_showers = _dyn.to_recarray()
@@ -163,7 +163,7 @@ class Store:
                     "{:s}_stage".format(key),
                     "{:06d}.rec".format(stage["run_id"]),
                 )
-                showers.write(path=stage_path, showers=staged_showers)
+                page.write(path=stage_path, page=staged_showers)
 
     def commit_stage(self):
         num = {}
@@ -196,22 +196,22 @@ class Store:
         staged_showers_paths = glob.glob(join(stage_dir, "*.rec"))
 
         all_showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
-            dtype=showers.dtype()
+            dtype=page.dtype()
         )
 
         for staged_showers_path in staged_showers_paths:
-            additional_showers = showers.read(path=staged_showers_path)
+            additional_showers = page.read(path=staged_showers_path)
             all_showers_dyn.append_recarray(additional_showers)
             os.remove(staged_showers_path)
 
         num_showers_in_stage = int(all_showers_dyn.size)
 
         if os.path.exists(existing_showers_path):
-            existing_showers = showers.read(path=existing_showers_path)
+            existing_showers = page.read(path=existing_showers_path)
             all_showers_dyn.append_recarray(existing_showers)
 
         all_showers = all_showers_dyn.to_recarray()
-        showers.write(path=existing_showers_path, showers=all_showers)
+        page.write(path=existing_showers_path, page=all_showers)
         return num_showers_in_stage
 
     def read_bin(self, dir_ene_bin, key):
@@ -227,4 +227,4 @@ class Store:
         """
         dir_ene_bin_dir = self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin)
         showers_path = os.path.join(dir_ene_bin_dir, "{:s}.rec".format(key))
-        return showers.read(path=showers_path)
+        return page.read(path=showers_path)
