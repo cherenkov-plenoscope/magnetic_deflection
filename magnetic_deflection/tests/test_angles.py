@@ -1,4 +1,3 @@
-import magnetic_deflection as mdfl
 from magnetic_deflection import spherical_coordinates as sphcors
 import numpy as np
 
