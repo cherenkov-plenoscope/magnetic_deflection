@@ -157,10 +157,6 @@ class Binning:
         mask = np.logical_and(ee >= 0, ee < self.energy["num"])
         return ee[mask]
 
-    def _project_direction_bin_centers_in_xy_plane(self):
-        direction_bin_centers = self.direction.data.copy()
-        return direction_bin_centers[:, 0:2]
-
     def direction_delaunay_mesh(self):
         direction_bin_centers = self.direction.data.copy()
         direction_horizon = self.horizon_vertices
