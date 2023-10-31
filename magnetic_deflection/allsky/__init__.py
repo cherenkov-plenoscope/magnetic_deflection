@@ -19,7 +19,6 @@ from . import store
 from . import production
 from . import dynamicsizerecarray
 from . import viewcone
-from .. import corsika
 from .. import spherical_coordinates
 from ..version import __version__
 
