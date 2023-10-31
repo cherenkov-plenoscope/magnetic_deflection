@@ -516,7 +516,7 @@ class AllSky:
             xy=[0.3, 1.0],
             text="energy: {: 8.3f} to {: 8.3}GeV".format(
                 energy_GeV * (1 - energy_factor),
-                energy_GeV * (1 + energy_factor)
+                energy_GeV * (1 + energy_factor),
             ),
             fill=splt.color.css("black"),
             font_family="math",
@@ -608,7 +608,7 @@ class AllSky:
             # ------
             energy_mask = np.logical_and(
                 cer_bin["particle_energy_GeV"] >= energy_start_GeV,
-                cer_bin["particle_energy_GeV"] < energy_stop_GeV
+                cer_bin["particle_energy_GeV"] < energy_stop_GeV,
             )
 
             # photon statistics
