@@ -420,28 +420,37 @@ class AllSky:
 
         splt.fig_write(fig=fig, path=path)
 
-    def plot_query_cherenkov_ball_with_weights(
+    def plot_query_cherenkov_ball(
         self,
         azimuth_deg,
         zenith_deg,
+        half_angle_deg,
         energy_GeV,
         energy_factor,
-        half_angle_deg,
-        min_num_cherenkov_photons,
         path,
-        cut_off_weight=0.05,
+        particle_marker_opacity=0.5,
+        particle_marker_half_angle_deg=1.0,
         max_num_showers=10000,
+        random_shuffle_seed=42,
+        min_num_cherenkov_photons=1e3,
     ):
-        ll, dirw, enew = self.query_cherenkov_ball_with_weights(
+        # query
+        _ll = self.query_cherenkov_ball(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             energy_GeV=energy_GeV,
             energy_factor=energy_factor,
             half_angle_deg=half_angle_deg,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
-            cut_off_weight=0.05,
         )
 
+        # shuffle
+        prng = np.random.Generator(np.random.PCG64(random_shuffle_seed))
+        shuffled_indices = np.arange(len(_ll))
+        prng.shuffle(shuffled_indices)
+        ll = _ll[shuffled_indices]
+
+        # plot
         fig = splt.Fig(cols=1080, rows=1080)
         ax = {}
         ax = splt.hemisphere.Ax(fig=fig)
@@ -449,7 +458,7 @@ class AllSky:
 
         fov_ring_verts_uxyz = viewcone.make_ring(
             half_angle_deg=half_angle_deg,
-            endpoint=False,
+            endpoint=True,
             fn=137,
         )
         fov_ring_verts_uxyz = viewcone.rotate(
@@ -459,10 +468,17 @@ class AllSky:
             mount="cable_robot_mount",
         )
         par_ring_verts_uxyz = viewcone.make_ring(
-            half_angle_deg=half_angle_deg / 5,
+            half_angle_deg=particle_marker_half_angle_deg,
             endpoint=False,
             fn=3,
         )
+
+        cmap = splt.color.Map(
+            "coolwarm",
+            start=np.log10(energy_GeV * (1 - energy_factor)),
+            stop=np.log10(energy_GeV * (1 + energy_factor)),
+        )
+
         for i in range(min([len(ll), max_num_showers])):
             rot_par_ring_verts_uxyz = viewcone.rotate(
                 vertices_uxyz=par_ring_verts_uxyz,
@@ -470,12 +486,13 @@ class AllSky:
                 zenith_deg=ll[i]["particle_zenith_deg"],
                 mount="altitude_azimuth_mount",
             )
+
             splt.ax_add_path(
                 ax=ax,
                 xy=rot_par_ring_verts_uxyz[:, 0:2],
                 stroke=None,
-                fill=splt.color.css("red"),
-                fill_opacity=dirw[i] * enew[i],
+                fill=cmap.eval(np.log10(ll[i]["particle_energy_GeV"])),
+                fill_opacity=particle_marker_opacity,
             )
 
         splt.ax_add_path(
@@ -488,16 +505,8 @@ class AllSky:
 
         splt.ax_add_text(
             ax=ax,
-            xy=[0.2, 1.15],
-            text="primary particle",
-            fill=splt.color.css("red"),
-            font_family="math",
-            font_size=30,
-        )
-        splt.ax_add_text(
-            ax=ax,
             xy=[-0.6, 1.15],
-            text="median Cherenkov",
+            text="Cherenkov field-of-view",
             fill=splt.color.css("blue"),
             font_family="math",
             font_size=30,
@@ -505,7 +514,10 @@ class AllSky:
         splt.ax_add_text(
             ax=ax,
             xy=[0.3, 1.0],
-            text="energy: {: 8.3f}GeV".format(energy_GeV),
+            text="energy: {: 8.3f} to {: 8.3}GeV".format(
+                energy_GeV * (1 - energy_factor),
+                energy_GeV * (1 + energy_factor)
+            ),
             fill=splt.color.css("black"),
             font_family="math",
             font_size=30,
@@ -529,15 +541,14 @@ class AllSky:
 
         splt.fig_write(fig=fig, path=path)
 
-    def query_cherenkov_ball_with_weights(
+    def query_cherenkov_ball(
         self,
         azimuth_deg,
         zenith_deg,
+        half_angle_deg,
         energy_GeV,
         energy_factor,
-        half_angle_deg,
-        min_num_cherenkov_photons,
-        cut_off_weight=0.05,
+        min_num_cherenkov_photons=1e3,
     ):
         """
         Parameters
@@ -546,24 +557,20 @@ class AllSky:
             Median azimuth angle of Cherenkov-photons in shower.
         zenith_deg : float
             Median zenith angle of Cherenkov-photons in shower.
+        half_angle_deg : float > 0
+            Cone's half angle to query showers in based on the median direction
+            of their Cherenkov-photons.
         energy_GeV : float
             Primary particle's energy.
         energy_factor :
             Query only showers with energies which have energies from:
             energy_GeV*(1-energy_factor) to energy_GeV*(1+energy_factor).
-        half_angle_deg : float > 0
-            Cone's half angle to query showers in based on the median direction
-            of their Cherenkov-photons.
         min_num_cherenkov_photons : float
             Only take showers into account with this many photons.
-        cut_off_weight : float
-            Ignore showers with weights below this threshold.
         """
         overhead_half_angle_deg = 4.0 * half_angle_deg
         overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
         overhead_energy_stop_GeV = energy_GeV * (1 + energy_factor) ** 2
-
-        # print("E", overhead_energy_start_GeV, overhead_energy_stop_GeV)
 
         dir_ene_bins = self.binning.query_ball(
             azimuth_deg=azimuth_deg,
@@ -573,343 +580,48 @@ class AllSky:
             energy_stop_GeV=overhead_energy_stop_GeV,
         )
 
+        energy_start_GeV = energy_GeV * (1 - energy_factor)
+        energy_stop_GeV = energy_GeV * (1 + energy_factor)
+
         if len(dir_ene_bins) == 0:
             raise RuntimeError("Not enough population")
 
         colls = []
-        dweights = []
-        eweights = []
         for dir_ene_bin in dir_ene_bins:
             cer_bin = self.store.get_cherenkov_bin(dir_ene_bin=dir_ene_bin)
 
-            # direction weights
-            # -----------------
+            # direction
+            # ---------
             cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
                 cx=cer_bin["cherenkov_cx_rad"],
                 cy=cer_bin["cherenkov_cy_rad"],
             )
-            arc_deg = spherical_coordinates._angle_between_az_zd_deg(
+            offaxis_angle_deg = spherical_coordinates._angle_between_az_zd_deg(
                 az1_deg=azimuth_deg,
                 zd1_deg=zenith_deg,
                 az2_deg=cer_az_deg,
                 zd2_deg=cer_zd_deg,
             )
-            arc_weight = gauss1d(x=arc_deg, mean=0.0, sigma=half_angle_deg)
-            mask_arc_weight_irrelevant = arc_weight <= cut_off_weight
-            arc_weight[mask_arc_weight_irrelevant] = 0.0
+            viewcone_mask = offaxis_angle_deg <= half_angle_deg
 
-            # energy weights
-            # --------------
-            energy_weight = gauss1d(
-                x=cer_bin["particle_energy_GeV"] / energy_GeV,
-                mean=1.0,
-                sigma=energy_factor,
+            # energy
+            # ------
+            energy_mask = np.logical_and(
+                cer_bin["particle_energy_GeV"] >= energy_start_GeV,
+                cer_bin["particle_energy_GeV"] < energy_stop_GeV
             )
-            mask_energy_weight_irrelevant = energy_weight <= cut_off_weight
-            energy_weight[mask_energy_weight_irrelevant] = 0.0
 
-            weight_mask = np.logical_and(arc_weight > 0.0, energy_weight > 0.0)
+            # photon statistics
+            # -----------------
             cherenkov_intensity_mask = (
                 cer_bin["cherenkov_num_photons"] >= min_num_cherenkov_photons
             )
 
-            mask = np.logical_and(weight_mask, cherenkov_intensity_mask)
+            mask = viewcone_mask * energy_mask * cherenkov_intensity_mask
 
             colls.append(cer_bin[mask])
-            dweights.append(arc_weight[mask])
-            eweights.append(energy_weight[mask])
 
-        return np.hstack(colls), np.hstack(dweights), np.hstack(eweights)
-
-    def query_cherenkov_ball(
-        self,
-        azimuth_deg,
-        zenith_deg,
-        energy_GeV,
-        energy_factor,
-        half_angle_deg,
-        min_num_cherenkov_photons=1e3,
-    ):
-        """
-        Returns the direction a primary particle must have in order to see its
-        Cherenkov-light from a certain direction.
-
-        Parameters
-        ----------
-        azimuth_deg : float
-            Chernekov-light's median azimuth-angle.
-        zenith_deg : float
-            Cherenkov-light's median zenith-angle.
-        energy_GeV : float
-            Primary particle's energy.
-        energy_factor : float
-            Showers with energies in the range (1 - energy_factor) to
-            (1 + energy_factor) are taken into account.
-        half_angle_deg : float
-            Showers within this cone are taken into account.
-        """
-        (
-            colls,
-            dir_weights,
-            ene_weights,
-        ) = self.query_cherenkov_ball_with_weights(
-            azimuth_deg=azimuth_deg,
-            zenith_deg=zenith_deg,
-            energy_GeV=energy_GeV,
-            energy_factor=energy_factor,
-            half_angle_deg=half_angle_deg,
-            min_num_cherenkov_photons=min_num_cherenkov_photons,
-        )
-        weights = dir_weights * ene_weights
-        sum_weights = np.sum(weights)
-        weights /= sum_weights
-
-        if len(weights) == 0 or sum_weights == 0:
-            raise RuntimeError("Not enough population.")
-
-        keys = [
-            "cherenkov_x_m",
-            "cherenkov_y_m",
-            "cherenkov_radius50_m",
-            "cherenkov_angle50_rad",
-            "cherenkov_t_s",
-            "cherenkov_t_std_s",
-            "cherenkov_num_photons",
-            "cherenkov_num_bunches",
-        ]
-
-        out = {}
-        for key in keys:
-            out[key] = weighted_avg_and_std(
-                values=colls[key],
-                weights=weights,
-            )
-
-        par_cx_rad, par_cy_rad = spherical_coordinates._az_zd_to_cx_cy(
-            azimuth_deg=colls["particle_azimuth_deg"],
-            zenith_deg=colls["particle_zenith_deg"],
-        )
-        par_cx_rad_avg_std = weighted_avg_and_std(
-            values=par_cx_rad,
-            weights=weights,
-        )
-        par_cy_rad_avg_std = weighted_avg_and_std(
-            values=par_cy_rad,
-            weights=weights,
-        )
-        (
-            par_az_deg_avg,
-            par_zd_deg_avg,
-        ) = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=par_cx_rad_avg_std[0],
-            cy=par_cy_rad_avg_std[0],
-        )
-        delta_deg = np.hypot(
-            np.rad2deg(par_cx_rad_avg_std[1]),
-            np.rad2deg(par_cy_rad_avg_std[1]),
-        )
-
-        out["particle_azimuth_deg"] = (par_az_deg_avg, delta_deg)
-        out["particle_zenith_deg"] = (par_zd_deg_avg, delta_deg)
-
-        # sample center in population
-        # ---------------------------
-        cer_cx_rad, cer_cx_rad_std = weighted_avg_and_std(
-            values=colls["cherenkov_cx_rad"],
-            weights=weights,
-        )
-        cer_cy_rad, cer_cy_rad_std = weighted_avg_and_std(
-            values=colls["cherenkov_cy_rad"],
-            weights=weights,
-        )
-        ene_GeV, ene_GeV_std = weighted_avg_and_std(
-            values=colls["particle_energy_GeV"],
-            weights=weights,
-        )
-        cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=cer_cx_rad,
-            cy=cer_cy_rad,
-        )
-
-        out["sample"] = {}
-        out["sample"]["cherenkov_azimuth_deg"] = cer_az_deg
-        out["sample"]["cherenkov_zenith_deg"] = cer_zd_deg
-        out["sample"]["energy_GeV"] = ene_GeV
-        out["sample"]["weights_num"] = len(weights)
-        out["sample"]["weights_sum"] = sum_weights
-        return out
-
-    def query_cherenkov_traces(
-        self,
-        directions_uxyz,
-        energies_GeV,
-        half_angle_deg=2,
-        energy_factor=0.1,
-        min_num_cherenkov_photons=1e3,
-    ):
-        traces = np.nan * np.ones(
-            shape=(len(directions_uxyz), len(energies_GeV), 3)
-        )
-
-        for iene in range(len(energies_GeV)):
-            energy_GeV = energies_GeV[iene]
-
-            for icer in range(len(directions_uxyz)):
-                cherenkov_direction_uxyz = cherenkov_directions_uxyz[icer]
-
-                (
-                    cer_az_deg,
-                    cer_zd_deg,
-                ) = spherical_coordinates._cx_cy_to_az_zd_deg(
-                    cx=cherenkov_direction_uxyz[0],
-                    cy=cherenkov_direction_uxyz[1],
-                )
-
-                got_it = False
-                num_queries = 0
-                _half_angle_deg = half_angle_deg
-                _energy_factor = energy_factor
-                while not got_it:
-                    num_queries += 1
-                    if num_queries > 15:
-                        raise RuntimeError("Too many iterations.")
-                    try:
-                        # print(_half_angle_deg, _energy_factor)
-                        deflection = self.query_cherenkov_ball(
-                            azimuth_deg=cer_az_deg,
-                            zenith_deg=cer_zd_deg,
-                            energy_GeV=energy_GeV,
-                            energy_factor=_energy_factor,
-                            half_angle_deg=_half_angle_deg,
-                            min_num_cherenkov_photons=min_num_cherenkov_photons,
-                        )
-                        got_it = True
-                    except RuntimeError as err:
-                        _half_angle_deg = _half_angle_deg**1.1
-                        _energy_factor = _energy_factor**0.9
-
-                particle_uxyz = mdfl.spherical_coordinates._az_zd_to_cx_cy_cz(
-                    azimuth_deg=deflection["particle_azimuth_deg"][0],
-                    zenith_deg=deflection["particle_zenith_deg"][0],
-                )
-                traces[icer, iene, :] = np.array(particle_uxyz)
-        return traces
-
-    def plot_deflection(
-        self,
-        path,
-        energy_GeV=5.0,
-        energy_factor=0.1,
-        num_traces=100,
-        min_num_cherenkov_photons=1e3,
-    ):
-        fig = splt.Fig(cols=1080, rows=1080)
-        ax = {}
-        ax = splt.hemisphere.Ax(fig=fig)
-        ax["span"] = (0.1, 0.1, 0.8, 0.8)
-
-        cer_directions = binning_utils.sphere.fibonacci_space(
-            size=num_traces,
-            max_zenith_distance_rad=np.deg2rad(60),
-        )
-        par_directions = []
-        for cer_direction in cer_directions:
-            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=cer_direction[0],
-                cy=cer_direction[1],
-            )
-            got_it = False
-
-            half_angle_deg = 2
-            energy_factor = 0.1
-            while not got_it:
-                try:
-                    # print(half_angle_deg, energy_factor)
-                    par_direction = self.query_cherenkov_ball(
-                        azimuth_deg=cer_az_deg,
-                        zenith_deg=cer_zd_deg,
-                        energy_GeV=energy_GeV,
-                        energy_factor=energy_factor,
-                        half_angle_deg=half_angle_deg,
-                        min_num_cherenkov_photons=min_num_cherenkov_photons,
-                    )
-                    got_it = True
-                except RuntimeError as err:
-                    half_angle_deg = half_angle_deg**1.1
-                    energy_factor = energy_factor**0.9
-
-            # print(par_direction)
-            par_directions.append(par_direction)
-
-        for i in range(len(cer_directions)):
-            par_direction = par_directions[i]
-            if par_direction["sample"]["weights_sum"] * energy_GeV > 100:
-                cer_direction = cer_directions[i][0:2]
-                par_direction = spherical_coordinates._az_zd_to_cx_cy(
-                    azimuth_deg=par_directions[i]["particle_azimuth_deg"][0],
-                    zenith_deg=par_directions[i]["particle_zenith_deg"][0],
-                )
-                cer_direction = np.array(cer_direction)
-                par_direction = np.array(par_direction)
-
-                splt.ax_add_line(
-                    ax=ax,
-                    xy_start=par_direction,
-                    xy_stop=0.5 * (par_direction + cer_direction),
-                    stroke=splt.color.css("red"),
-                )
-
-                splt.ax_add_line(
-                    ax=ax,
-                    xy_start=0.5 * (par_direction + cer_direction),
-                    xy_stop=cer_direction,
-                    stroke=splt.color.css("blue"),
-                )
-
-        splt.hemisphere.ax_add_grid(ax=ax)
-
-        splt.ax_add_text(
-            ax=ax,
-            xy=[0.2, 1.15],
-            text="primary particle",
-            fill=splt.color.css("red"),
-            font_family="math",
-            font_size=30,
-        )
-        splt.ax_add_text(
-            ax=ax,
-            xy=[-0.6, 1.15],
-            text="median Cherenkov",
-            fill=splt.color.css("blue"),
-            font_family="math",
-            font_size=30,
-        )
-        splt.ax_add_text(
-            ax=ax,
-            xy=[0.3, 1.0],
-            text="energy: {: 8.3f}GeV".format(energy_GeV),
-            fill=splt.color.css("black"),
-            font_family="math",
-            font_size=30,
-        )
-        splt.ax_add_text(
-            ax=ax,
-            xy=[0.1, -1.05],
-            text="site: {:s}".format(self.config["site"]["comment"]),
-            fill=splt.color.css("black"),
-            font_family="math",
-            font_size=15,
-        )
-        splt.ax_add_text(
-            ax=ax,
-            xy=[0.1, -1.1],
-            text="particle: {:s}".format(self.config["particle"]["key"]),
-            fill=splt.color.css("black"),
-            font_family="math",
-            font_size=15,
-        )
-
-        splt.fig_write(fig=fig, path=path)
+        return np.hstack(colls)
 
 
 def _population_run_job(job):
