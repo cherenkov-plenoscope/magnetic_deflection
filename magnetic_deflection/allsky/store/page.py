@@ -10,8 +10,8 @@ def dtype():
         ("event", "u4"),
 
         # primary particle
-        ("particle_azimuth_deg", "f4"),
-        ("particle_zenith_deg", "f4"),
+        ("particle_cx_rad", "f4"),
+        ("particle_cy_rad", "f4"),
         ("particle_energy_GeV", "f4"),
 
         # size

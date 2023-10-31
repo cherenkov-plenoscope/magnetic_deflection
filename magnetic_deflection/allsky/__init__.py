@@ -20,6 +20,7 @@ from . import production
 from . import store
 from . import viewcone
 from .. import spherical_coordinates
+from .. import cherenkov_pool
 from ..version import __version__
 
 
@@ -77,11 +78,6 @@ def init(
     particle = atmospheric_cherenkov_response.particles.init(particle_key)
     with rnw.open(os.path.join(config_dir, "particle.json"), "wt") as f:
         f.write(json_utils.dumps(particle, indent=4))
-
-    with rnw.open(
-        os.path.join(config_dir, "cherenkov_pool_statistics.json"), "wt"
-    ) as f:
-        f.write(json_utils.dumps({"min_num_cherenkov_photons": 1}, indent=4))
 
     with rnw.open(
         os.path.join(config_dir, "population_target.json"), "wt"
@@ -278,7 +274,7 @@ class AllSky:
             vers = json_utils.loads(f.read())
         return vers["magnetic_deflection"]
 
-    def _population_make_jobs(self, num_jobs, num_showers_per_job=1000):
+    def _populate_make_jobs(self, num_jobs, num_showers_per_job=1000):
         jobs = []
         for j in range(num_jobs):
             job = {}
@@ -300,7 +296,7 @@ class AllSky:
         self.production.lock()
 
         for ichunk in range(num_chunks):
-            jobs = self._population_make_jobs(
+            jobs = self._populate_make_jobs(
                 num_jobs=num_jobs,
                 num_showers_per_job=num_showers_per_job,
             )
@@ -479,10 +475,18 @@ class AllSky:
         )
 
         for i in range(min([len(ll), max_num_showers])):
+            (
+                particle_azimuth_deg,
+                particle_zenith_deg
+            )= spherical_coordinates._cx_cy_to_az_zd_deg(
+                ll[i]["particle_cx_rad"],
+                ll[i]["particle_cy_rad"],
+            )
+
             rot_par_ring_verts_uxyz = viewcone.rotate(
                 vertices_uxyz=par_ring_verts_uxyz,
-                azimuth_deg=ll[i]["particle_azimuth_deg"],
-                zenith_deg=ll[i]["particle_zenith_deg"],
+                azimuth_deg=particle_azimuth_deg,
+                zenith_deg=particle_zenith_deg,
                 mount="altitude_azimuth_mount",
             )
 
@@ -571,9 +575,14 @@ class AllSky:
         overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
         overhead_energy_stop_GeV = energy_GeV * (1 + energy_factor) ** 2
 
-        dir_ene_bins = self.binning.query_ball(
+        cx, cy = spherical_coordinates._az_zd_to_cx_cy(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
+        )
+
+        dir_ene_bins = self.binning.query_ball(
+            cx=cx,
+            cy=cy,
             half_angle_deg=overhead_half_angle_deg,
             energy_start_GeV=overhead_energy_start_GeV,
             energy_stop_GeV=overhead_energy_stop_GeV,
@@ -626,7 +635,7 @@ class AllSky:
 def _population_run_job(job):
     allsky = AllSky(work_dir=job["work_dir"])
 
-    corsika_steering_dict = production.make_steering(
+    corsika_steering_dict = cherenkov_pool.production.make_steering(
         run_id=job["run_id"],
         site=allsky.config["site"],
         particle_id=allsky.config["particle"]["corsika_particle_id"],
@@ -641,12 +650,9 @@ def _population_run_job(job):
         num_showers=job["num_showers_per_job"],
     )
 
-    showers = production.estimate_cherenkov_pool(
+    showers = cherenkov_pool.production.estimate_cherenkov_pool(
         corsika_primary_path=allsky.config["corsika_primary"]["path"],
         corsika_steering_dict=corsika_steering_dict,
-        min_num_cherenkov_photons=allsky.config["cherenkov_pool_statistics"][
-            "min_num_cherenkov_photons"
-        ],
     )
     assert len(showers) == len(corsika_steering_dict["primaries"])
 
@@ -655,34 +661,19 @@ def _population_run_job(job):
     cherenkov_stage = allsky.store.make_empty_stage(run_id=job["run_id"])
     particle_stage = allsky.store.make_empty_stage(run_id=job["run_id"])
 
-    num_not_enough_light = 0
-
     for shower in showers:
-        if (
-            shower["cherenkov_num_photons"]
-            >= allsky.config["cherenkov_pool_statistics"][
-                "min_num_cherenkov_photons"
-            ]
-        ):
+        if shower_has_cherenkov_light(shower):
             # cherenkov
             # ---------
-            (
-                cer_az_deg,
-                cer_zd_deg,
-            ) = spherical_coordinates._cx_cy_to_az_zd_deg(
-                cx=shower["cherenkov_cx_rad"],
-                cy=shower["cherenkov_cy_rad"],
-            )
-
             (
                 (delta_phi_deg, delta_energy),
                 dir_ene_bin,
             ) = allsky.binning.query(
-                azimuth_deg=cer_az_deg,
-                zenith_deg=cer_zd_deg,
+                cx=shower["cherenkov_cx_rad"],
+                cy=shower["cherenkov_cy_rad"],
                 energy_GeV=shower["particle_energy_GeV"],
             )
-            # print("cer", shower["run"], shower["event"], dir_ene_bin)
+
             valid_bin = allsky.binning.is_valid_dir_ene_bin(
                 dir_ene_bin=dir_ene_bin
             )
@@ -699,8 +690,6 @@ def _population_run_job(job):
                 cherenkov_stage["records"][dir_ene_bin].append(
                     copy.deepcopy(shower)
                 )
-        else:
-            num_not_enough_light += 1
 
         # prticle
         # -------
@@ -708,11 +697,11 @@ def _population_run_job(job):
             (delta_phi_deg, delta_energy),
             dir_ene_bin,
         ) = allsky.binning.query(
-            azimuth_deg=shower["particle_azimuth_deg"],
-            zenith_deg=shower["particle_zenith_deg"],
+            cx=shower["particle_cx_rad"],
+            cy=shower["particle_cy_rad"],
             energy_GeV=shower["particle_energy_GeV"],
         )
-        # print("par", shower["run"], shower["event"], dir_ene_bin)
+
         valid_bin = allsky.binning.is_valid_dir_ene_bin(
             dir_ene_bin=dir_ene_bin
         )
@@ -736,6 +725,10 @@ def _population_run_job(job):
     allsky.store.add_particle_to_stage(particle_stage=particle_stage)
 
     return True
+
+
+def shower_has_cherenkov_light(shower):
+    return not np.isnan(shower["cherenkov_cx_rad"])
 
 
 def _looks_like_a_valid_all_sky_work_dir(work_dir):

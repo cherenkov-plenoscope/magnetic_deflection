@@ -1,7 +1,25 @@
 import corsika_primary as cpw
+import os
 import numpy as np
 import tempfile
-from . import cherenkov_pool_analysis
+import atmospheric_cherenkov_response as acr
+from . import analysis
+from .. import spherical_coordinates
+
+
+def make_example_steering():
+    return make_steering(
+        run_id=1337,
+        site=acr.sites.init("lapalma"),
+        particle_id=3.0,
+        particle_energy_start_GeV=1.0,
+        particle_energy_stop_GeV=5.0,
+        particle_energy_power_slope=-2,
+        particle_cone_azimuth_deg=0.0,
+        particle_cone_zenith_deg=0.0,
+        particle_cone_opening_angle_deg=70.0,
+        num_showers=1000,
+    )
 
 
 def make_steering(
@@ -69,13 +87,8 @@ def make_steering(
     return steering
 
 
-def estimate_cherenkov_pool(
-    corsika_primary_path,
-    corsika_steering_dict,
-    min_num_cherenkov_photons,
-):
+def estimate_cherenkov_pool(corsika_primary_path, corsika_steering_dict):
     pools = []
-
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
         with cpw.CorsikaPrimary(
             corsika_path=corsika_primary_path,
@@ -95,18 +108,14 @@ def estimate_cherenkov_pool(
                 pool = {}
                 pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
                 pool["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
-                pool["particle_azimuth_deg"] = np.rad2deg(
-                    evth[cpw.I.EVTH.AZIMUTH_RAD]
-                )
-                pool["particle_zenith_deg"] = np.rad2deg(
-                    evth[cpw.I.EVTH.ZENITH_RAD]
-                )
+
+                par_uxyz = particle_direction_uxyz(evth=evth)
+                pool["particle_cx_rad"] = par_uxyz[0]
+                pool["particle_cy_rad"] = par_uxyz[1]
                 pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
                 pool["cherenkov_num_photons"] = np.sum(light_field["size"])
                 pool["cherenkov_num_bunches"] = light_field["x"].shape[0]
-                pool.update(
-                    cherenkov_pool_analysis.init(light_field=light_field)
-                )
+                pool.update(analysis.init(light_field=light_field))
                 pools.append(pool)
 
         return pools
@@ -123,3 +132,29 @@ def init_light_field_from_corsika_bunches(corsika_bunches):
     lf["size"] = cb[:, cpw.I.BUNCH.BUNCH_SIZE_1]
     lf["wavelength"] = cb[:, cpw.I.BUNCH.WAVELENGTH_NM] * 1e-9  # nm to m
     return lf
+
+
+def particle_direction_uxyz(evth):
+    momentum = np.zeros(3, dtype=np.float64)
+    momentum[0] = evth[cpw.I.EVTH.PX_MOMENTUM_GEV_PER_C]
+    momentum[1] = evth[cpw.I.EVTH.PY_MOMENTUM_GEV_PER_C]
+    momentum[2] = evth[cpw.I.EVTH.PZ_MOMENTUM_GEV_PER_C]
+    particle_direction_from_momentum = momentum / np.linalg.norm(momentum)
+
+    particle_azimuth_deg = np.rad2deg(evth[cpw.I.EVTH.AZIMUTH_RAD])
+    particle_zenith_deg = np.rad2deg(evth[cpw.I.EVTH.ZENITH_RAD])
+
+    particle_direction_from_alt_az = np.array(spherical_coordinates._az_zd_to_cx_cy_cz(
+        azimuth_deg=particle_azimuth_deg,
+        zenith_deg=particle_zenith_deg
+    ))
+
+    particle_direction_delta_vector = (
+        particle_direction_from_momentum -
+        particle_direction_from_alt_az
+    )
+    particle_direction_delta_rad = np.linalg.norm(particle_direction_delta_vector)
+    particle_direction_delta_deg = np.rad2deg(particle_direction_delta_rad)
+    assert particle_direction_delta_deg < 1e-2
+
+    return particle_direction_from_momentum

@@ -77,6 +77,10 @@ def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
     return delta_sigma
 
 
+def restore_cz(cx, cy):
+    return np.sqrt(1.0 - cx ** 2 - cy ** 2)
+
+
 def area_of_triangle(v0, v1, v2):
     """
     Returns the area of a triangle with vertices v0, v1, and v2.

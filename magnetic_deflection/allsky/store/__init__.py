@@ -4,7 +4,7 @@ import glob
 import numpy as np
 import json_numpy
 import rename_after_writing as rnw
-from .. import dynamicsizerecarray
+from ... import dynamicsizerecarray
 from . import page
 
 

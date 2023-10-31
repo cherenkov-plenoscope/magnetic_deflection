@@ -41,17 +41,17 @@ class Binning:
             self.horizon_vertices.append([np.cos(az_deg), np.sin(az_deg), 0.0])
         self.horizon_vertices = np.array(self.horizon_vertices)
 
-    def query(self, azimuth_deg, zenith_deg, energy_GeV):
+    def query(self, cx, cy, energy_GeV):
         """
         Finds the closest bin for a given direction and energy.
-        The direction is given in (azimuth_deg, zenith_deg).
+        The direction is given in (cx, cy).
 
         Parameters
         ----------
-        azimuth_deg : float
-            Azimuth angle to find the closest match for in DEG.
-        zenith_deg : float
-            Zenith angle to find the closest match for in DEG.
+        cx : float
+            x-component of direction to find the closest match for.
+        cy : float
+            y-component of direction to find the closest match for.
         energy_GeV : float
             Energy to find the closest match for in GeV.
 
@@ -68,10 +68,10 @@ class Binning:
         ebin : int
             Index of the closest energy-bin.
         """
-        cx, cy, cz = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
-        )
+        cz = spherical_coordinates.restore_cz(cx=cx, cy=cy)
+        assert 0.0 <= cz <= 1.0
         pointing = np.array([cx, cy, cz])
+
         p_angle_rad, dbin = self.direction.query(pointing)
         ebin = np.digitize(energy_GeV, self.energy["edges"]) - 1
 
@@ -86,8 +86,8 @@ class Binning:
 
     def query_ball(
         self,
-        azimuth_deg,
-        zenith_deg,
+        cx,
+        cy,
         half_angle_deg,
         energy_start_GeV,
         energy_stop_GeV,
@@ -97,10 +97,10 @@ class Binning:
 
         Parameters
         ----------
-        azimuth_deg : float
-            Direction's azimuth in DEG.
-        zenith_deg : float
-            Direction's zenith in DEG.
+        cx : float
+            x-component of direction.
+        cy : float
+            y-component of direction.
         half_angle_deg : float
             Cone's half angle (on the sky-dome) which encircles the direction.
             All direction-bins within this cone will be returned.
@@ -118,10 +118,10 @@ class Binning:
         ebin : int
             Indices of energy-bins which are within the query's radius.
         """
-        cx, cy, cz = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
-        )
+        cz = spherical_coordinates.restore_cz(cx=cx, cy=cy)
+        assert 0.0 <= cz <= 1.0
         direction_unit_vector = np.array([cx, cy, cz])
+
         dbins = self.query_ball_direction(
             direction_unit_vector=direction_unit_vector,
             half_angle_deg=half_angle_deg,
