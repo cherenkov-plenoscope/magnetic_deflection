@@ -144,16 +144,18 @@ def particle_direction_uxyz(evth):
     particle_azimuth_deg = np.rad2deg(evth[cpw.I.EVTH.AZIMUTH_RAD])
     particle_zenith_deg = np.rad2deg(evth[cpw.I.EVTH.ZENITH_RAD])
 
-    particle_direction_from_alt_az = np.array(spherical_coordinates._az_zd_to_cx_cy_cz(
-        azimuth_deg=particle_azimuth_deg,
-        zenith_deg=particle_zenith_deg
-    ))
+    particle_direction_from_alt_az = np.array(
+        spherical_coordinates._az_zd_to_cx_cy_cz(
+            azimuth_deg=particle_azimuth_deg, zenith_deg=particle_zenith_deg
+        )
+    )
 
     particle_direction_delta_vector = (
-        particle_direction_from_momentum -
-        particle_direction_from_alt_az
+        particle_direction_from_momentum - particle_direction_from_alt_az
     )
-    particle_direction_delta_rad = np.linalg.norm(particle_direction_delta_vector)
+    particle_direction_delta_rad = np.linalg.norm(
+        particle_direction_delta_vector
+    )
     particle_direction_delta_deg = np.rad2deg(particle_direction_delta_rad)
     assert particle_direction_delta_deg < 1e-2
 

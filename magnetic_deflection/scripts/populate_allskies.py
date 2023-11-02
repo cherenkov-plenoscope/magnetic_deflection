@@ -17,7 +17,6 @@ for sk in acr.sites.keys():
         sk_pk_dir = os.path.join(sk_dir, pk)
 
         if not os.path.exists(sk_pk_dir):
-
             particle = acr.particles.init(pk)
 
             energy_start_GeV = acr.particles.compile_energy(
@@ -42,7 +41,7 @@ for sk in acr.sites.keys():
                     "corsika-75600",
                     "run",
                     "corsika75600Linux_QGSII_urqmd",
-                )
+                ),
             )
 
 

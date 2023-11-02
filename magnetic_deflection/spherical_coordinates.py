@@ -78,7 +78,7 @@ def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
 
 
 def restore_cz(cx, cy):
-    return np.sqrt(1.0 - cx ** 2 - cy ** 2)
+    return np.sqrt(1.0 - cx**2 - cy**2)
 
 
 def area_of_triangle(v0, v1, v2):
