@@ -31,12 +31,9 @@ def init(
     energy_start_GeV=0.25,
     energy_stop_GeV=64,
     energy_num_bins=8,
-    direction_cherenkov_max_zenith_distance_deg=70,
     direction_particle_max_zenith_distance_deg=70,
     direction_num_bins=256,
-    population_target_direction_cone_half_angle_deg=3.0,
-    population_target_energy_geomspace_factor=1.5,
-    population_target_num_showers=10,
+    corsika_primary_path=None,
 ):
     """
     Init a new allsky
@@ -50,16 +47,12 @@ def init(
     assert energy_stop_GeV > 0.0
     assert energy_stop_GeV > energy_start_GeV
     assert energy_num_bins >= 1
-    assert direction_cherenkov_max_zenith_distance_deg >= 0.0
     assert direction_particle_max_zenith_distance_deg >= 0.0
     assert (
         direction_particle_max_zenith_distance_deg
         <= corsika_primary.MAX_ZENITH_DEG
     )
     assert direction_num_bins >= 1
-    assert population_target_direction_cone_half_angle_deg >= 0.0
-    assert population_target_energy_geomspace_factor >= 0.0
-    assert population_target_num_showers >= 1
 
     os.makedirs(work_dir, exist_ok=True)
 
@@ -78,20 +71,6 @@ def init(
     particle = atmospheric_cherenkov_response.particles.init(particle_key)
     with rnw.open(os.path.join(config_dir, "particle.json"), "wt") as f:
         f.write(json_utils.dumps(particle, indent=4))
-
-    with rnw.open(
-        os.path.join(config_dir, "population_target.json"), "wt"
-    ) as f:
-        f.write(
-            json_utils.dumps(
-                {
-                    "direction_cone_half_angle_deg": population_target_direction_cone_half_angle_deg,
-                    "energy_geomspace_factor": population_target_energy_geomspace_factor,
-                    "num_showers": population_target_num_showers,
-                },
-                indent=4,
-            )
-        )
 
     binning_dir = os.path.join(config_dir, "binning")
     os.makedirs(binning_dir, exist_ok=True)
@@ -112,7 +91,6 @@ def init(
         f.write(
             json_utils.dumps(
                 {
-                    "cherenkov_max_zenith_distance_deg": direction_cherenkov_max_zenith_distance_deg,
                     "particle_max_zenith_distance_deg": direction_particle_max_zenith_distance_deg,
                     "num_bins": direction_num_bins,
                 },
@@ -120,26 +98,17 @@ def init(
             )
         )
 
-    with rnw.open(os.path.join(config_dir, "corsika_primary.json"), "wt") as f:
-        f.write(
-            json_utils.dumps(
-                {
-                    "path": os.path.join(
-                        "/",
-                        "home",
-                        "relleums",
-                        "Desktop",
-                        "starter_kit",
-                        "build",
-                        "corsika",
-                        "modified",
-                        "corsika-75600",
-                        "run",
-                        "corsika75600Linux_QGSII_urqmd",
-                    ),
-                },
-            )
+    if corsika_primary_path is None:
+        corsika_primary_path = os.path.join(
+            "build",
+            "corsika",
+            "modified",
+            "corsika-75600",
+            "run",
+            "corsika75600Linux_QGSII_urqmd",
         )
+    with rnw.open(os.path.join(config_dir, "corsika_primary.json"), "wt") as f:
+        f.write(json_utils.dumps({"path": corsika_primary_path}))
 
     config = read_config(work_dir=work_dir)
     assert_config_valid(config=config)
@@ -163,7 +132,6 @@ def read_config(work_dir):
 
 def assert_config_valid(config):
     b = config["binning"]
-    assert b["direction"]["cherenkov_max_zenith_distance_deg"] > 0.0
     assert b["direction"]["particle_max_zenith_distance_deg"] > 0.0
 
     assert b["energy"]["start_GeV"] > 0.0
@@ -178,7 +146,6 @@ def rebin(
     energy_start_GeV=0.25,
     energy_stop_GeV=64,
     energy_num_bins=8,
-    direction_cherenkov_max_zenith_distance_deg=60,
     direction_particle_max_zenith_distance_deg=75,
     direction_num_bins=256,
 ):
@@ -192,10 +159,6 @@ def rebin(
     assert energy_stop_GeV >= old["binning"]["energy"]["stop_GeV"]
 
     assert (
-        direction_cherenkov_max_zenith_distance_deg
-        >= old["binning"]["direction"]["cherenkov_max_zenith_distance_deg"]
-    )
-    assert (
         direction_particle_max_zenith_distance_deg
         >= old["binning"]["direction"]["particle_max_zenith_distance_deg"]
     )
@@ -207,7 +170,6 @@ def rebin(
         energy_start_GeV=energy_start_GeV,
         energy_stop_GeV=energy_stop_GeV,
         energy_num_bins=energy_num_bins,
-        direction_cherenkov_max_zenith_distance_deg=direction_cherenkov_max_zenith_distance_deg,
         direction_particle_max_zenith_distance_deg=direction_particle_max_zenith_distance_deg,
         direction_num_bins=direction_num_bins,
     )
@@ -332,9 +294,6 @@ class AllSky:
         max_par_zd_deg = self.config["binning"]["direction"][
             "particle_max_zenith_distance_deg"
         ]
-        max_cer_zd_deg = self.config["binning"]["direction"][
-            "cherenkov_max_zenith_distance_deg"
-        ]
 
         vertices, faces = self.binning.direction_delaunay_mesh()
         faces_sol = self.binning.direction_delaunay_mesh_solid_angles()
@@ -387,13 +346,6 @@ class AllSky:
             radius=np.sin(np.deg2rad(max_par_zd_deg)),
             stroke=splt.color.css("red"),
         )
-        splt.shapes.ax_add_circle(
-            ax=ax["cherenkov"],
-            xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_cer_zd_deg)),
-            stroke=splt.color.css("blue"),
-        )
-
         splt.hemisphere.ax_add_grid(ax=ax["particle"])
         splt.hemisphere.ax_add_grid(ax=ax["cherenkov"])
         splt.ax_add_text(
