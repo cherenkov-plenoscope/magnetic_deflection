@@ -228,3 +228,43 @@ class Store:
         dir_ene_bin_dir = self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin)
         showers_path = os.path.join(dir_ene_bin_dir, "{:s}.rec".format(key))
         return page.read(path=showers_path)
+
+    def export_csv(self, path):
+        """
+        Dumps all thrown showers into a comma seperated value file in 'path'.
+
+        path : str
+            Path of the written file.
+        """
+        key = "particle"  # All thrown showers.
+
+        page_dtype = page.dtype()
+
+        with rnw.open(path, "wt") as f:
+            for i in range(len(page_dtype)):
+                column_name = page_dtype[i][0]
+                f.write(column_name)
+                if (i + 1) < len(page_dtype):
+                    f.write(",")
+            f.write("\n")
+
+            dir_ene_bins = self.list_dir_ene_bins()
+
+            for j, dir_ene_bin in enumerate(dir_ene_bins):
+                print(dir_ene_bin, (j + 1), "of", len(dir_ene_bins))
+
+                showers = self.read_bin(dir_ene_bin=dir_ene_bin, key=key)
+
+                for ee in range(len(showers)):
+                    for ii in range(len(page_dtype)):
+                        column_name = page_dtype[ii][0]
+                        column_dtype = page_dtype[ii][1]
+                        val = showers[column_name][ee]
+
+                        if "u" in column_dtype or "i" in column_dtype:
+                            f.write("{:d}".format(val))
+                        else:
+                            f.write("{:e}".format(val))
+                        if (ii + 1) < len(page_dtype):
+                            f.write(",")
+                    f.write("\n")
