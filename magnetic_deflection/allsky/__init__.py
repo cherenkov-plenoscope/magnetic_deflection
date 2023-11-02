@@ -262,14 +262,8 @@ class AllSky:
                 num_jobs=num_jobs,
                 num_showers_per_job=num_showers_per_job,
             )
-            last_jobs_run_id = jobs[-1]["run_id"]
             results = pool.map(_population_run_job, jobs)
             self.store.commit_stage()
-            self.plot_population(
-                path=os.path.join(
-                    self.work_dir, "run{:06d}.svg".format(last_jobs_run_id)
-                )
-            )
 
         self.production.unlock()
 
