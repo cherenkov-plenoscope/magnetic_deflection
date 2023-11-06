@@ -55,29 +55,44 @@ def init(store_dir, num_ene_bins, num_dir_bins):
                 os.path.join(dir_ene_bin_path, "particle_stage"), exist_ok=True
             )
 
+def minimal_cache_dtype():
+    """
+    The minimal subset of page.dtype().
+    """
+    return [
+        ("particle_cx_rad", "f4"),
+        ("particle_cy_rad", "f4"),
+        ("particle_energy_GeV", "f4"),
+        ("cherenkov_num_photons", "f4"),
+        ("cherenkov_cx_rad", "f4"),
+        ("cherenkov_cy_rad", "f4"),
+    ]
+
 
 class Store:
-    def __init__(self, store_dir):
+    def __init__(self, store_dir, cache_dtype=minimal_cache_dtype()):
         self.store_dir = store_dir
         with open(os.path.join(self.store_dir, "num_bins.json"), "rt") as f:
             num_bins = json_numpy.loads(f.read())
         self.num_ene_bins = num_bins["ene"]
         self.num_dir_bins = num_bins["dir"]
-        self.cache = {"cherenkov": {}, "particle": {}}
+        self.cache = {}
+        self.cache_dtype = cache_dtype
 
     def __contains__(self, dir_ene_bin):
         return self.contains_dir_ene_bin(dir_ene_bin=dir_ene_bin)
 
-    def get_bin(self, dir_ene_bin, key):
-        if not dir_ene_bin in self.cache[key]:
-            self.cache[key][dir_ene_bin] = self.read_bin(
+    def __getitem__(self, dir_ene_bin):
+        if not dir_ene_bin in self.cache:
+            bin_content_rec = self.read_bin(
                 dir_ene_bin=dir_ene_bin,
-                key=key,
+                key="cherenkov",
             )
-        return self.cache[key][dir_ene_bin]
-
-    def get_cherenkov_bin(self, dir_ene_bin):
-        return self.get_bin(dir_ene_bin=dir_ene_bin, key="cherenkov")
+            self.cache[dir_ene_bin] = recarray_keep_only(
+                rec=bin_content_rec,
+                dtype=self.cache_dtype,
+            )
+        return self.cache[dir_ene_bin]
 
     def __repr__(self):
         out = "{:s}(num bins: energy={:d}, direction={:d})".format(
@@ -268,3 +283,14 @@ class Store:
                         if (ii + 1) < len(page_dtype):
                             f.write(",")
                     f.write("\n")
+
+
+def recarray_keep_only(rec, dtype):
+    out = np.core.records.recarray(
+        shape=len(rec),
+        dtype=dtype,
+    )
+    for dt in dtype:
+        name = dt[0]
+        out[name] = rec[name]
+    return out

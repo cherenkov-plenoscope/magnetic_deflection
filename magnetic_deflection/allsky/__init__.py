@@ -542,7 +542,7 @@ class AllSky:
 
         colls = []
         for dir_ene_bin in dir_ene_bins:
-            cer_bin = self.store.get_cherenkov_bin(dir_ene_bin=dir_ene_bin)
+            cer_bin = self.store[dir_ene_bin]
 
             # direction
             # ---------
