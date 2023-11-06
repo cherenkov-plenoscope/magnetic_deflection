@@ -1,4 +1,4 @@
-from magnetic_deflection.allsky import dynamicsizerecarray
+from magnetic_deflection import dynamicsizerecarray
 import pytest
 import numpy as np
 
