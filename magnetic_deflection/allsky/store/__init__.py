@@ -4,7 +4,7 @@ import glob
 import numpy as np
 import json_numpy
 import rename_after_writing as rnw
-from ... import dynamicsizerecarray
+import dynamicsizerecarray
 from . import page
 
 
@@ -54,6 +54,7 @@ def init(store_dir, num_ene_bins, num_dir_bins):
             os.makedirs(
                 os.path.join(dir_ene_bin_path, "particle_stage"), exist_ok=True
             )
+
 
 def minimal_cache_dtype():
     """
@@ -219,7 +220,7 @@ class Store:
             all_showers_dyn.append_recarray(additional_showers)
             os.remove(staged_showers_path)
 
-        num_showers_in_stage = int(all_showers_dyn.size)
+        num_showers_in_stage = int(len(all_showers_dyn))
 
         if os.path.exists(existing_showers_path):
             existing_showers = page.read(path=existing_showers_path)

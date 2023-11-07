@@ -32,6 +32,7 @@ setuptools.setup(
     install_requires=[
         "corsika_primary",
         "rename_after_writing",
+        "dynamicsizerecarray>=0.0.2",
         "atmospheric_cherenkov_response_cherenkov-plenoscope-project",
         "json_utils_sebastian-achim-mueller",
         "json_line_logger>=0.0.2",
