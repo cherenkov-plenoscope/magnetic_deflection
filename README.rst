@@ -2,7 +2,7 @@
 Estimate the magnetic deflection of airshowers in earth's atmosphere
 ####################################################################
 
-|TestStatus| |PyPiStatus| |BlackStyle| |PackStyleBlack| |LicenseBadge|
+|TestStatus| |PyPiStatus| |BlackStyle| |BlackPackStyle| |LicenseBadge|
 
 This tool uses KIT's CORSIKA to simulate the airshowers by cosmic-rays
 and their emission of Cherenkov-light.
@@ -31,7 +31,7 @@ so much that an offset occurs.
 .. |PyPiStatus| image:: https://img.shields.io/pypi/v/magnetic_deflection_cherenkov-plenoscope-project
     :target: https://pypi.org/project/magnetic_deflection_cherenkov-plenoscope-project
 
-.. |PackStyleBlack| image:: https://img.shields.io/badge/pack%20style-black-000000.svg
+.. |BlackPackStyle| image:: https://img.shields.io/badge/pack%20style-black-000000.svg
     :target: https://github.com/cherenkov-plenoscope/black_pack
 
 .. |LicenseBadge| image:: https://img.shields.io/badge/License-MIT-yellow.svg

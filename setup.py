@@ -23,8 +23,9 @@ setuptools.setup(
     author_email="sebastian-achim.mueller@mpi-hd.mpg.de",
     packages=[
         "magnetic_deflection",
-        "magnetic_deflection.dome",
         "magnetic_deflection.allsky",
+        "magnetic_deflection.allsky.store",
+        "magnetic_deflection.cherenkov_pool",
     ],
     package_data={
         "magnetic_deflection": [os.path.join("scripts", "*.py")],
