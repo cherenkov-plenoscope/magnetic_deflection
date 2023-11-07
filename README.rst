@@ -8,18 +8,23 @@ This tool uses KIT's CORSIKA to simulate the airshowers by cosmic-rays
 and their emission of Cherenkov-light.
 The goal of this tool is to find the:
 
-- direction (w.r.t. zenith)
+- direction
 
 and
 
-- position (w.r.t to observer)
+- position (impact position on the ground w.r.t. to the observer)
 
-a cosmic-ray must have in order for the observer to see its Cherenkov-light.
+a primary particle must have when it enters earth's atmosphere in order for
+an observer to see the Cherenkov-light from its extensive air-shower.
 
-At energies > 10GeV the Cherenkov-light of an airshower is almost parallel
-to the direction of the primary particle.
-However, at energies < 10GeV, earth's magnetic field bends the airshower
-so much that an offset occurs.
+At energies above 20GeV the Cherenkov-light of an air-shower is almost parallel
+to the direction of the primary particle. In this case, the direction
+and position of the primary particle is easy to estimate, as it is just the
+trajectory which intersects with the observer.
+
+However, at energies below 10GeV, earth's magnetic field bends the air-shower
+so much that the direction of the primary particle significantly differs from
+the direction of the air-shower's Cherenkov-emission.
 
 
 .. |BlackStyle| image:: https://img.shields.io/badge/code%20style-black-000000.svg
