@@ -626,19 +626,10 @@ def _population_run_job(job):
             valid_bin = allsky.binning.is_valid_dir_ene_bin(
                 dir_ene_bin=dir_ene_bin
             )
-            if delta_phi_deg > 10.0 or not valid_bin:
-                msg = ""
-                msg += "Warning: Shower ({:d},{:d}) is ".format(
-                    shower["run"], shower["event"]
-                )
-                msg += "{:f}deg off the closest cherenkov-bin-center".format(
-                    delta_phi_deg
-                )
-                print(msg)
-            else:
-                cherenkov_stage["records"][dir_ene_bin].append(
-                    copy.deepcopy(shower)
-                )
+
+            cherenkov_stage["records"][dir_ene_bin].append(
+                copy.deepcopy(shower)
+            )
 
         # prticle
         # -------
@@ -654,19 +645,8 @@ def _population_run_job(job):
         valid_bin = allsky.binning.is_valid_dir_ene_bin(
             dir_ene_bin=dir_ene_bin
         )
-        if delta_phi_deg > 10.0 or not valid_bin:
-            msg = ""
-            msg += "Warning: Shower ({:d},{:d}) is ".format(
-                shower["run"], shower["event"]
-            )
-            msg += "{:f}deg off the closest particle-bin-center".format(
-                delta_phi_deg
-            )
-            print(msg)
-        else:
-            particle_stage["records"][dir_ene_bin].append(
-                copy.deepcopy(shower)
-            )
+
+        particle_stage["records"][dir_ene_bin].append(copy.deepcopy(shower))
 
     # add to stage
     # ------------
