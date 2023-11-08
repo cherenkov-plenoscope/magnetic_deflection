@@ -30,9 +30,9 @@ def init(
     site_key="lapalma",
     energy_start_GeV=0.25,
     energy_stop_GeV=64,
-    energy_num_bins=8,
+    energy_num_bins=3,
     direction_particle_max_zenith_distance_deg=70,
-    direction_num_bins=256,
+    direction_num_bins=8,
     corsika_primary_path=None,
 ):
     """
