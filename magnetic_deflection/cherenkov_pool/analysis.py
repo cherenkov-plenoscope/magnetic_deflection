@@ -2,8 +2,19 @@ import corsika_primary as cpw
 import numpy as np
 
 
+def acos_accepting_numeric_tolerance(x, eps=1e-6):
+    assert eps >= 0.0
+
+    if 1.0 < x < 1.0 + eps:
+        x = 1.0
+
+    if -1.0 - eps < x < -1.0:
+        x = -1.0
+
+    return np.arccos(x)
+
+
 def init(light_field):
-    acos = np.arccos
     percentile = np.percentile
     sqrt = np.sqrt
     median = np.median
@@ -50,8 +61,14 @@ def init(light_field):
         center_cx_rad=pool["cherenkov_cx_rad"],
         center_cy_rad=pool["cherenkov_cy_rad"],
     )
-    pool["cherenkov_half_angle50_rad"] = acos(percentile(a=cos_theta, q=50))
-    pool["cherenkov_half_angle90_rad"] = acos(percentile(a=cos_theta, q=90))
+    pool["cherenkov_half_angle50_rad"] = acos_accepting_numeric_tolerance(
+        percentile(a=cos_theta, q=50),
+        eps=1e-6,
+    )
+    pool["cherenkov_half_angle90_rad"] = acos_accepting_numeric_tolerance(
+        percentile(a=cos_theta, q=90),
+        eps=1e-6,
+    )
 
     time_delta_s = np.abs(lf["t"] - pool["cherenkov_t_s"])
     pool["cherenkov_duration50_s"] = 2.0 * percentile(a=time_delta_s, q=50)
