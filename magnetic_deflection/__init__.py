@@ -3,3 +3,4 @@ from . import allsky
 from . import cherenkov_pool
 from . import spherical_coordinates
 from . import examples
+from . import production
