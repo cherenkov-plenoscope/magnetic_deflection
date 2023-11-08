@@ -226,9 +226,6 @@ class AllSky:
         self.store = store.Store(
             store_dir=os.path.join(work_dir, "store"),
         )
-        self.production = production.Production(
-            production_dir=os.path.join(self.work_dir, "production")
-        )
 
     def version_of_when_work_dir_was_initiated(self):
         version_path = os.path.join(self.work_dir, "version.json")
@@ -236,13 +233,15 @@ class AllSky:
             vers = json_utils.loads(f.read())
         return vers["magnetic_deflection"]
 
-    def _populate_make_jobs(self, num_jobs, num_showers_per_job=1000):
+    def _populate_make_jobs(
+        self, num_jobs, num_showers_per_job, production_lock
+    ):
         jobs = []
         for j in range(num_jobs):
             job = {}
             job["numer"] = j
             job["work_dir"] = str(self.work_dir)
-            job["run_id"] = int(self.production.get_next_run_id_and_bumb())
+            job["run_id"] = int(production_lock.get_next_run_id_and_bumb())
             job["num_showers_per_job"] = int(num_showers_per_job)
             jobs.append(job)
         return jobs
@@ -255,17 +254,21 @@ class AllSky:
         assert num_chunks > 0
         assert os.path.exists(self.config["corsika_primary"]["path"])
 
-        self.production.lock()
+        production_lock = production.Production(
+            production_dir=os.path.join(self.work_dir, "production")
+        )
+        production_lock.lock()
 
         for ichunk in range(num_chunks):
             jobs = self._populate_make_jobs(
                 num_jobs=num_jobs,
                 num_showers_per_job=num_showers_per_job,
+                production_lock=production_lock,
             )
             results = pool.map(_population_run_job, jobs)
             self.store.commit_stage()
 
-        self.production.unlock()
+        production_lock.unlock()
 
     def __repr__(self):
         out = "{:s}(work_dir='{:s}', version='{:s}')".format(
