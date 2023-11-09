@@ -1,6 +1,7 @@
 import scipy
 from .. import spherical_coordinates
 from scipy import spatial
+import solid_angle_utils
 import binning_utils
 import numpy as np
 import svg_cartesian_plot as splt
@@ -138,10 +139,27 @@ class Binning:
     def query_ball_direction(self, direction_unit_vector, half_angle_deg):
         assert half_angle_deg >= 0
         assert 0.95 <= np.linalg.norm(direction_unit_vector) <= 1.05
+
+        third_furthest_neighbor_angle_rad = np.max(
+            self.direction.query(x=direction_unit_vector, k=3)[0]
+        )
+
         dd = self.direction.query_ball_point(
-            x=direction_unit_vector, r=np.deg2rad(half_angle_deg)
+            x=direction_unit_vector,
+            r=np.deg2rad(half_angle_deg) + third_furthest_neighbor_angle_rad,
         )
         return np.array(dd)
+
+    def query_ball_direction_azimuth_zenith(
+        self, azimuth_deg, zenith_deg, half_angle_deg
+    ):
+        direction_unit_vector = spherical_coordinates._az_zd_to_cx_cy_cz(
+            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+        )
+        return self.query_ball_direction(
+            direction_unit_vector=direction_unit_vector,
+            half_angle_deg=half_angle_deg,
+        )
 
     def query_ball_energy(self, energy_start_GeV, energy_stop_GeV):
         assert energy_start_GeV > 0
@@ -170,12 +188,10 @@ class Binning:
         sol = np.zeros(len(faces))
         for i in range(len(faces)):
             face = faces[i]
-            face_solid_angle = (
-                spherical_coordinates.solid_angle_of_triangle_on_unitsphere(
-                    v0=vertices[face[0]],
-                    v1=vertices[face[1]],
-                    v2=vertices[face[2]],
-                )
+            face_solid_angle = solid_angle_utils.triangle.solid_angle(
+                v0=vertices[face[0]],
+                v1=vertices[face[1]],
+                v2=vertices[face[2]],
             )
             sol[i] = face_solid_angle
         return sol
