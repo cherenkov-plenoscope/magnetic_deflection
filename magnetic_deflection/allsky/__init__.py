@@ -21,6 +21,7 @@ from . import store
 from . import viewcone
 from .. import spherical_coordinates
 from .. import cherenkov_pool
+from . import hemisphere
 from ..version import __version__
 
 
@@ -501,6 +502,7 @@ class AllSky:
         energy_GeV,
         energy_factor,
         min_num_cherenkov_photons=1e3,
+        weights=False,
     ):
         """
         Parameters
@@ -519,6 +521,14 @@ class AllSky:
             energy_GeV*(1-energy_factor) to energy_GeV*(1+energy_factor).
         min_num_cherenkov_photons : float
             Only take showers into account with this many photons.
+        weights : bool
+            If true, weights will be added to the output indicating the
+            proximity to the queried direction and energy.
+
+        Returns
+        -------
+        matches : numpy.recarray
+            All showers which match the query.
         """
         overhead_half_angle_deg = 4.0 * half_angle_deg
         overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
@@ -578,7 +588,115 @@ class AllSky:
 
             colls.append(cer_bin[mask])
 
-        return np.hstack(colls)
+        matches = np.hstack(colls)
+
+        if not weights:
+            return matches
+        else:
+            direction_weights = []
+            energy_weights = []
+            for i in range(len(matches)):
+                delta_rad = spherical_coordinates._angle_between_cx_cy_rad(
+                    cx1=cx,
+                    cy1=cy,
+                    cx2=matches["cherenkov_cx_rad"][i],
+                    cy2=matches["cherenkov_cy_rad"][i],
+                )
+                dir_weight = gauss1d(
+                    x=delta_rad,
+                    mean=0.0,
+                    sigma=1 / 2 * half_angle_deg,
+                )
+                ene_weight = gauss1d(
+                    x=matches["particle_energy_GeV"][i],
+                    mean=energy_GeV,
+                    sigma=(1 / 2 * energy_GeV * energy_factor),
+                )
+                direction_weights.append(dir_weight)
+                energy_weights.append(ene_weight)
+
+            return (
+                matches,
+                np.array(direction_weights),
+                np.array(energy_weights),
+            )
+
+    def query_cherenkov_ball_into_grid_mask(
+        self,
+        azimuth_deg,
+        zenith_deg,
+        half_angle_deg,
+        energy_GeV,
+        energy_factor,
+        shower_spread_half_angle_deg,
+        min_num_cherenkov_photons,
+        hemisphere_grid,
+    ):
+        """
+        For a given hemispherical grid, this returns a mask for this grid
+        indicating the grid's faces which contain primary particles which will
+        lead to the requested Cherenkov-light.
+
+        Parameters
+        ----------
+        azimuth_deg : float
+            Median azimuth angle of Cherenkov-photons in shower.
+        zenith_deg : float
+            Median zenith angle of Cherenkov-photons in shower.
+        half_angle_deg : float > 0
+            Cone's half angle to query showers in based on the median direction
+            of their Cherenkov-photons.
+        energy_GeV : float
+            Primary particle's energy.
+        energy_factor :
+            Query only showers with energies which have energies from:
+            energy_GeV*(1-energy_factor) to energy_GeV*(1+energy_factor).
+        shower_spread_half_angle_deg : float >= 0
+            The mask will be dilluted by this angle to account for spread in
+            the shower's development.
+        min_num_cherenkov_photons : float
+            Only take showers into account with this many photons.
+        hemisphere_grid : hemisphere.Grid
+            The geometry of the grid defining its faces (tiles).
+
+        Returns
+        -------
+        hemisphere_mask : hemisphere.Mask
+            A mask marking the grid's faces which are possible candidates to
+            throw primary particles froms.
+        """
+        matches = self.query_cherenkov_ball(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            half_angle_deg=half_angle_deg,
+            energy_GeV=energy_GeV,
+            energy_factor=energy_factor,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
+        )
+
+        hemisphere_mask = hemisphere.Mask(mesh=hemisphere_grid)
+        for match in matches:
+            hemisphere_mask.append_cx_cy(
+                cx=match["particle_cx_rad"],
+                cy=match["particle_cy_rad"],
+                half_angle_deg=shower_spread_half_angle_deg,
+            )
+        return hemisphere_mask
+
+
+def gauss1d(x, mean, sigma):
+    return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
+
+
+def weighted_avg_and_std(values, weights):
+    """
+    Return the weighted average and standard deviation.
+
+    values, weights -- numpy arrays with the same shape.
+    """
+    average = np.average(values, weights=weights)
+    variance = np.average((values - average) ** 2, weights=weights)
+    return (average, np.sqrt(variance))
 
 
 def _population_run_job(job):
@@ -665,3 +783,148 @@ def _looks_like_a_valid_all_sky_work_dir(work_dir):
         if not os.path.isdir(os.path.join(work_dir, dirname)):
             return False
     return True
+
+
+def draw_particle_direction_with_cone(
+    prng,
+    azimuth_deg,
+    zenith_deg,
+    half_angle_deg,
+    energy_GeV,
+    energy_factor,
+    shower_spread_half_angle_deg,
+    min_num_cherenkov_photons,
+    allsky_deflection,
+    max_iterations=1000 * 1000,
+):
+    (
+        matches,
+        direction_weights,
+        energy_weights,
+    ) = allsky_deflection.query_cherenkov_ball(
+        azimuth_deg=azimuth_deg,
+        zenith_deg=zenith_deg,
+        half_angle_deg=half_angle_deg,
+        energy_GeV=energy_GeV,
+        energy_factor=energy_factor,
+        hemisphere_grid=hemisphere_grid,
+        shower_spread_half_angle_deg=shower_spread_half_angle_deg,
+        min_num_cherenkov_photons=min_num_cherenkov_photons,
+        weights=True,
+    )
+    avg_particle_cx_rad, std_particle_cx_rad = weighted_avg_and_std(
+        values=matches["particle_cx_rad"], weights=energy_weights
+    )
+    avg_particle_cy_rad, std_particle_cy_rad = weighted_avg_and_std(
+        values=matches["particle_cy_rad"], weights=energy_weights
+    )
+
+    (
+        avg_particle_azimuth_deg,
+        avg_particle_zenith_deg,
+    ) = spherical_coordinates._cx_cy_to_az_zd_deg(
+        cx=avg_particle_cx_rad, cy=avg_particle_cy_rad
+    )
+
+    half_angle_thrown_rad = np.deg2rad(
+        shower_spread_half_angle_deg
+    ) + np.deg2rad(half_angle_deg)
+    (
+        particle_azimuth_rad,
+        particle_zenith_rad,
+    ) = corsika_primary.random.distributions.draw_azimuth_zenith_in_viewcone(
+        prng=prng,
+        azimuth_rad=np.deg2rad(avg_particle_azimuth_deg),
+        zenith_rad=np.deg2rad(avg_particle_zenith_deg),
+        min_scatter_opening_angle_rad=0.0,
+        max_scatter_opening_angle_rad=half_angle_thrown_rad,
+        max_zenith_rad=np.deg2rad(corsika_primary.MAX_ZENITH_DEG),
+        max_iterations=max_iterations,
+    )
+    return {
+        "particle_azimuth_rad": particle_azimuth_rad,
+        "particle_zenith_rad": particle_zenith_rad,
+        "solid_angle_thrown_sr": solid_angle_utils.cone.solid_angle(
+            half_angle_rad=half_angle_thrown_rad
+        ),
+    }
+
+
+def draw_particle_direction_with_masked_grid(
+    prng,
+    azimuth_deg,
+    zenith_deg,
+    half_angle_deg,
+    energy_GeV,
+    energy_factor,
+    shower_spread_half_angle_deg,
+    min_num_cherenkov_photons,
+    allsky_deflection,
+    hemisphere_grid,
+    max_iterations=1000 * 1000,
+):
+    """
+    Parameters
+    ----------
+    prng : numpy.random.Generator
+        The pseudo random number-generator to draw from.
+
+    Returns
+    -------
+        : dict
+
+        particle_azimuth_rad : float
+
+        particle_zenith_rad : float
+
+        solid_angle_thrown_sr : float
+            The total solid angle of all masked faces in the hemispherical grid
+            which where thrown in.
+    """
+
+    hemisphere_mask = allsky_deflection.query_cherenkov_ball_into_grid_mask(
+        azimuth_deg=azimuth_deg,
+        zenith_deg=zenith_deg,
+        half_angle_deg=half_angle_deg,
+        energy_GeV=energy_GeV,
+        energy_factor=energy_factor,
+        hemisphere_grid=hemisphere_grid,
+        shower_spread_half_angle_deg=shower_spread_half_angle_deg,
+        min_num_cherenkov_photons=min_num_cherenkov_photons,
+    )
+
+    iteration = 0
+    hit = False
+    while not hit:
+        (
+            particle_azimuth_rad,
+            particle_zenith_rad,
+        ) = corsika_primary.random.distributions.draw_azimuth_zenith_in_viewcone(
+            prng=prng,
+            azimuth_rad=0.0,
+            zenith_rad=0.0,
+            min_scatter_opening_angle_rad=0.0,
+            max_scatter_opening_angle_rad=np.deg2rad(
+                corsika_primary.MAX_ZENITH_DEG
+            ),
+            max_zenith_rad=np.deg2rad(corsika_primary.MAX_ZENITH_DEG),
+            max_iterations=max_iterations,
+        )
+
+        face_idx = hemisphere_grid.query_azimuth_zenith(
+            azimuth_deg=np.rad2deg(particle_azimuth_rad),
+            zenith_deg=np.rad2deg(particle_zenith_rad),
+        )
+
+        if face_idx in hemisphere_mask.faces:
+            hit = True
+
+        iteration += 1
+        if iteration > max_iterations:
+            raise RuntimeError("Rejection-sampling failed.")
+
+    return {
+        "particle_azimuth_rad": particle_azimuth_rad,
+        "particle_zenith_rad": particle_zenith_rad,
+        "solid_angle_thrown_sr": hemisphere_mask.solid_angle(),
+    }
