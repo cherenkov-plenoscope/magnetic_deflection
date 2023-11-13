@@ -11,6 +11,27 @@ import merlict
 
 
 def make_vertices(num_vertices=1024):
+    """
+    Makes vertices on a unit-sphere using a Fibonacci-space.
+    This is done to create mesh-faces of approximatly equal solid angles.
+
+    Additional vertices are added at the horizon all around the azimuth to make
+    shure the resulting mesh reaches the horizon at any azimuth.
+
+    The Fibinacci-vertices and the horizon-ring-vertices are combined, while
+    Fibonacci-vertices will be dropped when they are too close to existing
+    vertices on the horizon-ring.
+
+    Parameters
+    ----------
+    num_vertices : int
+        A guidence for the number of verties in the mesh.
+
+    Returns
+    -------
+    vertices : numpy.array, shape(N, 3)
+        The xyz-coordinates of the vertices.
+    """
     max_zenith_distance_deg = int(90)
     assert num_vertices > 0
     num_vertices = int(num_vertices)
@@ -50,12 +71,41 @@ def make_vertices(num_vertices=1024):
 
 
 def make_faces(vertices):
+    """
+    Makes Delaunay-Triangle-faces for the given vertices. Only the x- and
+    y coordinate are taken into account.
+
+    Parameters
+    ----------
+    vertices : numpy.array
+        The xyz-coordinates of the vertices.
+
+    Returns
+    -------
+    delaunay_faces : numpy.array, shape(N, 3), int
+        A list of N faces, where each face references the vertices it is made
+        from.
+    """
     delaunay = scipy.spatial.Delaunay(points=vertices[:, 0:2])
     delaunay_faces = delaunay.simplices
     return delaunay_faces
 
 
 def estimate_vertices_to_faces_map(faces, num_vertices):
+    """
+    Parameters
+    ----------
+    faces : numpy.array, shape(N, 3), int
+        A list of N faces referencing their vertices.
+    num_vertices : int
+        The total number of vertices in the mesh
+
+    Returns
+    -------
+    nn : dict of sets
+        A dict with an entry for each vertex referencing the faces it is
+        connected to.
+    """
     nn = {}
     for iv in range(num_vertices):
         nn[iv] = set()
@@ -67,7 +117,26 @@ def estimate_vertices_to_faces_map(faces, num_vertices):
 
 
 def estimate_solid_angles(vertices, faces, geometry="spherical"):
-    sol = np.nan * np.ones(len(faces))
+    """
+    For a given hemispherical mesh defined by vertices and faces, calculate the
+    solid angle of each face.
+
+    Parameters
+    ----------
+    vertices : numpy.array, shape(M, 3), float
+        The xyz-coordinates of the M vertices.
+    faces : numpy.array, shape(N, 3), int
+        A list of N faces referencing their vertices.
+    geometry : str, default="spherical"
+        Whether to apply "spherical" or "flat" geometry. Where "flat" geometry
+        is only applicable for small faces.
+
+    Returns
+    -------
+    solid : numpy.array, shape=(N, ), float
+        The individual solid angles of the N faces in the mesh
+    """
+    solid = np.nan * np.ones(len(faces))
     for i in range(len(faces)):
         face = faces[i]
         if geometry == "spherical":
@@ -89,8 +158,8 @@ def estimate_solid_angles(vertices, faces, geometry="spherical"):
                 "Expected geometry to be either 'flat' or 'spherical'."
             )
 
-        sol[i] = face_solid_angle
-    return sol
+        solid[i] = face_solid_angle
+    return solid
 
 
 def plot(vertices, faces, path, faces_mask=None):
@@ -119,8 +188,18 @@ def plot(vertices, faces, path, faces_mask=None):
     svgplt.fig_write(fig=fig, path=path)
 
 
-class Mesh:
+class Grid:
+    """
+    A hemispherical grid with a Fibonacci-spacing.
+    """
     def __init__(self, num_vertices):
+        """
+        Parameters
+        ----------
+        num_vertices : int
+            A guideline for the number of vertices in the grid's mesh.
+            See make_vertices().
+        """
         self._init_num_vertices = int(num_vertices)
         self.vertices = make_vertices(num_vertices=self._init_num_vertices)
         self.vertices_tree = scipy.spatial.cKDTree(data=self.vertices)
@@ -135,19 +214,32 @@ class Mesh:
         self.faces_tree = Tree(vertices=self.vertices, faces=self.faces)
 
     def query_azimuth_zenith(self, azimuth_deg, zenith_deg):
+        """
+        Returns the index of the face hit at direction
+        (azimuth_deg, zenith_deg).
+        """
         return self.faces_tree.query_azimuth_zenith(
             azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
         )
 
     def query_cx_cy(self, cx, cy):
+        """
+        Returns the index of the face hit at direction (cx, cy).
+        """
         return self.faces_tree.query_cx_cy(cx=cx, cy=cy)
 
     def query(self, direction_unit_vector):
+        """
+        Returns the index of the face hit by the direction_unit_vector.
+        """
         return self.faces_tree.query(
             direction_unit_vector=direction_unit_vector
         )
 
     def plot(slef, path):
+        """
+        Writes a plot with the grid's faces to path.
+        """
         plot(self.vertices, self.faces, path)
 
     def __repr__(self):
@@ -158,6 +250,25 @@ class Mesh:
 
 
 def make_hemisphere_obj(vertices, faces, mtlkey="sky"):
+    """
+    Makes an object-wavefron dict() from the hemispherical mesh defined by
+    vertices and faces.
+
+    Parameters
+    ----------
+    vertices : numpy.array, shape(M, 3), float
+        The xyz-coordinates of the M vertices. The vertices are expected to be
+        on the unit-sphere.
+    faces : numpy.array, shape(N, 3), int
+        A list of N faces referencing their vertices.
+    mtlkey : str, default="sky"
+        Key indicating the first and only material in the object-wavefront.
+
+    Returns
+    -------
+    obj : dict representing an object-wavefront
+        Includes vertices, vertex-normals, and materials ('mtl's) with faces.
+    """
     obj = triangle_mesh_io.obj.init()
     for vertex in vertices:
         obj["v"].append(vertex)
@@ -197,7 +308,20 @@ def make_merlict_scenery_py(vertices, faces):
 
 
 class Tree:
+    """
+    An acceleration structure to allow fast queries for rays hitting a
+    mesh defined by vertices and faces.
+    """
     def __init__(self, vertices, faces):
+        """
+        Parameters
+        ----------
+        vertices : numpy.array, shape(M, 3), float
+            The xyz-coordinates of the M vertices. The vertices are expected
+            to be on the unit-sphere.
+        faces : numpy.array, shape(N, 3), int
+            A list of N faces referencing their vertices.
+        """
         scenery_py = make_merlict_scenery_py(vertices=vertices, faces=faces)
         self._tree = merlict.compile(sceneryPy=scenery_py)
 
@@ -243,15 +367,14 @@ class Tree:
 
 
 class Mask:
-    def __init__(self, mesh):
-        self.mesh = mesh
+    """
+    A mask for the hemispherical grid to mark certain faces/cells.
+    """
+    def __init__(self, grid):
+        self.grid = grid
         self.faces = set()
 
     def solid_angle(self):
-        total_sr = 0.0
-        for iface in self.faces:
-            total_sr += self.mesh.faces_solid_angles[iface]
-        return total_sr
         """
         Returns
         -------
@@ -259,8 +382,16 @@ class Mask:
             The total solid angle covered by all masked faces in the
             hemispherical grid.
         """
+        total_sr = 0.0
+        for iface in self.faces:
+            total_sr += self.grid.faces_solid_angles[iface]
+        return total_sr
 
     def append_azimuth_zenith(self, azimuth_deg, zenith_deg, half_angle_deg):
+        """
+        Marks all faces in a cone at direction (azimuth_deg, zenith_deg) and
+        opening half_angle_deg.
+        """
         direction_unit_vector = spherical_coordinates._az_zd_to_cx_cy_cz(
             azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
         )
@@ -284,33 +415,36 @@ class Mask:
         half_angle_rad = np.deg2rad(half_angle_deg)
 
         third_neighbor_angle_rad = np.max(
-            self.mesh.vertices_tree.query(x=direction_unit_vector, k=3)[0]
+            self.grid.vertices_tree.query(x=direction_unit_vector, k=3)[0]
         )
 
         query_angle_rad = np.max([half_angle_rad, third_neighbor_angle_rad])
 
-        vidx_in_cone = self.mesh.vertices_tree.query_ball_point(
+        vidx_in_cone = self.grid.vertices_tree.query_ball_point(
             x=direction_unit_vector,
             r=query_angle_rad,
         )
 
         for vidx in vidx_in_cone:
-            faces_touching_vidx = self.mesh.vertices_to_faces_map[vidx]
+            faces_touching_vidx = self.grid.vertices_to_faces_map[vidx]
             for face in faces_touching_vidx:
                 self.faces.add(face)
 
     def plot(self, path):
-        faces_mask = np.zeros(shape=len(self.mesh.faces), dtype=np.int)
+        """
+        Writes a plot with the grid's faces to path.
+        """
+        faces_mask = np.zeros(shape=len(self.grid.faces), dtype=np.int)
         faces_mask[self.faces] = 1
         plot(
-            vertices=self.mesh.vertices,
-            faces=self.mesh.faces,
+            vertices=self.grid.vertices,
+            faces=self.grid.faces,
             faces_mask=faces_mask,
             path=path,
         )
 
     def __repr__(self):
-        return "{:s}(mesh=Mesh(num_vertices{:d})".format(
+        return "{:s}(grid=Grid(num_vertices{:d})".format(
             self.__class__.__name__,
             self.mesh._init_num_vertices,
         )

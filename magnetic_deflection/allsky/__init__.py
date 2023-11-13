@@ -674,7 +674,7 @@ class AllSky:
             min_num_cherenkov_photons=min_num_cherenkov_photons,
         )
 
-        hemisphere_mask = hemisphere.Mask(mesh=hemisphere_grid)
+        hemisphere_mask = hemisphere.Mask(grid=hemisphere_grid)
         for match in matches:
             hemisphere_mask.append_cx_cy(
                 cx=match["particle_cx_rad"],
