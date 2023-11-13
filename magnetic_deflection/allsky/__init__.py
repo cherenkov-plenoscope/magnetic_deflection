@@ -621,68 +621,6 @@ class AllSky:
                 np.array(energy_weights),
             )
 
-    def query_cherenkov_ball_into_grid_mask(
-        self,
-        azimuth_deg,
-        zenith_deg,
-        half_angle_deg,
-        energy_GeV,
-        energy_factor,
-        shower_spread_half_angle_deg,
-        min_num_cherenkov_photons,
-        hemisphere_grid,
-    ):
-        """
-        For a given hemispherical grid, this returns a mask for this grid
-        indicating the grid's faces which contain primary particles which will
-        lead to the requested Cherenkov-light.
-
-        Parameters
-        ----------
-        azimuth_deg : float
-            Median azimuth angle of Cherenkov-photons in shower.
-        zenith_deg : float
-            Median zenith angle of Cherenkov-photons in shower.
-        half_angle_deg : float > 0
-            Cone's half angle to query showers in based on the median direction
-            of their Cherenkov-photons.
-        energy_GeV : float
-            Primary particle's energy.
-        energy_factor :
-            Query only showers with energies which have energies from:
-            energy_GeV*(1-energy_factor) to energy_GeV*(1+energy_factor).
-        shower_spread_half_angle_deg : float >= 0
-            The mask will be dilluted by this angle to account for spread in
-            the shower's development.
-        min_num_cherenkov_photons : float
-            Only take showers into account with this many photons.
-        hemisphere_grid : hemisphere.Grid
-            The geometry of the grid defining its faces (tiles).
-
-        Returns
-        -------
-        hemisphere_mask : hemisphere.Mask
-            A mask marking the grid's faces which are possible candidates to
-            throw primary particles froms.
-        """
-        matches = self.query_cherenkov_ball(
-            azimuth_deg=azimuth_deg,
-            zenith_deg=zenith_deg,
-            half_angle_deg=half_angle_deg,
-            energy_GeV=energy_GeV,
-            energy_factor=energy_factor,
-            min_num_cherenkov_photons=min_num_cherenkov_photons,
-        )
-
-        hemisphere_mask = hemisphere.Mask(grid=hemisphere_grid)
-        for match in matches:
-            hemisphere_mask.append_cx_cy(
-                cx=match["particle_cx_rad"],
-                cy=match["particle_cy_rad"],
-                half_angle_deg=shower_spread_half_angle_deg,
-            )
-        return hemisphere_mask
-
 
 def gauss1d(x, mean, sigma):
     return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
@@ -882,16 +820,22 @@ def draw_particle_direction_with_masked_grid(
             which where thrown in.
     """
 
-    hemisphere_mask = allsky_deflection.query_cherenkov_ball_into_grid_mask(
+    matches = allsky_deflection.query_cherenkov_ball(
         azimuth_deg=azimuth_deg,
         zenith_deg=zenith_deg,
         half_angle_deg=half_angle_deg,
         energy_GeV=energy_GeV,
         energy_factor=energy_factor,
-        hemisphere_grid=hemisphere_grid,
-        shower_spread_half_angle_deg=shower_spread_half_angle_deg,
         min_num_cherenkov_photons=min_num_cherenkov_photons,
     )
+
+    hemisphere_mask = hemisphere.Mask(grid=hemisphere_grid)
+    for match in matches:
+        hemisphere_mask.append_cx_cy(
+            cx=match["particle_cx_rad"],
+            cy=match["particle_cy_rad"],
+            half_angle_deg=shower_spread_half_angle_deg,
+        )
 
     iteration = 0
     hit = False
