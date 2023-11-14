@@ -68,6 +68,15 @@ def _angle_between_az_zd_deg(az1_deg, zd1_deg, az2_deg, zd2_deg):
     )
 
 
+def _angle_between_cx_cy_rad(cx1, cy1, cx2, cy2):
+    cz1 = restore_cz(cx1, cy1)
+    cz2 = restore_cz(cx2, cy2)
+    return _angle_between_vectors_rad(
+        a=np.array([cx1, cy1, cz1]),
+        b=np.array([cx2, cy2, cz2]),
+    )
+
+
 def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
     delta_lam = np.abs(lam_long2 - lam_long1)
     delta_sigma = np.arccos(
@@ -79,3 +88,10 @@ def _great_circle_distance_long_lat(lam_long1, phi_alt1, lam_long2, phi_alt2):
 
 def restore_cz(cx, cy):
     return np.sqrt(1.0 - cx**2 - cy**2)
+
+
+def _angle_between_vectors_rad(a, b):
+    dot = np.dot
+    norm = np.linalg.norm
+    acos = np.arccos
+    return acos(dot(a, b) / (norm(a) * norm(b)))

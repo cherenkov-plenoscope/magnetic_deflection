@@ -38,6 +38,7 @@ setuptools.setup(
         "json_utils_sebastian-achim-mueller",
         "json_line_logger>=0.0.2",
         "binning_utils_sebastian-achim-mueller>=0.0.11",
+        "merlict>=0.1.4",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
