@@ -667,7 +667,7 @@ def _population_run_job(job):
     particle_stage = allsky.store.make_empty_stage(run_id=job["run_id"])
 
     for shower in showers:
-        if shower_has_cherenkov_light(shower):
+        if _shower_has_cherenkov_light(shower):
             # cherenkov
             # ---------
             (
@@ -712,7 +712,7 @@ def _population_run_job(job):
     return True
 
 
-def shower_has_cherenkov_light(shower):
+def _shower_has_cherenkov_light(shower):
     return not np.isnan(shower["cherenkov_cx_rad"])
 
 
