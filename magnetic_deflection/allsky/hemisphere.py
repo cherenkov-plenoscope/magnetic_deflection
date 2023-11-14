@@ -8,9 +8,13 @@ from .. import spherical_coordinates
 import io
 import triangle_mesh_io
 import merlict
+import corsika_primary
 
 
-def make_vertices(num_vertices=1024):
+def make_vertices(
+    num_vertices=1024,
+    max_zenith_distance_deg=corsika_primary.MAX_ZENITH_DEG,
+):
     """
     Makes vertices on a unit-sphere using a Fibonacci-space.
     This is done to create mesh-faces of approximatly equal solid angles.
@@ -26,13 +30,16 @@ def make_vertices(num_vertices=1024):
     ----------
     num_vertices : int
         A guidence for the number of verties in the mesh.
+    max_zenith_distance_deg : float
+        Vertices will only be put up to this zenith-distance.
+        The ring-vertices will be put right at this zenith-distance.
 
     Returns
     -------
     vertices : numpy.array, shape(N, 3)
         The xyz-coordinates of the vertices.
     """
-    max_zenith_distance_deg = int(90)
+    assert 0 < max_zenith_distance_deg <= 90
     assert num_vertices > 0
     num_vertices = int(num_vertices)
 
@@ -44,15 +51,19 @@ def make_vertices(num_vertices=1024):
     _hemisphere_solid_angle = 2.0 * np.pi
     _expected_num_faces = 2.0 * num_vertices
     _face_expected_solid_angle = _hemisphere_solid_angle / _expected_num_faces
-    _face_expected_edge_angle_rad = 2.0 * np.sqrt(_face_expected_solid_angle)
+    _face_expected_edge_angle_rad = np.sqrt(_face_expected_solid_angle)
     _face_expected_edge_angle_deg = np.rad2deg(_face_expected_edge_angle_rad)
     num_horizon_vertices = int(np.ceil(360.0 / _face_expected_edge_angle_deg))
 
     horizon_vertices = []
     for az_deg in np.linspace(0, 360, num_horizon_vertices, endpoint=False):
-        horizon_vertices.append(
-            [np.cos(np.deg2rad(az_deg)), np.sin(np.deg2rad(az_deg)), 0.0]
+        uvec = np.array(
+            spherical_coordinates._az_zd_to_cx_cy_cz(
+                azimuth_deg=az_deg,
+                zenith_deg=max_zenith_distance_deg,
+            )
         )
+        horizon_vertices.append(uvec)
     horizon_vertices = np.array(horizon_vertices)
 
     vertices = []
@@ -192,6 +203,7 @@ class Grid:
     """
     A hemispherical grid with a Fibonacci-spacing.
     """
+
     def __init__(self, num_vertices):
         """
         Parameters
@@ -312,6 +324,7 @@ class Tree:
     An acceleration structure to allow fast queries for rays hitting a
     mesh defined by vertices and faces.
     """
+
     def __init__(self, vertices, faces):
         """
         Parameters
@@ -370,6 +383,7 @@ class Mask:
     """
     A mask for the hemispherical grid to mark certain faces/cells.
     """
+
     def __init__(self, grid):
         self.grid = grid
         self.faces = set()

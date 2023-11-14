@@ -963,7 +963,6 @@ def plot_draw_particle_direction_with_masked_grid(result, debug, path):
     svgplt.fig_write(fig=fig, path=path)
 
 
-
 def ax_add_marker(
     ax,
     cx,
@@ -980,7 +979,6 @@ def ax_add_marker(
         marker_fill = [svgplt.color.css("blue") for i in range(len(cx))]
     if marker_fill_opacity is None:
         marker_fill_opacity = np.ones(len(cx))
-
 
     marker_verts_uxyz = viewcone.make_ring(
         half_angle_deg=marker_half_angle_deg,
