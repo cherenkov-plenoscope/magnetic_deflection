@@ -204,16 +204,27 @@ class Grid:
     A hemispherical grid with a Fibonacci-spacing.
     """
 
-    def __init__(self, num_vertices):
+    def __init__(
+        self,
+        num_vertices,
+        max_zenith_distance_deg=corsika_primary.MAX_ZENITH_DEG,
+    ):
         """
         Parameters
         ----------
         num_vertices : int
             A guideline for the number of vertices in the grid's mesh.
             See make_vertices().
+        max_zenith_distance_deg : float
+            Vertices will only be put up to this zenith-distance.
+            The ring-vertices will be put right at this zenith-distance.
         """
         self._init_num_vertices = int(num_vertices)
-        self.vertices = make_vertices(num_vertices=self._init_num_vertices)
+        self.max_zenith_distance_deg = float(max_zenith_distance_deg)
+        self.vertices = make_vertices(
+            num_vertices=self._init_num_vertices,
+            max_zenith_distance_deg=self.max_zenith_distance_deg,
+        )
         self.vertices_tree = scipy.spatial.cKDTree(data=self.vertices)
         self.faces = make_faces(vertices=self.vertices)
         self.vertices_to_faces_map = estimate_vertices_to_faces_map(
