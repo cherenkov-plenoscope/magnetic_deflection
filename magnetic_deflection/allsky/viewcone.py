@@ -1,6 +1,7 @@
 import numpy as np
 import homogeneous_transformation as htr
 import atmospheric_cherenkov_response as acr
+from .. import spherical_coordinates
 
 
 def make_ring(half_angle_deg, fn=6, endpoint=True):
@@ -20,9 +21,10 @@ def make_ring(half_angle_deg, fn=6, endpoint=True):
 def limit_zenith_distance(vertices_uxyz, max_zenith_distance_deg):
     out = []
     for v in vertices_uxyz:
-        az_deg, zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=vertices_uxyz[0],
-            cy=vertices_uxyz[1],
+        az_deg, zd_deg = spherical_coordinates._cx_cy_cz_to_az_zd_deg(
+            cx=v[0],
+            cy=v[1],
+            cz=v[2],
         )
         if zd_deg > max_zenith_distance_deg:
             zd_deg = max_zenith_distance_deg

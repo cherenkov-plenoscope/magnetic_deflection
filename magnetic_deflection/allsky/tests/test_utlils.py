@@ -24,7 +24,9 @@ def test_weighted_avg_and_std_all_weights_one():
     for i in range(10):
         values = prng.uniform(size=100)
         weights = np.ones(100)
-        a, s = mdfl.allsky.weighted_avg_and_std(values=values, weights=weights)
+        a, s = mdfl.allsky.random.weighted_avg_and_std(
+            values=values, weights=weights
+        )
         assert_approx(a, np.mean(values))
         assert_approx(s, np.std(values))
 
@@ -32,10 +34,14 @@ def test_weighted_avg_and_std_all_weights_one():
 def test_weighted_avg_and_std():
     values = np.linspace(0, 1, 1000)
     weights = np.linspace(0, 1, 1000)
-    a, s = mdfl.allsky.weighted_avg_and_std(values=values, weights=weights)
+    a, s = mdfl.allsky.random.weighted_avg_and_std(
+        values=values, weights=weights
+    )
     assert_approx(a, 2 / 3, eps=1e-3)
 
     values = np.linspace(0, 1, 1000)
     weights = np.linspace(1, 0, 1000)
-    a, s = mdfl.allsky.weighted_avg_and_std(values=values, weights=weights)
+    a, s = mdfl.allsky.random.weighted_avg_and_std(
+        values=values, weights=weights
+    )
     assert_approx(a, 1 / 3, eps=1e-3)
