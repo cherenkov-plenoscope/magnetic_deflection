@@ -200,7 +200,7 @@ class AllSky:
         """
         # sniff
         # -----
-        if not _looks_like_a_valid_all_sky_work_dir(work_dir=work_dir):
+        if not _looks_like_a_valid_allsky_work_dir(work_dir=work_dir):
             raise FileNotFoundError(
                 "Does not look like an AllSky() work_dir: '{:s}'.".format(
                     work_dir
@@ -716,7 +716,7 @@ def shower_has_cherenkov_light(shower):
     return not np.isnan(shower["cherenkov_cx_rad"])
 
 
-def _looks_like_a_valid_all_sky_work_dir(work_dir):
+def _looks_like_a_valid_allsky_work_dir(work_dir):
     for dirname in ["config", "store", "production"]:
         if not os.path.isdir(os.path.join(work_dir, dirname)):
             return False
