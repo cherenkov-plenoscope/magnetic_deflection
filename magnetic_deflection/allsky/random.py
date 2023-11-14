@@ -25,6 +25,31 @@ def guess_energy_factor_from_allsky_deflection(allsky_deflection, energy_GeV):
     )
 
 
+def estimate_cluster_labels_for_matches(matches, eps_deg, min_samples):
+    _cz = spherical_coordinates.restore_cz(
+        cx=matches["particle_cx_rad"], cy=matches["particle_cy_rad"]
+    )
+    particle_cxcycz = np.c_[
+        matches["particle_cx_rad"], matches["particle_cy_rad"], _cz
+    ]
+
+    eps_rad = np.deg2rad(eps_deg)
+    labels = hemisphere.cluster(
+        vertices=particle_cxcycz,
+        eps=eps_rad,
+        min_samples=min_samples,
+    )
+    return labels
+
+
+def apply_cluster_labels(matches, cluster_labels, weights=None):
+    mask = cluster_labels >= 0  # everything but outliers
+    if weights is None:
+        return matches[mask]
+    else:
+        return matches[mask], weights[mask]
+
+
 def draw_particle_direction_with_cone(
     prng,
     azimuth_deg,
@@ -59,19 +84,48 @@ def draw_particle_direction_with_cone(
     ]
     debug["max_zenith_distance_deg"] = max_zenith_distance_deg
 
-    (
-        matches,
-        direction_weights,
-        energy_weights,
-    ) = allsky_deflection.query_cherenkov_ball(
-        azimuth_deg=azimuth_deg,
-        zenith_deg=zenith_deg,
-        half_angle_deg=half_angle_deg,
-        energy_GeV=energy_GeV,
-        energy_factor=energy_factor,
-        min_num_cherenkov_photons=min_num_cherenkov_photons,
-        weights=True,
+    try:
+        (
+            matches,
+            direction_weights,
+            energy_weights,
+        ) = allsky_deflection.query_cherenkov_ball(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            half_angle_deg=half_angle_deg,
+            energy_GeV=energy_GeV,
+            energy_factor=energy_factor,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
+            weights=True,
+        )
+    except RuntimeError as err:
+        assert "Not enough population" in err.__str__()
+        result = {"cutoff": True}
+        return result, debug
+
+    if np.sum(energy_weights) < 0.1:
+        result = {"cutoff": True}
+        return result, debug
+
+    # cluster
+    # -------
+    min_samples = max([10, int(np.sqrt(len(matches)))])
+    debug["cluster_min_samples"] = min_samples
+    cluster_labels = estimate_cluster_labels_for_matches(
+        matches=matches,
+        eps_deg=(1 / 3) * shower_spread_half_angle_deg,
+        min_samples=min_samples,
     )
+    debug["cluster_labels"] = cluster_labels
+    matches, energy_weights = apply_cluster_labels(
+        matches=matches, weights=energy_weights, cluster_labels=cluster_labels
+    )
+    if len(matches) == 0:
+        result = {"cutoff": True}
+        return result, debug
+
+    # cone
+    # ----
     avg_particle_cx_rad, std_particle_cx_rad = weighted_avg_and_std(
         values=matches["particle_cx_rad"], weights=energy_weights
     )
@@ -155,6 +209,7 @@ def draw_particle_direction_with_cone(
     )
 
     result = {
+        "cutoff": False,
         "particle_azimuth_rad": particle_azimuth_rad,
         "particle_zenith_rad": particle_zenith_rad,
         "solid_angle_thrown_sr": solid_angle_thrown_sr,
@@ -208,6 +263,7 @@ def draw_particle_direction_with_masked_grid(
         "shower_spread_half_angle_deg": shower_spread_half_angle_deg,
         "min_num_cherenkov_photons": min_num_cherenkov_photons,
     }
+    debug["hemisphere_grid_num_vertices"] = hemisphere_grid._init_num_vertices
 
     assert (
         hemisphere_grid.max_zenith_distance_deg
@@ -218,15 +274,43 @@ def draw_particle_direction_with_masked_grid(
 
     # prime mask with matches
     # -----------------------
-    matches = allsky_deflection.query_cherenkov_ball(
-        azimuth_deg=azimuth_deg,
-        zenith_deg=zenith_deg,
-        half_angle_deg=half_angle_deg,
-        energy_GeV=energy_GeV,
-        energy_factor=energy_factor,
-        min_num_cherenkov_photons=min_num_cherenkov_photons,
-    )
+    try:
+        matches = allsky_deflection.query_cherenkov_ball(
+            azimuth_deg=azimuth_deg,
+            zenith_deg=zenith_deg,
+            half_angle_deg=half_angle_deg,
+            energy_GeV=energy_GeV,
+            energy_factor=energy_factor,
+            min_num_cherenkov_photons=min_num_cherenkov_photons,
+        )
+    except RuntimeError as err:
+        assert "Not enough population" in err.__str__()
+        result = {"cutoff": True}
+        return result, debug
 
+    if len(matches) == 0:
+        result = {"cutoff": True}
+        return result, debug
+
+    # cluster
+    # -------
+    min_samples = max([10, int(np.sqrt(len(matches)))])
+    debug["cluster_min_samples"] = min_samples
+    cluster_labels = estimate_cluster_labels_for_matches(
+        matches=matches,
+        eps_deg=(1 / 3) * shower_spread_half_angle_deg,
+        min_samples=min_samples,
+    )
+    debug["cluster_labels"] = cluster_labels
+    matches = apply_cluster_labels(
+        matches=matches, cluster_labels=cluster_labels
+    )
+    if len(matches) == 0:
+        result = {"cutoff": True}
+        return result, debug
+
+    # grid
+    # ----
     debug["query_ball"] = {
         "particle_cx_rad": matches["particle_cx_rad"],
         "particle_cy_rad": matches["particle_cy_rad"],
@@ -240,8 +324,7 @@ def draw_particle_direction_with_masked_grid(
             half_angle_deg=shower_spread_half_angle_deg,
         )
 
-    debug["hemisphere_mask"] = hemisphere_mask.faces
-    debug["hemisphere_grid_num_vertices"] = hemisphere_grid._init_num_vertices
+    debug["hemisphere_mask"] = list(hemisphere_mask.faces)
 
     # use rejection sampling to throw direction in mask
     # -------------------------------------------------
@@ -286,6 +369,7 @@ def draw_particle_direction_with_masked_grid(
             raise RuntimeError("Rejection-sampling failed.")
 
     result = {
+        "cutoff": False,
         "particle_azimuth_rad": particle_azimuth_rad,
         "particle_zenith_rad": particle_zenith_rad,
         "solid_angle_thrown_sr": hemisphere_mask.solid_angle(),
@@ -326,10 +410,23 @@ def _style():
     return s
 
 
+def _ax_add_energy_marker(ax, energy_GeV):
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[0.7, 0.9],
+        text="{: 6.3f}GeV".format(energy_GeV),
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=24,
+    )
+
+
 def plot_cone(result, debug, path):
     sty = _style()
+
     fig = svgplt.Fig(cols=1080, rows=1080)
     ax = svgplt.hemisphere.Ax(fig=fig)
+    _ax_add_energy_marker(ax=ax, energy_GeV=debug["parameters"]["energy_GeV"])
 
     # Cherenkov-field-of-view
     # -----------------------
@@ -344,144 +441,83 @@ def plot_cone(result, debug, path):
         fill_opacity=sty["cherenkov_field_of_view"]["fill_opacity"],
     )
 
-    # matching showers in look-up-table
-    # ---------------------------------
-    ax_add_marker(
-        ax=ax,
-        cx=debug["query_ball"]["particle_cx_rad"],
-        cy=debug["query_ball"]["particle_cy_rad"],
-        marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
-        marker_fill=None,
-        marker_fill_opacity=None,
-    )
-
-    # Solid angle thrown
-    # ------------------
-    if debug["cone"]["is_truncated_by_max_zenith_distance"]:
-        _mesh_look = svgplt.hemisphere.init_mesh_look(
-            num_faces=len(debug["cone"]["faces"]),
-            stroke=sty["solid_angle_thrown"]["stroke"],
-            fill=sty["solid_angle_thrown"]["fill"],
-            fill_opacity=sty["solid_angle_thrown"]["fill_opacity"],
-            stroke_opacity=sty["solid_angle_thrown"]["stroke_opacity"],
-        )
-        svgplt.hemisphere.ax_add_mesh(
+    if not result["cutoff"]:
+        # matching showers in look-up-table
+        # ---------------------------------
+        ax_add_marker(
             ax=ax,
-            vertices=debug["cone"]["vertices"],
-            faces=debug["cone"]["faces"],
-            max_radius=1.0,
-            **_mesh_look,
-        )
-    else:
-        ax_add_field_of_view(
-            ax=ax,
-            azimuth_deg=debug["average"]["particle_azimuth_deg"],
-            zenith_deg=debug["average"]["particle_zenith_deg"],
-            half_angle_deg=debug["cone"]["half_angle_thrown_deg"],
-            fn=137,
-            stroke=svgplt.color.css("black"),
-            stroke_opacity=0.25,
-            fill=svgplt.color.css("green"),
-            fill_opacity=0.5,
+            cx=debug["query_ball"]["particle_cx_rad"],
+            cy=debug["query_ball"]["particle_cy_rad"],
+            marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
+            marker_fill=None,
+            marker_fill_opacity=None,
         )
 
-    # resulting particle direction which was drawn
-    # --------------------------------------------
-    result_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
-        azimuth_deg=np.rad2deg(result["particle_azimuth_rad"]),
-        zenith_deg=np.rad2deg(result["particle_zenith_rad"]),
-    )
-    ax_add_marker(
-        ax=ax,
-        cx=[result_cx_cy[0]],
-        cy=[result_cx_cy[1]],
-        marker_half_angle_deg=sty["result"]["half_angle_deg"],
-        marker_fill=[sty["result"]["fill"]],
-        marker_fill_opacity=[sty["result"]["fill_opacity"]],
-    )
+        # Solid angle thrown
+        # ------------------
+        if debug["cone"]["is_truncated_by_max_zenith_distance"]:
+            _mesh_look = svgplt.hemisphere.init_mesh_look(
+                num_faces=len(debug["cone"]["faces"]),
+                stroke=sty["solid_angle_thrown"]["stroke"],
+                fill=sty["solid_angle_thrown"]["fill"],
+                fill_opacity=sty["solid_angle_thrown"]["fill_opacity"],
+                stroke_opacity=sty["solid_angle_thrown"]["stroke_opacity"],
+            )
+            svgplt.hemisphere.ax_add_mesh(
+                ax=ax,
+                vertices=debug["cone"]["vertices"],
+                faces=debug["cone"]["faces"],
+                max_radius=1.0,
+                **_mesh_look,
+            )
+        else:
+            ax_add_field_of_view(
+                ax=ax,
+                azimuth_deg=debug["average"]["particle_azimuth_deg"],
+                zenith_deg=debug["average"]["particle_zenith_deg"],
+                half_angle_deg=debug["cone"]["half_angle_thrown_deg"],
+                fn=137,
+                stroke=svgplt.color.css("black"),
+                stroke_opacity=0.25,
+                fill=svgplt.color.css("green"),
+                fill_opacity=0.5,
+            )
+
+        # resulting particle direction which was drawn
+        # --------------------------------------------
+        result_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
+            azimuth_deg=np.rad2deg(result["particle_azimuth_rad"]),
+            zenith_deg=np.rad2deg(result["particle_zenith_rad"]),
+        )
+        ax_add_marker(
+            ax=ax,
+            cx=[result_cx_cy[0]],
+            cy=[result_cx_cy[1]],
+            marker_half_angle_deg=sty["result"]["half_angle_deg"],
+            marker_fill=[sty["result"]["fill"]],
+            marker_fill_opacity=[sty["result"]["fill_opacity"]],
+        )
 
     svgplt.hemisphere.ax_add_grid(ax=ax)
     svgplt.fig_write(fig=fig, path=path)
 
 
-def plot_masked_grid(result, debug, path):
+def plot_masked_grid(result, debug, path, hemisphere_grid=None):
     sty = _style()
 
-    hemisphere_grid = hemisphere.Grid(
-        num_vertices=debug["hemisphere_grid_num_vertices"]
-    )
+    if hemisphere_grid is None:
+        hemisphere_grid = hemisphere.Grid(
+            num_vertices=debug["hemisphere_grid_num_vertices"]
+        )
+    else:
+        assert (
+            hemisphere_grid._init_num_vertices
+            == debug["hemisphere_grid_num_vertices"]
+        )
 
     fig = svgplt.Fig(cols=1080, rows=1080)
     ax = svgplt.hemisphere.Ax(fig=fig)
-
-    # solid angle thrown
-    # ------------------
-    _mesh_look = svgplt.hemisphere.init_mesh_look(
-        num_faces=len(hemisphere_grid.faces),
-        stroke=sty["solid_angle_thrown"]["stroke"],
-        fill=sty["solid_angle_thrown"]["fill"],
-        fill_opacity=0.0,
-        stroke_opacity=0.05,
-    )
-    for i in range(len(hemisphere_grid.faces)):
-        if i in debug["hemisphere_mask"]:
-            _mesh_look["faces_fill"][i] = svgplt.color.css("green")
-            _mesh_look["faces_fill_opacity"][i] = sty["solid_angle_thrown"][
-                "fill_opacity"
-            ]
-            _mesh_look["faces_stroke_opacity"][i] = sty["solid_angle_thrown"][
-                "stroke_opacity"
-            ]
-    svgplt.hemisphere.ax_add_mesh(
-        ax=ax,
-        vertices=hemisphere_grid.vertices,
-        faces=hemisphere_grid.faces,
-        max_radius=1.0,
-        **_mesh_look,
-    )
-
-    # matching showers in look-up-table
-    # ---------------------------------
-    ax_add_marker(
-        ax=ax,
-        cx=debug["query_ball"]["particle_cx_rad"],
-        cy=debug["query_ball"]["particle_cy_rad"],
-        marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
-        marker_fill=None,
-        marker_fill_opacity=None,
-    )
-
-    # rejected
-    # --------
-    rejected_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
-        azimuth_deg=np.rad2deg(debug["sampling"]["particle_azimuth_rad"]),
-        zenith_deg=np.rad2deg(debug["sampling"]["particle_zenith_rad"]),
-    )
-    ax_add_marker(
-        ax=ax,
-        cx=rejected_cx_cy[0],
-        cy=rejected_cx_cy[1],
-        marker_half_angle_deg=1.0,
-        marker_fill=[
-            svgplt.color.css("indigo") for i in range(len(rejected_cx_cy[0]))
-        ],
-        marker_fill_opacity=[0.25 for i in range(len(rejected_cx_cy[0]))],
-    )
-
-    # resulting particle direction which was drawn
-    # --------------------------------------------
-    result_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
-        azimuth_deg=np.rad2deg(result["particle_azimuth_rad"]),
-        zenith_deg=np.rad2deg(result["particle_zenith_rad"]),
-    )
-    ax_add_marker(
-        ax=ax,
-        cx=[result_cx_cy[0]],
-        cy=[result_cx_cy[1]],
-        marker_half_angle_deg=sty["result"]["half_angle_deg"],
-        marker_fill=[sty["result"]["fill"]],
-        marker_fill_opacity=[sty["result"]["fill_opacity"]],
-    )
+    _ax_add_energy_marker(ax=ax, energy_GeV=debug["parameters"]["energy_GeV"])
 
     # Cherenkov-field-of-view
     # -----------------------
@@ -495,6 +531,77 @@ def plot_masked_grid(result, debug, path):
         stroke_width=sty["cherenkov_field_of_view"]["stroke_width"],
         fill_opacity=sty["cherenkov_field_of_view"]["fill_opacity"],
     )
+
+    if not result["cutoff"]:
+        # solid angle thrown
+        # ------------------
+        _mesh_look = svgplt.hemisphere.init_mesh_look(
+            num_faces=len(hemisphere_grid.faces),
+            stroke=sty["solid_angle_thrown"]["stroke"],
+            fill=sty["solid_angle_thrown"]["fill"],
+            fill_opacity=0.0,
+            stroke_opacity=0.05,
+        )
+        for i in range(len(hemisphere_grid.faces)):
+            if i in debug["hemisphere_mask"]:
+                _mesh_look["faces_fill"][i] = svgplt.color.css("green")
+                _mesh_look["faces_fill_opacity"][i] = sty[
+                    "solid_angle_thrown"
+                ]["fill_opacity"]
+                _mesh_look["faces_stroke_opacity"][i] = sty[
+                    "solid_angle_thrown"
+                ]["stroke_opacity"]
+        svgplt.hemisphere.ax_add_mesh(
+            ax=ax,
+            vertices=hemisphere_grid.vertices,
+            faces=hemisphere_grid.faces,
+            max_radius=1.0,
+            **_mesh_look,
+        )
+
+        # matching showers in look-up-table
+        # ---------------------------------
+        ax_add_marker(
+            ax=ax,
+            cx=debug["query_ball"]["particle_cx_rad"],
+            cy=debug["query_ball"]["particle_cy_rad"],
+            marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
+            marker_fill=None,
+            marker_fill_opacity=None,
+        )
+
+        # rejected
+        # --------
+        rejected_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
+            azimuth_deg=np.rad2deg(debug["sampling"]["particle_azimuth_rad"]),
+            zenith_deg=np.rad2deg(debug["sampling"]["particle_zenith_rad"]),
+        )
+        ax_add_marker(
+            ax=ax,
+            cx=rejected_cx_cy[0],
+            cy=rejected_cx_cy[1],
+            marker_half_angle_deg=1.0,
+            marker_fill=[
+                svgplt.color.css("indigo")
+                for i in range(len(rejected_cx_cy[0]))
+            ],
+            marker_fill_opacity=[0.25 for i in range(len(rejected_cx_cy[0]))],
+        )
+
+        # resulting particle direction which was drawn
+        # --------------------------------------------
+        result_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
+            azimuth_deg=np.rad2deg(result["particle_azimuth_rad"]),
+            zenith_deg=np.rad2deg(result["particle_zenith_rad"]),
+        )
+        ax_add_marker(
+            ax=ax,
+            cx=[result_cx_cy[0]],
+            cy=[result_cx_cy[1]],
+            marker_half_angle_deg=sty["result"]["half_angle_deg"],
+            marker_fill=[sty["result"]["fill"]],
+            marker_fill_opacity=[sty["result"]["fill_opacity"]],
+        )
 
     svgplt.hemisphere.ax_add_grid(ax=ax)
     svgplt.fig_write(fig=fig, path=path)

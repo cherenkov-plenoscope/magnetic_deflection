@@ -4,11 +4,13 @@ from scipy import spatial
 import numpy as np
 import solid_angle_utils
 import svg_cartesian_plot as svgplt
-from .. import spherical_coordinates
+from sklearn.cluster import DBSCAN
 import io
 import triangle_mesh_io
 import merlict
 import corsika_primary
+
+from .. import spherical_coordinates
 
 
 def make_vertices(
@@ -113,7 +115,7 @@ def estimate_vertices_to_faces_map(faces, num_vertices):
 
     Returns
     -------
-    nn : dict of sets
+    nn : dict of lists
         A dict with an entry for each vertex referencing the faces it is
         connected to.
     """
@@ -124,7 +126,11 @@ def estimate_vertices_to_faces_map(faces, num_vertices):
     for iface, face in enumerate(faces):
         for iv in face:
             nn[iv].add(iface)
-    return nn
+
+    out = {}
+    for key in nn:
+        out[key] = list(nn[key])
+    return out
 
 
 def estimate_solid_angles(vertices, faces, geometry="spherical"):
@@ -171,6 +177,19 @@ def estimate_solid_angles(vertices, faces, geometry="spherical"):
 
         solid[i] = face_solid_angle
     return solid
+
+
+def cluster(
+    vertices,
+    eps,
+    min_samples,
+):
+    assert eps > 0
+    assert min_samples > 0
+    if len(vertices) == 0:
+        return np.array([])
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples).fit(vertices)
+    return dbscan.labels_
 
 
 def plot(vertices, faces, path, faces_mask=None):

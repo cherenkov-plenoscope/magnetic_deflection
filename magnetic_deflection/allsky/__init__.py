@@ -611,7 +611,7 @@ class AllSky:
                 ene_weight = gauss1d(
                     x=matches["particle_energy_GeV"][i],
                     mean=energy_GeV,
-                    sigma=(1 / 2 * energy_GeV * energy_factor),
+                    sigma=(energy_GeV * energy_factor),
                 )
                 direction_weights.append(dir_weight)
                 energy_weights.append(ene_weight)
