@@ -9,18 +9,39 @@ from .. import spherical_coordinates
 from ..version import __version__
 
 
+def guess_energy_factor(start, stop, e, start_factor=1e-2, stop_factor=1e-1):
+    # power spectrum is: -2.0
+    lstart = np.log10(start)
+    lstop = np.log10(stop)
+    le = np.log10(e)
+    return np.interp(x=le, xp=[lstart, lstop], fp=[start_factor, stop_factor])
+
+
+def guess_energy_factor_from_allsky_deflection(allsky_deflection, energy_GeV):
+    return guess_energy_factor(
+        start=allsky_deflection.config["binning"]["energy"]["start_GeV"],
+        stop=allsky_deflection.config["binning"]["energy"]["stop_GeV"],
+        e=energy_GeV,
+    )
+
+
 def draw_particle_direction_with_cone(
     prng,
     azimuth_deg,
     zenith_deg,
     half_angle_deg,
     energy_GeV,
-    energy_factor,
     shower_spread_half_angle_deg,
     min_num_cherenkov_photons,
     allsky_deflection,
+    energy_factor=None,
     max_iterations=1000 * 1000,
 ):
+    if energy_factor is None:
+        energy_factor = guess_energy_factor_from_allsky_deflection(
+            allsky_deflection=allsky_deflection, energy_GeV=energy_GeV
+        )
+
     debug = {"method_key": "cone"}
     debug["version"] = __version__
     debug["parameters"] = {
@@ -147,11 +168,11 @@ def draw_particle_direction_with_masked_grid(
     zenith_deg,
     half_angle_deg,
     energy_GeV,
-    energy_factor,
     shower_spread_half_angle_deg,
     min_num_cherenkov_photons,
     allsky_deflection,
     hemisphere_grid,
+    energy_factor=None,
     max_iterations=1000 * 1000,
 ):
     """
@@ -171,6 +192,11 @@ def draw_particle_direction_with_masked_grid(
     debug : dict
         Additional information about how the result was obtained.
     """
+    if energy_factor is None:
+        energy_factor = guess_energy_factor_from_allsky_deflection(
+            allsky_deflection=allsky_deflection, energy_GeV=energy_GeV
+        )
+
     debug = {"method_key": "masked_grid"}
     debug["version"] = __version__
     debug["parameters"] = {
@@ -285,6 +311,7 @@ def _style():
     }
     s["cherenkov_field_of_view"] = {
         "stroke": svgplt.color.css("blue"),
+        "stroke_width": 5,
         "fill_opacity": 0.0,
     }
     s["query_ball"] = {
@@ -313,6 +340,7 @@ def plot_cone(result, debug, path):
         half_angle_deg=debug["parameters"]["half_angle_deg"],
         fn=137,
         stroke=sty["cherenkov_field_of_view"]["stroke"],
+        stroke_width=sty["cherenkov_field_of_view"]["stroke_width"],
         fill_opacity=sty["cherenkov_field_of_view"]["fill_opacity"],
     )
 
@@ -464,6 +492,7 @@ def plot_masked_grid(result, debug, path):
         half_angle_deg=debug["parameters"]["half_angle_deg"],
         fn=137,
         stroke=sty["cherenkov_field_of_view"]["stroke"],
+        stroke_width=sty["cherenkov_field_of_view"]["stroke_width"],
         fill_opacity=sty["cherenkov_field_of_view"]["fill_opacity"],
     )
 
