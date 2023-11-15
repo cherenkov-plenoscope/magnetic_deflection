@@ -25,14 +25,22 @@ def guess_energy_factor_from_allsky_deflection(allsky_deflection, energy_GeV):
     )
 
 
-def estimate_cluster_labels_for_matches(matches, eps_deg, min_samples):
+def guess_min_samples_for_clustering(num_showers, min_samples=10):
+    return max([min_samples, int(np.sqrt(num_showers))])
+
+
+def guess_eps_deg_for_clustering(shower_spread_half_angle_deg):
+    arbitrary_factor = 2.5
+    return arbitrary_factor * np.sqrt(shower_spread_half_angle_deg)
+
+
+def estimate_cluster_labels_for_showers(showers, eps_deg, min_samples):
     _cz = spherical_coordinates.restore_cz(
-        cx=matches["particle_cx_rad"], cy=matches["particle_cy_rad"]
+        cx=showers["particle_cx_rad"], cy=showers["particle_cy_rad"]
     )
     particle_cxcycz = np.c_[
-        matches["particle_cx_rad"], matches["particle_cy_rad"], _cz
+        showers["particle_cx_rad"], showers["particle_cy_rad"], _cz
     ]
-
     eps_rad = np.deg2rad(eps_deg)
     labels = hemisphere.cluster(
         vertices=particle_cxcycz,
@@ -42,12 +50,26 @@ def estimate_cluster_labels_for_matches(matches, eps_deg, min_samples):
     return labels
 
 
-def apply_cluster_labels(matches, cluster_labels, weights=None):
-    mask = cluster_labels >= 0  # everything but outliers
-    if weights is None:
-        return matches[mask]
-    else:
-        return matches[mask], weights[mask]
+def cluster_showers_to_remove_outliers(
+    showers,
+    shower_spread_half_angle_deg,
+):
+    dbg = {}
+    dbg["min_samples"] = guess_min_samples_for_clustering(
+        num_showers=len(showers)
+    )
+    dbg["eps_deg"] = guess_eps_deg_for_clustering(
+        shower_spread_half_angle_deg=shower_spread_half_angle_deg
+    )
+    dbg["labels"] = estimate_cluster_labels_for_showers(
+        showers=showers,
+        eps_deg=dbg["eps_deg"],
+        min_samples=dbg["min_samples"],
+    )
+    dbg["mask"] = dbg["labels"] >= 0  # everything but outliers
+
+    dense_showers = showers[dbg["mask"]]
+    return dense_showers, dbg
 
 
 def draw_particle_direction_with_cone(
@@ -86,7 +108,7 @@ def draw_particle_direction_with_cone(
 
     try:
         (
-            matches,
+            showers,
             direction_weights,
             energy_weights,
         ) = allsky_deflection.query_cherenkov_ball(
@@ -103,34 +125,39 @@ def draw_particle_direction_with_cone(
         result = {"cutoff": True}
         return result, debug
 
-    if np.sum(energy_weights) < 0.1:
+    debug["query_ball"] = {
+        "particle_cx_rad": showers["particle_cx_rad"],
+        "particle_cy_rad": showers["particle_cy_rad"],
+        "energy_weights": energy_weights,
+    }
+
+    if len(showers) == 0:
         result = {"cutoff": True}
         return result, debug
 
     # cluster
     # -------
-    min_samples = max([10, int(np.sqrt(len(matches)))])
-    debug["cluster_min_samples"] = min_samples
-    cluster_labels = estimate_cluster_labels_for_matches(
-        matches=matches,
-        eps_deg=(1 / 3) * shower_spread_half_angle_deg,
-        min_samples=min_samples,
+    dense_showers, cluster_debug = cluster_showers_to_remove_outliers(
+        showers=showers,
+        shower_spread_half_angle_deg=shower_spread_half_angle_deg,
     )
-    debug["cluster_labels"] = cluster_labels
-    matches, energy_weights = apply_cluster_labels(
-        matches=matches, weights=energy_weights, cluster_labels=cluster_labels
-    )
-    if len(matches) == 0:
+    dense_energy_weights = energy_weights[cluster_debug["mask"]]
+    debug["cluster"] = cluster_debug
+    debug["cluster"]["particle_cx_rad"] = dense_showers["particle_cx_rad"]
+    debug["cluster"]["particle_cy_rad"] = dense_showers["particle_cy_rad"]
+    debug["cluster"]["energy_weights"] = dense_energy_weights
+
+    if len(dense_showers) == 0:
         result = {"cutoff": True}
         return result, debug
 
     # cone
     # ----
     avg_particle_cx_rad, std_particle_cx_rad = weighted_avg_and_std(
-        values=matches["particle_cx_rad"], weights=energy_weights
+        values=dense_showers["particle_cx_rad"], weights=dense_energy_weights
     )
     avg_particle_cy_rad, std_particle_cy_rad = weighted_avg_and_std(
-        values=matches["particle_cy_rad"], weights=energy_weights
+        values=dense_showers["particle_cy_rad"], weights=dense_energy_weights
     )
 
     (
@@ -140,11 +167,6 @@ def draw_particle_direction_with_cone(
         cx=avg_particle_cx_rad, cy=avg_particle_cy_rad
     )
 
-    debug["query_ball"] = {
-        "particle_cx_rad": matches["particle_cx_rad"],
-        "particle_cy_rad": matches["particle_cy_rad"],
-        "energy_weights": energy_weights,
-    }
     debug["average"] = {
         "particle_azimuth_deg": avg_particle_azimuth_deg,
         "particle_zenith_deg": avg_particle_zenith_deg,
@@ -272,10 +294,10 @@ def draw_particle_direction_with_masked_grid(
         ]
     )
 
-    # prime mask with matches
+    # prime mask with showers
     # -----------------------
     try:
-        matches = allsky_deflection.query_cherenkov_ball(
+        showers = allsky_deflection.query_cherenkov_ball(
             azimuth_deg=azimuth_deg,
             zenith_deg=zenith_deg,
             half_angle_deg=half_angle_deg,
@@ -288,39 +310,36 @@ def draw_particle_direction_with_masked_grid(
         result = {"cutoff": True}
         return result, debug
 
-    if len(matches) == 0:
+    debug["query_ball"] = {
+        "particle_cx_rad": showers["particle_cx_rad"],
+        "particle_cy_rad": showers["particle_cy_rad"],
+    }
+
+    if len(showers) == 0:
         result = {"cutoff": True}
         return result, debug
 
     # cluster
     # -------
-    min_samples = max([10, int(np.sqrt(len(matches)))])
-    debug["cluster_min_samples"] = min_samples
-    cluster_labels = estimate_cluster_labels_for_matches(
-        matches=matches,
-        eps_deg=(1 / 3) * shower_spread_half_angle_deg,
-        min_samples=min_samples,
+    dense_showers, cluster_debug = cluster_showers_to_remove_outliers(
+        showers=showers,
+        shower_spread_half_angle_deg=shower_spread_half_angle_deg,
     )
-    debug["cluster_labels"] = cluster_labels
-    matches = apply_cluster_labels(
-        matches=matches, cluster_labels=cluster_labels
-    )
-    if len(matches) == 0:
+    debug["cluster"] = cluster_debug
+    debug["cluster"]["particle_cx_rad"] = dense_showers["particle_cx_rad"]
+    debug["cluster"]["particle_cy_rad"] = dense_showers["particle_cy_rad"]
+
+    if len(dense_showers) == 0:
         result = {"cutoff": True}
         return result, debug
 
     # grid
     # ----
-    debug["query_ball"] = {
-        "particle_cx_rad": matches["particle_cx_rad"],
-        "particle_cy_rad": matches["particle_cy_rad"],
-    }
-
     hemisphere_mask = hemisphere.Mask(grid=hemisphere_grid)
-    for i in range(len(matches)):
+    for i in range(len(dense_showers)):
         hemisphere_mask.append_cx_cy(
-            cx=matches["particle_cx_rad"][i],
-            cy=matches["particle_cy_rad"][i],
+            cx=dense_showers["particle_cx_rad"][i],
+            cy=dense_showers["particle_cy_rad"][i],
             half_angle_deg=shower_spread_half_angle_deg,
         )
 
@@ -400,10 +419,17 @@ def _style():
     }
     s["query_ball"] = {
         "half_angle_deg": 0.5,
+        "fill": svgplt.color.css("gray"),
+        "fill_opacity": 0.25,
+    }
+    s["cluster"] = {
+        "half_angle_deg": 0.5,
+        "fill": svgplt.color.css("blue"),
+        "fill_opacity": 1,
     }
     s["solid_angle_thrown"] = {
         "stroke": svgplt.color.css("black"),
-        "fill": svgplt.color.css("green"),
+        "fill": svgplt.color.css("MediumAquaMarine"),
         "fill_opacity": 0.5,
         "stroke_opacity": 0.25,
     }
@@ -415,6 +441,17 @@ def _ax_add_energy_marker(ax, energy_GeV):
         ax=ax,
         xy=[0.7, 0.9],
         text="{: 6.3f}GeV".format(energy_GeV),
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=24,
+    )
+
+
+def _ax_add_cutoff_marker(ax):
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[0.0, 0.0],
+        text="cutoff",
         fill=svgplt.color.css("black"),
         font_family="math",
         font_size=24,
@@ -442,26 +479,15 @@ def plot_cone(result, debug, path):
     )
 
     if not result["cutoff"]:
-        # matching showers in look-up-table
-        # ---------------------------------
-        ax_add_marker(
-            ax=ax,
-            cx=debug["query_ball"]["particle_cx_rad"],
-            cy=debug["query_ball"]["particle_cy_rad"],
-            marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
-            marker_fill=None,
-            marker_fill_opacity=None,
-        )
-
         # Solid angle thrown
         # ------------------
         if debug["cone"]["is_truncated_by_max_zenith_distance"]:
             _mesh_look = svgplt.hemisphere.init_mesh_look(
                 num_faces=len(debug["cone"]["faces"]),
                 stroke=sty["solid_angle_thrown"]["stroke"],
+                stroke_opacity=sty["solid_angle_thrown"]["stroke_opacity"],
                 fill=sty["solid_angle_thrown"]["fill"],
                 fill_opacity=sty["solid_angle_thrown"]["fill_opacity"],
-                stroke_opacity=sty["solid_angle_thrown"]["stroke_opacity"],
             )
             svgplt.hemisphere.ax_add_mesh(
                 ax=ax,
@@ -477,11 +503,33 @@ def plot_cone(result, debug, path):
                 zenith_deg=debug["average"]["particle_zenith_deg"],
                 half_angle_deg=debug["cone"]["half_angle_thrown_deg"],
                 fn=137,
-                stroke=svgplt.color.css("black"),
-                stroke_opacity=0.25,
-                fill=svgplt.color.css("green"),
-                fill_opacity=0.5,
+                stroke=sty["solid_angle_thrown"]["stroke"],
+                stroke_opacity=sty["solid_angle_thrown"]["stroke_opacity"],
+                fill=sty["solid_angle_thrown"]["fill"],
+                fill_opacity=sty["solid_angle_thrown"]["fill_opacity"],
             )
+
+        # showers in query_ball
+        # ---------------------
+        ax_add_marker(
+            ax=ax,
+            cx=debug["query_ball"]["particle_cx_rad"],
+            cy=debug["query_ball"]["particle_cy_rad"],
+            marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
+            marker_fill_all=sty["query_ball"]["fill"],
+            marker_fill_opacity_all=sty["query_ball"]["fill_opacity"],
+        )
+
+        # showers in cluster
+        # ------------------
+        ax_add_marker(
+            ax=ax,
+            cx=debug["cluster"]["particle_cx_rad"],
+            cy=debug["cluster"]["particle_cy_rad"],
+            marker_half_angle_deg=sty["cluster"]["half_angle_deg"],
+            marker_fill_all=sty["cluster"]["fill"],
+            marker_fill_opacity_all=sty["cluster"]["fill_opacity"],
+        )
 
         # resulting particle direction which was drawn
         # --------------------------------------------
@@ -494,9 +542,11 @@ def plot_cone(result, debug, path):
             cx=[result_cx_cy[0]],
             cy=[result_cx_cy[1]],
             marker_half_angle_deg=sty["result"]["half_angle_deg"],
-            marker_fill=[sty["result"]["fill"]],
-            marker_fill_opacity=[sty["result"]["fill_opacity"]],
+            marker_fill_all=sty["result"]["fill"],
+            marker_fill_opacity_all=sty["result"]["fill_opacity"],
         )
+    else:
+        _ax_add_cutoff_marker(ax=ax)
 
     svgplt.hemisphere.ax_add_grid(ax=ax)
     svgplt.fig_write(fig=fig, path=path)
@@ -540,7 +590,7 @@ def plot_masked_grid(result, debug, path, hemisphere_grid=None):
             stroke=sty["solid_angle_thrown"]["stroke"],
             fill=sty["solid_angle_thrown"]["fill"],
             fill_opacity=0.0,
-            stroke_opacity=0.05,
+            stroke_opacity=0.0,
         )
         for i in range(len(hemisphere_grid.faces)):
             if i in debug["hemisphere_mask"]:
@@ -559,34 +609,47 @@ def plot_masked_grid(result, debug, path, hemisphere_grid=None):
             **_mesh_look,
         )
 
-        # matching showers in look-up-table
-        # ---------------------------------
+        # showers in query_ball
+        # ---------------------
         ax_add_marker(
             ax=ax,
             cx=debug["query_ball"]["particle_cx_rad"],
             cy=debug["query_ball"]["particle_cy_rad"],
             marker_half_angle_deg=sty["query_ball"]["half_angle_deg"],
-            marker_fill=None,
-            marker_fill_opacity=None,
+            marker_fill_all=sty["query_ball"]["fill"],
+            marker_fill_opacity_all=sty["query_ball"]["fill_opacity"],
+        )
+
+        # showers in cluster
+        # ------------------
+        ax_add_marker(
+            ax=ax,
+            cx=debug["cluster"]["particle_cx_rad"],
+            cy=debug["cluster"]["particle_cy_rad"],
+            marker_half_angle_deg=sty["cluster"]["half_angle_deg"],
+            marker_fill_all=sty["cluster"]["fill"],
+            marker_fill_opacity_all=sty["cluster"]["fill_opacity"],
         )
 
         # rejected
         # --------
-        rejected_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
-            azimuth_deg=np.rad2deg(debug["sampling"]["particle_azimuth_rad"]),
-            zenith_deg=np.rad2deg(debug["sampling"]["particle_zenith_rad"]),
-        )
-        ax_add_marker(
-            ax=ax,
-            cx=rejected_cx_cy[0],
-            cy=rejected_cx_cy[1],
-            marker_half_angle_deg=1.0,
-            marker_fill=[
-                svgplt.color.css("indigo")
-                for i in range(len(rejected_cx_cy[0]))
-            ],
-            marker_fill_opacity=[0.25 for i in range(len(rejected_cx_cy[0]))],
-        )
+        if False:
+            rejected_cx_cy = spherical_coordinates._az_zd_to_cx_cy(
+                azimuth_deg=np.rad2deg(
+                    debug["sampling"]["particle_azimuth_rad"]
+                ),
+                zenith_deg=np.rad2deg(
+                    debug["sampling"]["particle_zenith_rad"]
+                ),
+            )
+            ax_add_marker(
+                ax=ax,
+                cx=rejected_cx_cy[0],
+                cy=rejected_cx_cy[1],
+                marker_half_angle_deg=1.0,
+                marker_fill_all=svgplt.color.css("indigo"),
+                marker_fill_opacity_all=0.25,
+            )
 
         # resulting particle direction which was drawn
         # --------------------------------------------
@@ -599,9 +662,11 @@ def plot_masked_grid(result, debug, path, hemisphere_grid=None):
             cx=[result_cx_cy[0]],
             cy=[result_cx_cy[1]],
             marker_half_angle_deg=sty["result"]["half_angle_deg"],
-            marker_fill=[sty["result"]["fill"]],
-            marker_fill_opacity=[sty["result"]["fill_opacity"]],
+            marker_fill_all=sty["result"]["fill"],
+            marker_fill_opacity_all=sty["result"]["fill_opacity"],
         )
+    else:
+        _ax_add_cutoff_marker(ax=ax)
 
     svgplt.hemisphere.ax_add_grid(ax=ax)
     svgplt.fig_write(fig=fig, path=path)
@@ -612,17 +677,17 @@ def ax_add_marker(
     cx,
     cy,
     marker_half_angle_deg,
-    marker_fill=None,
-    marker_fill_opacity=None,
+    marker_fill_all=None,
+    marker_fill_opacity_all=None,
     mount="altitude_azimuth_mount",
 ):
     assert len(cx) == len(cy)
     assert marker_half_angle_deg > 0.0
 
-    if marker_fill is None:
-        marker_fill = [svgplt.color.css("blue") for i in range(len(cx))]
-    if marker_fill_opacity is None:
-        marker_fill_opacity = np.ones(len(cx))
+    if marker_fill_all is not None:
+        marker_fill = [marker_fill_all for i in range(len(cx))]
+    if marker_fill_opacity_all is not None:
+        marker_fill_opacity = [marker_fill_opacity_all for i in range(len(cx))]
 
     marker_verts_uxyz = viewcone.make_ring(
         half_angle_deg=marker_half_angle_deg,

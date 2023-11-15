@@ -5,6 +5,8 @@ import numpy as np
 import json_numpy
 import rename_after_writing as rnw
 import corsika_primary
+from svg_cartesian_plot import inkscape
+import subprocess
 
 
 def init(work_dir, corsika_primary_path):
@@ -109,12 +111,18 @@ def demonstrate_query(
                     prng=prng,
                     allsky_deflection=allsky_deflection,
                 )
+                request[
+                    "cherenkov_field_of_view_half_angle_deg"
+                ] = cherenkov_field_of_view_half_angle_deg
 
                 request_path = os.path.join(
                     out_sk_pk_dir, qkey + "_request.json"
                 )
                 cone_path = os.path.join(out_sk_pk_dir, qkey + "_cone.json")
                 grid_path = os.path.join(out_sk_pk_dir, qkey + "_grid.json")
+
+                with rnw.open(request_path, "wt") as f:
+                    f.write(json_numpy.dumps(request))
 
                 if os.path.exists(cone_path) and os.path.exists(grid_path):
                     continue
@@ -178,6 +186,21 @@ def demonstrate_query(
                     ),
                     hemisphere_grid=hemisphere_grid,
                 )
+
+                try:
+                    for method_key in ["cone", "grid"]:
+                        ipath = os.path.join(
+                            out_sk_pk_dir,
+                            "{:06d}_{:s}.svg".format(q, method_key),
+                        )
+                        opath = os.path.join(
+                            out_sk_pk_dir,
+                            "{:06d}_{:s}.jpg".format(q, method_key),
+                        )
+                        subprocess.call(["convert", ipath, opath])
+                        os.remove(ipath)
+                except:
+                    pass
 
 
 def _draw_shower_request(prng, allsky_deflection):
