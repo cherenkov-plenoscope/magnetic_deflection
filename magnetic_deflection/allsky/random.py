@@ -429,7 +429,7 @@ def _style():
     }
     s["solid_angle_thrown"] = {
         "stroke": svgplt.color.css("black"),
-        "fill": svgplt.color.css("MediumAquaMarine"),
+        "fill": svgplt.color.css("green"),
         "fill_opacity": 0.5,
         "stroke_opacity": 0.25,
     }
@@ -594,7 +594,7 @@ def plot_masked_grid(result, debug, path, hemisphere_grid=None):
         )
         for i in range(len(hemisphere_grid.faces)):
             if i in debug["hemisphere_mask"]:
-                _mesh_look["faces_fill"][i] = svgplt.color.css("green")
+                _mesh_look["faces_fill"][i] = sty["solid_angle_thrown"]["fill"]
                 _mesh_look["faces_fill_opacity"][i] = sty[
                     "solid_angle_thrown"
                 ]["fill_opacity"]
