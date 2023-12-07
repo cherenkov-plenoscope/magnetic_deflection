@@ -1,6 +1,7 @@
-import atmospheric_cherenkov_response as acr
+import atmospheric_cherenkov_response
 from . import allsky
 import os
+import glob
 import numpy as np
 import json_numpy
 import rename_after_writing as rnw
@@ -24,8 +25,7 @@ def init(
     Parameters
     ----------
     work_dir : str
-        The directory to contain the sites and the particles.
-        Path will be: work_dir/site/particle
+        Contains the site-dirs which in turn contain the particle-dirs.
     energy_stop_GeV : float
         Maximum energy of particles to simulate and populate the tables with.
         Showers induced by particles above this energy are considered to show
@@ -45,17 +45,16 @@ def init(
     particle_keys is [electron, proton, gamma], the work_dir
     will look like this:
 
-    work_dir
-         |
-         |_namibia
-         |      |_electron  <- each of these directories is an AllSky.
-         |      |_proton
-         |      |_gamma
-         |
-         |___chile
-                |_electron
-                |_proton
-                |_gamma
+    /-> work_dir
+            |-> namibia
+            |       |-> electron  <- each of these directories is an AllSky.
+            |       |-> proton
+            |       |-> gamma
+            |
+            |-> chile
+                    |-> electron
+                    |-> proton
+                    |-> gamma
 
     """
     os.makedirs(work_dir, exist_ok=True)
@@ -88,13 +87,96 @@ def init(
                 )
 
 
+def find_site_and_particle_keys(work_dir):
+    """
+    Finds the site-keys and particle-keys which all sites have in common.
+
+    Parameters
+    ----------
+    work_dir : str
+        Contains the site-dirs which in turn contain the particle-dirs.
+
+    Returns
+    -------
+    (site_keys, particle_keys) : (list, list)
+    """
+    tree = _sniff_site_and_particle_keys(work_dir=work_dir)
+    return _get_common_sites_and_particles(tree=tree)
+
+
+def _get_common_sites_and_particles(tree):
+    site_keys = list(tree.keys())
+    particle_keys = set.intersection(*[set(tree[sk]) for sk in tree])
+    return site_keys, list(particle_keys)
+
+
+def _sniff_site_and_particle_keys(work_dir):
+    potential_site_keys = _list_dirnames_in_path(path=work_dir)
+    known_site_keys = atmospheric_cherenkov_response.sites.keys()
+    known_particle_keys = atmospheric_cherenkov_response.particles.keys()
+
+    site_keys = _filter_keys(
+        keys=potential_site_keys,
+        keys_to_keep=known_site_keys,
+    )
+
+    tree = {}
+    for sk in site_keys:
+        _potential_particle_keys = _list_dirnames_in_path(
+            path=os.path.join(work_dir, sk)
+        )
+        _particle_keys = _filter_keys(
+            keys=_potential_particle_keys,
+            keys_to_keep=known_particle_keys,
+        )
+        tree[sk] = _particle_keys
+
+    return tree
+
+
+def _list_dirnames_in_path(path):
+    dirs = glob.glob(os.path.join(path, "*"))
+    dirnames = []
+    for dd in dirs:
+        if os.path.isdir(dd):
+            dirnames.append(os.path.basename(dd))
+    return dirnames
+
+
+def _filter_keys(keys, keys_to_keep):
+    out = []
+    for key in keys:
+        if key in keys_to_keep:
+            out.append(key)
+    return out
+
+
 def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
+    """
+    Increase the population of showers in each table (site,particle)
+    combination.
+
+    Parameters
+    ----------
+    work_dir : str
+        Contains the site-dirs which in turn contain the particle-dirs.
+    pool : e.g. multiprocessing.Pool
+        Needs to have a map() function. This is the thread or job pool used
+        in the parallel production. When pool is builtins, builtins.map is
+        used for serial processing.
+    num_runs : int
+        Add this many runs of showers. (A run is a production run of showers).
+    num_showers_per_run : int
+        Number of showers in a single run.
+    """
     assert num_runs >= 0
     assert num_showers_per_run >= 0
 
-    for sk in acr.sites.keys():
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+
+    for sk in site_keys:
         sk_dir = os.path.join(work_dir, sk)
-        for pk in acr.particles.keys():
+        for pk in particle_keys:
             sk_pk_dir = os.path.join(sk_dir, pk)
 
             print(sk, pk)
@@ -108,23 +190,52 @@ def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
 
 
 def export_csv(work_dir, out_dir):
+    """
+    Exports all deflection tables in the work_dir into csv-fiels.
+
+    Parameters
+    ----------
+    work_dir : str
+        Contains the site-dirs which in turn contain the particle-dirs.
+    out_dir : str
+        Here the csv-tables will be written to.
+
+    example
+    -------
+
+    /-> out_dir
+            |-> namibia
+                    |-> electron
+                            |-> config.json
+                            |-> showers.csv
+
+
+    """
     os.makedirs(out_dir, exist_ok=True)
 
-    for sk in acr.sites.keys():
-        site_path = os.path.join(out_dir, "{:s}.json".format(sk))
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+
+    for sk in site_keys:
         sk_dir = os.path.join(work_dir, sk)
-        for pk in acr.particles.keys():
+        out_sk_dir = os.path.join(out_dir, sk)
+        os.makedirs(out_sk_dir, exist_ok=True)
+
+        for pk in particle_keys:
             sk_pk_dir = os.path.join(sk_dir, pk)
+            out_sk_pk_dir = os.path.join(out_sk_dir, pk)
+            os.makedirs(out_sk_pk_dir, exist_ok=True)
 
             print(sk, pk)
             sky = allsky.open(sk_pk_dir)
 
-            with rnw.open(site_path, "wt") as f:
+            config_path = os.path.join(out_sk_pk_dir, "config.json")
+
+            with rnw.open(config_path, "wt") as f:
                 f.write(json_numpy.dumps(sky.config["site"], indent=4))
 
-            out_path = os.path.join(out_dir, "{:s}_{:s}.csv".format(sk, pk))
-            if not os.path.exists(out_path):
-                sky.store.export_csv(path=out_path)
+            table_path = os.path.join(out_sk_pk_dir, "showers.csv")
+            if not os.path.exists(table_path):
+                sky.store.export_csv(path=table_path)
 
 
 def demonstrate_query(
@@ -134,18 +245,39 @@ def demonstrate_query(
     random_seed=43,
     num=64,
 ):
+    """
+    Creates a plots which demonstrate the query process.
+    For each (site,particle) combination a random query will be performed in
+    order to obtain the direction of the primary particle to create Cherenkov
+    light within the instrument's field-of-view. The instruments pointing and
+    the energy of the primary particle are drawn randomly.
+
+    Parameters
+    ----------
+    work_dir : str
+        Contains the site-dirs which in turn contain the particle-dirs.
+    out_dir : str
+        Here the demonstration plots and comments will be written to.
+    cherenkov_field_of_view_half_angle_deg : float
+        Include showers which emit Cherenkov light within this view-cone.
+    random_seed : int
+        Seed for the random requests for the query.
+    num : int
+        Make this many examples for each combination of site and particle.
+    """
     os.makedirs(out_dir, exist_ok=True)
     assert cherenkov_field_of_view_half_angle_deg > 0
 
     hemisphere_grid = allsky.hemisphere.Grid(num_vertices=4069)
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
 
-    for sk in acr.sites.keys():
+    for sk in site_keys:
         site_path = os.path.join(out_dir, "{:s}.json".format(sk))
         sk_dir = os.path.join(work_dir, sk)
         out_sk_dir = os.path.join(out_dir, sk)
         os.makedirs(out_sk_dir, exist_ok=True)
 
-        for pk in acr.particles.keys():
+        for pk in particle_keys:
             sk_pk_dir = os.path.join(sk_dir, pk)
             out_sk_pk_dir = os.path.join(out_sk_dir, pk)
             os.makedirs(out_sk_pk_dir, exist_ok=True)
@@ -258,6 +390,9 @@ def demonstrate_query(
 
 
 def _draw_shower_request(prng, allsky_deflection):
+    """
+    Make the parameters for a random query to be performed on an AllSky.
+    """
     (
         cer_az_rad,
         cer_zd_rad,
