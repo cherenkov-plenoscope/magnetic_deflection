@@ -101,14 +101,8 @@ def init(
         )
 
     if corsika_primary_path is None:
-        corsika_primary_path = os.path.join(
-            "build",
-            "corsika",
-            "modified",
-            "corsika-75600",
-            "run",
-            "corsika75600Linux_QGSII_urqmd",
-        )
+        corsika_primary_path = production.default_corsika_primary_mod_path()
+
     with rnw.open(os.path.join(config_dir, "corsika_primary.json"), "wt") as f:
         f.write(json_utils.dumps({"path": corsika_primary_path}))
 

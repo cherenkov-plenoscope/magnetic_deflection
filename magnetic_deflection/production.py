@@ -9,19 +9,73 @@ from svg_cartesian_plot import inkscape
 import subprocess
 
 
-def init(work_dir, corsika_primary_path):
+def init(
+    work_dir,
+    energy_stop_GeV=64.0,
+    site_keys=atmospheric_cherenkov_response.sites.keys(),
+    particle_keys=atmospheric_cherenkov_response.particles.keys(),
+    corsika_primary_path=allsky.production.default_corsika_primary_mod_path(),
+):
+    """
+    Creates tables listing the magnetic deflection of atmospheric showers
+    induced by particles. The tables cover the all the sky (see
+    magnetic_deflection.allsky).
+
+    Parameters
+    ----------
+    work_dir : str
+        The directory to contain the sites and the particles.
+        Path will be: work_dir/site/particle
+    energy_stop_GeV : float
+        Maximum energy of particles to simulate and populate the tables with.
+        Showers induced by particles above this energy are considered to show
+        no significant deflection in earth's magnetic field.
+    site_keys : list [str]
+        The keys (names) of the sites to be simulated.
+        See atmospheric_cherenkov_response.sites package.
+    particle_keys : list [str]
+        The keys (names) of the particles to be simulated.
+        See atmospheric_cherenkov_response.particles package.
+    corsika_primary_path : str
+        Path to the CORSIKA-primary-mod executable.
+
+    example
+    -------
+    when site_keys is [namibia, chile] and
+    particle_keys is [electron, proton, gamma], the work_dir
+    will look like this:
+
+    work_dir
+         |
+         |_namibia
+         |      |_electron  <- each of these directories is an AllSky.
+         |      |_proton
+         |      |_gamma
+         |
+         |___chile
+                |_electron
+                |_proton
+                |_gamma
+
+    """
     os.makedirs(work_dir, exist_ok=True)
 
-    for sk in acr.sites.keys():
+    for sk in site_keys:
         sk_dir = os.path.join(work_dir, sk)
-        for pk in acr.particles.keys():
+        for pk in particle_keys:
             sk_pk_dir = os.path.join(sk_dir, pk)
 
             if not os.path.exists(sk_pk_dir):
-                particle = acr.particles.init(pk)
+                particle = atmospheric_cherenkov_response.particles.init(pk)
 
-                energy_start_GeV = acr.particles.compile_energy(
-                    particle["population"]["energy"]["start_GeV"]
+                # Different particles have different minimal energies.
+                # E.g. the proton needs much more energy to emitt Cherenkov
+                # light than the electron.
+
+                energy_start_GeV = (
+                    atmospheric_cherenkov_response.particles.compile_energy(
+                        particle["population"]["energy"]["start_GeV"]
+                    )
                 )
 
                 allsky.init(
@@ -29,7 +83,7 @@ def init(work_dir, corsika_primary_path):
                     particle_key=pk,
                     site_key=sk,
                     energy_start_GeV=energy_start_GeV,
-                    energy_stop_GeV=64.0,
+                    energy_stop_GeV=energy_stop_GeV,
                     corsika_primary_path=corsika_primary_path,
                 )
 
