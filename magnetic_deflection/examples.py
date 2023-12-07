@@ -1,16 +1,6 @@
 import os
 import numpy as np
 
-CORSIKA_PRIMARY_MOD_PATH = os.path.abspath(
-    os.path.join(
-        "build",
-        "corsika",
-        "modified",
-        "corsika-75600",
-        "run",
-        "corsika75600Linux_QGSII_urqmd",
-    )
-)
 
 PLOTTING = {
     "light_field": {

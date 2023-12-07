@@ -45,7 +45,7 @@ def init(
     particle_keys is [electron, proton, gamma], the work_dir
     will look like this:
 
-    /-> work_dir
+    |-> work_dir
             |-> namibia
             |       |-> electron  <- each of these directories is an AllSky.
             |       |-> proton
@@ -203,7 +203,7 @@ def export_csv(work_dir, out_dir):
     example
     -------
 
-    /-> out_dir
+    |-> out_dir
             |-> namibia
                     |-> electron
                             |-> config.json
