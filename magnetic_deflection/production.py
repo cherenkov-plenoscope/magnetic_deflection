@@ -15,7 +15,7 @@ def init(
     energy_stop_GeV=64.0,
     site_keys=atmospheric_cherenkov_response.sites.keys(),
     particle_keys=atmospheric_cherenkov_response.particles.keys(),
-    corsika_primary_path=allsky.production.default_corsika_primary_mod_path(),
+    corsika_primary_path=corsika_primary.install.typical_corsika_primary_mod_path(),
 ):
     """
     Creates tables listing the magnetic deflection of atmospheric showers

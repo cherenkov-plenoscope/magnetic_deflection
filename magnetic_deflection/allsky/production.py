@@ -99,14 +99,3 @@ class Production:
         )
 
         return next_run_id
-
-
-def default_corsika_primary_mod_path():
-    return os.path.join(
-        "build",
-        "corsika",
-        "modified",
-        "corsika-75600",
-        "run",
-        "corsika75600Linux_QGSII_urqmd",
-    )
