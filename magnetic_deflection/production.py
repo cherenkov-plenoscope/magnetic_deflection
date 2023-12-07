@@ -180,7 +180,7 @@ def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
             sk_pk_dir = os.path.join(sk_dir, pk)
 
             print(sk, pk)
-            sky = allsky.open(sk_pk_dir)
+            sky = allsky.AllSky(sk_pk_dir)
             sky.populate(
                 pool=pool,
                 num_chunks=1,

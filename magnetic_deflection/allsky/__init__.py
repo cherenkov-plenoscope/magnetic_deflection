@@ -23,6 +23,7 @@ from . import viewcone
 from .. import spherical_coordinates
 from .. import cherenkov_pool
 from . import hemisphere
+from . import analysis
 from ..version import __version__
 
 
@@ -175,20 +176,8 @@ def rebin(
     raise NotImplementedError("to be done...")
 
 
-def open(work_dir):
-    """
-    Open an AllSky.
-
-    Parameters
-    ----------
-    work_dir : str
-        Path to the AllSky's working directory.
-    """
-    return AllSky(work_dir=work_dir)
-
-
 class AllSky:
-    def __init__(self, work_dir):
+    def __init__(self, work_dir, cache_dtype=store.minimal_cache_dtype()):
         """
         Parameters
         ----------
@@ -223,6 +212,7 @@ class AllSky:
         self.binning = binning.Binning(config=self.config["binning"])
         self.store = store.Store(
             store_dir=os.path.join(work_dir, "store"),
+            cache_dtype=cache_dtype,
         )
 
     def version_of_when_work_dir_was_initiated(self):
