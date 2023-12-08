@@ -107,7 +107,11 @@ def find_site_and_particle_keys(work_dir):
 def _get_common_sites_and_particles(tree):
     site_keys = list(tree.keys())
     particle_keys = set.intersection(*[set(tree[sk]) for sk in tree])
-    return site_keys, list(particle_keys)
+    particle_keys = list(particle_keys)
+    # sort for reproducibility
+    site_keys = sorted(site_keys)
+    particle_keys = sorted(particle_keys)
+    return site_keys, particle_keys
 
 
 def _sniff_site_and_particle_keys(work_dir):
