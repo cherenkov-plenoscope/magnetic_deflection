@@ -139,43 +139,6 @@ def assert_config_valid(config):
     assert b["energy"]["stop_GeV"] > b["energy"]["start_GeV"]
 
 
-def rebin(
-    inpath,
-    outpath,
-    energy_start_GeV=0.25,
-    energy_stop_GeV=64,
-    energy_num_bins=8,
-    direction_particle_max_zenith_distance_deg=75,
-    direction_num_bins=256,
-):
-    """
-    Read an allsky from inpath and export it to outpath with a different
-    binning.
-    """
-    old = read_config(work_dir=inpath)
-
-    assert energy_start_GeV <= old["binning"]["energy"]["start_GeV"]
-    assert energy_stop_GeV >= old["binning"]["energy"]["stop_GeV"]
-
-    assert (
-        direction_particle_max_zenith_distance_deg
-        >= old["binning"]["direction"]["particle_max_zenith_distance_deg"]
-    )
-
-    init(
-        work_dir=outpath,
-        particle_key=old["particle"]["key"],
-        site_key=old["site"]["key"],
-        energy_start_GeV=energy_start_GeV,
-        energy_stop_GeV=energy_stop_GeV,
-        energy_num_bins=energy_num_bins,
-        direction_particle_max_zenith_distance_deg=direction_particle_max_zenith_distance_deg,
-        direction_num_bins=direction_num_bins,
-    )
-
-    raise NotImplementedError("to be done...")
-
-
 class AllSky:
     def __init__(self, work_dir, cache_dtype=store.minimal_cache_dtype()):
         """
