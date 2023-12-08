@@ -1,17 +1,28 @@
 import corsika_primary as cpw
+from .. import spherical_coordinates
 import numpy as np
 
 
 def acos_accepting_numeric_tolerance(x, eps=1e-6):
+    # input dimensionality
+    x = np.asarray(x)
+    scalar_input = False
+    if x.ndim == 0:
+        x = x[np.newaxis]  # Makes x 1D
+        scalar_input = True
+
+    # work
     assert eps >= 0.0
+    mask = np.logical_and(x > 1.0, x < (1.0 + eps))
+    x[mask] = 1.0
+    mask = np.logical_and(x < -1.0, x > (-1.0 - eps))
+    x[mask] = -1.0
+    ret = np.arccos(x)
 
-    if 1.0 < x < 1.0 + eps:
-        x = 1.0
-
-    if -1.0 - eps < x < -1.0:
-        x = -1.0
-
-    return np.arccos(x)
+    # output dimensionality
+    if scalar_input:
+        return np.squeeze(ret)
+    return ret
 
 
 def init(light_field):
@@ -46,29 +57,23 @@ def init(light_field):
     pool["cherenkov_cy_rad"] = median(lf["cy"])
     pool["cherenkov_t_s"] = median(lf["t"])
 
-    radius_square = make_radius_square_wrt_center_position(
+    pool_radius = make_radius_wrt_center_position(
         photon_x_m=lf["x"],
         photon_y_m=lf["y"],
         center_x_m=pool["cherenkov_x_m"],
         center_y_m=pool["cherenkov_y_m"],
     )
-    pool["cherenkov_radius50_m"] = sqrt(percentile(a=radius_square, q=50))
-    pool["cherenkov_radius90_m"] = sqrt(percentile(a=radius_square, q=90))
+    pool["cherenkov_radius50_m"] = percentile(a=pool_radius, q=50)
+    pool["cherenkov_radius90_m"] = percentile(a=pool_radius, q=90)
 
-    cos_theta = make_cos_theta_wrt_center_direction(
+    pool_theta = make_theta_wrt_center_direction(
         photon_cx_rad=lf["cx"],
         photon_cy_rad=lf["cy"],
         center_cx_rad=pool["cherenkov_cx_rad"],
         center_cy_rad=pool["cherenkov_cy_rad"],
     )
-    pool["cherenkov_half_angle50_rad"] = acos_accepting_numeric_tolerance(
-        percentile(a=cos_theta, q=50),
-        eps=1e-6,
-    )
-    pool["cherenkov_half_angle90_rad"] = acos_accepting_numeric_tolerance(
-        percentile(a=cos_theta, q=90),
-        eps=1e-6,
-    )
+    pool["cherenkov_half_angle50_rad"] = percentile(a=pool_theta, q=50)
+    pool["cherenkov_half_angle90_rad"] = percentile(a=pool_theta, q=90)
 
     time_delta_s = np.abs(lf["t"] - pool["cherenkov_t_s"])
     pool["cherenkov_duration50_s"] = 2.0 * percentile(a=time_delta_s, q=50)
@@ -76,7 +81,7 @@ def init(light_field):
     return pool
 
 
-def make_radius_square_wrt_center_position(
+def make_radius_wrt_center_position(
     photon_x_m,
     photon_y_m,
     center_x_m,
@@ -85,30 +90,38 @@ def make_radius_square_wrt_center_position(
     assert len(photon_x_m) == len(photon_y_m)
     rel_x = photon_x_m - center_x_m
     rel_y = photon_y_m - center_y_m
-    return rel_x**2 + rel_y**2
+    return np.hypot(rel_x, rel_y)
 
 
-def make_cos_theta_wrt_center_direction(
+def make_theta_wrt_center_direction(
     photon_cx_rad,
     photon_cy_rad,
     center_cx_rad,
     center_cy_rad,
 ):
     assert len(photon_cx_rad) == len(photon_cy_rad)
-    center_cz_rad = np.sqrt(1.0 - center_cx_rad**2 - center_cy_rad**2)
-    center_direction = np.array([center_cx_rad, center_cy_rad, center_cz_rad])
-    photon_cz_rad = np.sqrt(1.0 - photon_cx_rad**2 - photon_cy_rad**2)
+
+    center_cz_rad = spherical_coordinates.restore_cz(
+        cx=center_cx_rad, cy=center_cy_rad
+    )
+    photon_cz_rad = spherical_coordinates.restore_cz(
+        cx=photon_cx_rad, cy=photon_cy_rad
+    )
+
     dot_product = np.array(
         [
-            photon_cx_rad * center_direction[0],
-            photon_cy_rad * center_direction[1],
-            photon_cz_rad * center_direction[2],
+            photon_cx_rad * center_cx_rad,
+            photon_cy_rad * center_cy_rad,
+            photon_cz_rad * center_cz_rad,
         ]
     )
-    cos_theta = np.sum(dot_product, axis=0)
+    theta = acos_accepting_numeric_tolerance(
+        np.sum(dot_product, axis=0),
+        eps=1e-6,
+    )
     del dot_product
-    assert len(cos_theta) == len(photon_cx_rad)
-    return cos_theta
+    assert len(theta) == len(photon_cx_rad)
+    return theta
 
 
 def init_ellipse(x, y):

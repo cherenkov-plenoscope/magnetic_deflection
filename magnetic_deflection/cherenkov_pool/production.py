@@ -115,10 +115,21 @@ def estimate_cherenkov_pool(corsika_primary_path, corsika_steering_dict):
                 pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
                 pool["cherenkov_num_photons"] = np.sum(light_field["size"])
                 pool["cherenkov_num_bunches"] = light_field["x"].shape[0]
+                pool[
+                    "cherenkov_maximum_asl_m"
+                ] = estimate_cherenkov_maximum_asl_m(
+                    corsika_bunches=corsika_bunches
+                )
                 pool.update(analysis.init(light_field=light_field))
                 pools.append(pool)
 
         return pools
+
+
+def estimate_cherenkov_maximum_asl_m(corsika_bunches):
+    return cpw.CM2M * np.median(
+        corsika_bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
+    )
 
 
 def init_light_field_from_corsika_bunches(corsika_bunches):

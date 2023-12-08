@@ -15,6 +15,8 @@ def dtype():
         # size
         ("cherenkov_num_photons", "f4"),
         ("cherenkov_num_bunches", "f4"),
+        # maximum
+        ("cherenkov_maximum_asl_m", "f4"),
         # geometry
         ("cherenkov_x_m", "f4"),
         ("cherenkov_y_m", "f4"),
