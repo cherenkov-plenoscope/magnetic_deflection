@@ -217,7 +217,7 @@ class AllSky:
                 production_lock=production_lock,
             )
             results = pool.map(_population_run_job, jobs)
-            self.store.commit_stage()
+            self.store.commit_stage(pool=pool)
 
         production_lock.unlock()
 

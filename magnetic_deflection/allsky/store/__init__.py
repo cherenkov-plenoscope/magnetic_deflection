@@ -108,11 +108,8 @@ class Store:
         Returns the path of a direction-energy-bin.
         """
         assert self.contains_dir_ene_bin(dir_ene_bin=dir_ene_bin)
-        dir_bin, ene_bin = dir_ene_bin
-        return os.path.join(
-            self.store_dir,
-            DIRECTION_BIN_DIR_STR.format(dir_bin=dir_bin),
-            ENERGY_BIN_DIR_STR.format(ene_bin=ene_bin),
+        return make_dir_ene_bin_path(
+            store_dir=self.store_dir, dir_ene_bin=dir_ene_bin
         )
 
     def contains_dir_ene_bin(self, dir_ene_bin):
@@ -181,15 +178,24 @@ class Store:
                 )
                 page.write(path=stage_path, page=staged_showers)
 
-    def commit_stage(self):
-        num = {}
+    def commit_stage(self, pool=None):
+        jobs = self._commit_stage_make_jobs()
+        if pool is None:
+            _nums = map(_commit_stage_run_job, jobs)
+        else:
+            _nums = pool.map(_commit_stage_run_job, jobs)
+        return sum(_nums)
+
+    def _commit_stage_make_jobs(self):
+        jobs = []
         for key in ["cherenkov", "particle"]:
-            num[key] = 0
             for dir_ene_bin in self.list_dir_ene_bins():
-                num[key] += self.commit_bin_stage(
-                    dir_ene_bin=dir_ene_bin, key=key
-                )
-        return num
+                job = {}
+                job["store_dir"] = str(self.store_dir)
+                job["key"] = str(key)
+                job["dir_ene_bin"] = dir_ene_bin
+                jobs.append(job)
+        return jobs
 
     def list_dir_ene_bins(self):
         dir_ene_bins = []
@@ -203,32 +209,6 @@ class Store:
 
     def list_ene_bins(self):
         return np.arange(0, self.num_ene_bins)
-
-    def commit_bin_stage(self, dir_ene_bin, key):
-        join = os.path.join
-        dir_ene_bin_dir = self.dir_ene_bin_path(dir_ene_bin=dir_ene_bin)
-        stage_dir = join(dir_ene_bin_dir, "{:s}_stage".format(key))
-        existing_showers_path = join(dir_ene_bin_dir, "{:s}.rec".format(key))
-        staged_showers_paths = glob.glob(join(stage_dir, "*.rec"))
-
-        all_showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
-            dtype=page.dtype()
-        )
-
-        for staged_showers_path in staged_showers_paths:
-            additional_showers = page.read(path=staged_showers_path)
-            all_showers_dyn.append_recarray(additional_showers)
-            os.remove(staged_showers_path)
-
-        num_showers_in_stage = int(len(all_showers_dyn))
-
-        if os.path.exists(existing_showers_path):
-            existing_showers = page.read(path=existing_showers_path)
-            all_showers_dyn.append_recarray(existing_showers)
-
-        all_showers = all_showers_dyn.to_recarray()
-        page.write(path=existing_showers_path, page=all_showers)
-        return num_showers_in_stage
 
     def read_bin(self, dir_ene_bin, key):
         """
@@ -295,3 +275,45 @@ def recarray_keep_only(rec, dtype):
         name = dt[0]
         out[name] = rec[name]
     return out
+
+
+def _commit_stage_run_job(job):
+    return _run_commit_bin_stage(**job)
+
+
+def _run_commit_bin_stage(store_dir, dir_ene_bin, key):
+    join = os.path.join
+    dir_ene_bin_dir = make_dir_ene_bin_path(
+        store_dir=store_dir, dir_ene_bin=dir_ene_bin
+    )
+    stage_dir = join(dir_ene_bin_dir, "{:s}_stage".format(key))
+    existing_showers_path = join(dir_ene_bin_dir, "{:s}.rec".format(key))
+    staged_showers_paths = glob.glob(join(stage_dir, "*.rec"))
+
+    all_showers_dyn = dynamicsizerecarray.DynamicSizeRecarray(
+        dtype=page.dtype()
+    )
+
+    for staged_showers_path in staged_showers_paths:
+        additional_showers = page.read(path=staged_showers_path)
+        all_showers_dyn.append_recarray(additional_showers)
+        os.remove(staged_showers_path)
+
+    num_showers_in_stage = int(len(all_showers_dyn))
+
+    if os.path.exists(existing_showers_path):
+        existing_showers = page.read(path=existing_showers_path)
+        all_showers_dyn.append_recarray(existing_showers)
+
+    all_showers = all_showers_dyn.to_recarray()
+    page.write(path=existing_showers_path, page=all_showers)
+    return num_showers_in_stage
+
+
+def make_dir_ene_bin_path(store_dir, dir_ene_bin):
+    dir_bin, ene_bin = dir_ene_bin
+    return os.path.join(
+        store_dir,
+        DIRECTION_BIN_DIR_STR.format(dir_bin=dir_bin),
+        ENERGY_BIN_DIR_STR.format(ene_bin=ene_bin),
+    )
