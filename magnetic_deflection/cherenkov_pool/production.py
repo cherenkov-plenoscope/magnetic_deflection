@@ -127,9 +127,12 @@ def estimate_cherenkov_pool(corsika_primary_path, corsika_steering_dict):
 
 
 def estimate_cherenkov_maximum_asl_m(corsika_bunches):
-    return cpw.CM2M * np.median(
-        corsika_bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
-    )
+    if len(corsika_bunches) == 0:
+        return float("nan")
+    else:
+        return cpw.CM2M * np.median(
+            corsika_bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
+        )
 
 
 def init_light_field_from_corsika_bunches(corsika_bunches):
