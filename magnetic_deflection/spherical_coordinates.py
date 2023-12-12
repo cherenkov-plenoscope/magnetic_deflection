@@ -1,4 +1,5 @@
 import numpy as np
+import homogeneous_transformation
 
 
 def _azimuth_range(azimuth_deg):
@@ -101,3 +102,58 @@ def _angle_between_vectors_rad(a, b):
     norm = np.linalg.norm
     acos = np.arccos
     return acos(dot(a, b) / (norm(a) * norm(b)))
+
+
+def make_great_circle_line(
+    start_azimuth_deg,
+    start_zenith_deg,
+    stop_azimuth_deg,
+    stop_zenith_deg,
+    fN=100,
+):
+    """
+    Draw a greact circle line between a start and a stop.
+    The line is interpolated by fN points.
+
+    Parameters
+    ----------
+    start_azimuth_deg : float
+        Start point's azimuth
+    start_zenith_deg : float
+        Start point's zenith
+    stop_azimuth_deg : float
+        Stop point's azimuth
+    stop_zenith_deg : float
+        Stop point's zenith.
+    fN : int (default 100)
+        Number of points on the line
+
+    Returns
+    -------
+    points on line : np.array(shape=(fN, 2))
+        The azimuth_deg and zenith_deg of the points on the line.
+    """
+    start = np.array(_az_zd_to_cx_cy_cz(start_azimuth_deg, start_zenith_deg))
+    stop = np.array(_az_zd_to_cx_cy_cz(stop_azimuth_deg, stop_zenith_deg))
+    rot_axis = np.cross(start, stop)
+    alpha = _angle_between_vectors_rad(start, stop)
+
+    points = np.zeros(shape=(fN, 3))
+    alphas_deg = np.rad2deg(np.linspace(0.0, alpha, fN))
+    for i in range(fN):
+        _t = {
+            "pos": np.array([0.0, 0.0, 0.0]),
+            "rot": {
+                "repr": "axis_angle",
+                "axis": rot_axis,
+                "angle_deg": alphas_deg[i],
+            },
+        }
+        t = homogeneous_transformation.compile(_t)
+        points[i] = homogeneous_transformation.transform_orientation(
+            t=t,
+            d=start,
+        )
+    return _cx_cy_cz_to_az_zd_deg(
+        cx=points[:, 0], cy=points[:, 1], cz=points[:, 2]
+    )
