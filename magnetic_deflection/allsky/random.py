@@ -405,6 +405,103 @@ def plot(result, debug, path):
         raise KeyError("Expected either 'cone' or 'masked_grid'.")
 
 
+class Random:
+    """
+    Draw the direction of primary particles.
+    """
+
+    def __init__(self, allsky_deflection, hemisphere_grid=None):
+        self.allsky_deflection = allsky_deflection
+        self.hemisphere_grid = hemisphere_grid
+
+    def _make_hemisphere_grid_if_needed(self):
+        if self.hemisphere_grid is None:
+            self.hemisphere_grid = hemisphere.Grid(num_vertices=4096)
+
+    def draw_particle_direction(
+        self,
+        prng,
+        method,
+        azimuth_deg,
+        zenith_deg,
+        half_angle_deg,
+        energy_GeV,
+        shower_spread_half_angle_deg,
+        min_num_cherenkov_photons=1e3,
+    ):
+        """
+        Query, and draw the direction of a primary particle to induce an
+        atmospheric shower which emitts its light (median) in a specific
+        direction.
+
+        Parameters
+        ----------
+        prng : numpy.random.Generator()
+            Pseudo random number generator.
+        method : str
+            Either 'cone' or 'grid'.
+        azimuth_deg : float
+            Cherenkov light's azimuth.
+        zenith_deg : float
+            Cherenkov light's zenith.
+        half_angle_deg : float
+            Field-of-view for Cherenkov light.
+        energy_GeV : float
+            Primary particle's energy.
+        shower_spread_half_angle_deg : float
+            Spread to widen the solid angle from where the primarie's direction
+            is drawn.
+        min_num_cherenkov_photons : float
+            When querying the database, only use showers with this many Cherenkov
+            photons.
+        hemisphere_grid : magnetic_deflection.allsky.hemisphere.Grid()
+            Only relevant for method 'grid'. When drawing multiple times, provide
+            a grid here.
+
+        Returns
+        -------
+        result, debug : (dict, dict)
+            result = {
+                cutoff : bool
+                particle_azimuth_rad : float
+                particle_zenith_rad : float
+                solid_angle_thrown_sr : float
+            }
+            If cutoff is True, there is no valid trajectory of primary particles
+            to create Cherenkov light in the queried direction.
+                The debug contains details about the query and the drawing.
+        """
+        if method == "cone":
+            (res, dbg) = draw_particle_direction_with_cone(
+                prng=prng,
+                azimuth_deg=azimuth_deg,
+                zenith_deg=zenith_deg,
+                half_angle_deg=half_angle_deg,
+                energy_GeV=energy_GeV,
+                shower_spread_half_angle_deg=shower_spread_half_angle_deg,
+                min_num_cherenkov_photons=min_num_cherenkov_photons,
+                allsky_deflection=self.allsky_deflection,
+            )
+        elif method == "grid":
+            self._make_hemisphere_grid_if_needed()
+
+            (res, dbg) = draw_particle_direction_with_masked_grid(
+                prng=prng,
+                azimuth_deg=azimuth_deg,
+                zenith_deg=zenith_deg,
+                half_angle_deg=half_angle_deg,
+                energy_GeV=energy_GeV,
+                shower_spread_half_angle_deg=shower_spread_half_angle_deg,
+                min_num_cherenkov_photons=min_num_cherenkov_photons,
+                allsky_deflection=self.allsky_deflection,
+                hemisphere_grid=self.hemisphere_grid,
+            )
+        else:
+            raise KeyError("Expected either 'grid' or 'cone'.")
+
+        return res, dbg
+
+
 def _style():
     s = {}
     s["result"] = {
