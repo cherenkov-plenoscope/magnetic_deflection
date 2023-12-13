@@ -13,9 +13,9 @@ import subprocess
 def init(
     work_dir,
     energy_stop_GeV=64.0,
-    site_keys=atmospheric_cherenkov_response.sites.keys(),
-    particle_keys=atmospheric_cherenkov_response.particles.keys(),
-    corsika_primary_path=corsika_primary.install.typical_corsika_primary_mod_path(),
+    site_keys=None,
+    particle_keys=None,
+    corsika_primary_path=None,
 ):
     """
     Creates tables listing the magnetic deflection of atmospheric showers
@@ -57,6 +57,15 @@ def init(
                     |-> gamma
 
     """
+    if site_keys is None:
+        site_keys = atmospheric_cherenkov_response.sites.keys()
+    if particle_keys is None:
+        particle_keys = atmospheric_cherenkov_response.particles.keys()
+    if corsika_primary_path is None:
+        corsika_primary_path = (
+            corsika_primary.install.typical_corsika_primary_mod_path()
+        )
+
     os.makedirs(work_dir, exist_ok=True)
 
     for sk in site_keys:
@@ -193,7 +202,7 @@ def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
             )
 
 
-def export_csv(work_dir, out_dir):
+def export_csv(work_dir, out_dir, fraction=1.0):
     """
     Exports all deflection tables in the work_dir into csv-fiels.
 
@@ -203,6 +212,8 @@ def export_csv(work_dir, out_dir):
         Contains the site-dirs which in turn contain the particle-dirs.
     out_dir : str
         Here the csv-tables will be written to.
+    fraction : float
+        Export only this random fraction.
 
     example
     -------
@@ -230,7 +241,7 @@ def export_csv(work_dir, out_dir):
             os.makedirs(out_sk_pk_dir, exist_ok=True)
 
             print(sk, pk)
-            sky = allsky.open(sk_pk_dir)
+            sky = allsky.AllSky(sk_pk_dir)
 
             config_path = os.path.join(out_sk_pk_dir, "config.json")
 
@@ -239,7 +250,7 @@ def export_csv(work_dir, out_dir):
 
             table_path = os.path.join(out_sk_pk_dir, "showers.csv")
             if not os.path.exists(table_path):
-                sky.store.export_csv(path=table_path)
+                sky.store.export_csv(path=table_path, fraction=fraction)
 
 
 def demonstrate_query(
@@ -286,7 +297,7 @@ def demonstrate_query(
             out_sk_pk_dir = os.path.join(out_sk_dir, pk)
             os.makedirs(out_sk_pk_dir, exist_ok=True)
 
-            allsky_deflection = allsky.open(sk_pk_dir)
+            allsky_deflection = allsky.AllSky(sk_pk_dir)
 
             particle_scatter_half_angle_deg = allsky_deflection.config[
                 "particle"
