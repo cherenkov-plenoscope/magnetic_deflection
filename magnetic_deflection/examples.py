@@ -1,43 +1,22 @@
 import os
 import numpy as np
+import binning_utils
 
 
-PLOTTING = {
-    "light_field": {
-        "cherenkov_num_photons": {
-            "label": "intensity",
-            "unit": "1",
-            "limits": [1e3, 1e7],
+def hemisphere_field_of_view():
+    return {
+        "wide": {
+            "angle_deg": 90,
+            "zenith_mayor_deg": [],
+            "zenith_minor_deg": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
         },
-        "cherenkov_area_m2": {
-            "label": "area",
-            "unit": "m$^{2}$",
-            "limits": [1e5, 1e8],
+        "narrow": {
+            "angle_deg": 10,
+            "zenith_mayor_deg": [],
+            "zenith_minor_deg": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         },
-        "cherenkov_solid_angle_sr": {
-            "label": "solid angle",
-            "unit": "sr",
-            "limits": [1e-4, 1e0],
-        },
-        "cherenkov_density_per_m2_per_sr": {
-            "label": "density",
-            "unit": "m$^{-2}$ sr$^{-1}$",
-            "limits": [1e-3, 1e4],
-        },
-        "cherenkov_density_per_m2": {
-            "label": "density",
-            "unit": "m$^{-2}$",
-            "limits": [1e-4, 1e2],
-        },
-        "cherenkov_density_per_sr": {
-            "label": "density",
-            "unit": "sr$^{-1}$",
-            "limits": [1e5, 1e9],
-        },
-    },
-    "label_unit_seperator": "$\\,/\\,$",
-    "rcParams": {
-        "mathtext.fontset": "cm",
-        "font.family": "STIXGeneral",
-    },
-}
+    }
+
+
+def common_energy_limits():
+    return {"energy_start_GeV": 0.1, "energy_stop_GeV": 100}
