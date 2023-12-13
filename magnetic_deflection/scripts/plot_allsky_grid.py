@@ -63,7 +63,7 @@ ALPHA = 0.75
 
 # energy colorbar
 # ---------------
-EE = mdfl.examples.common_energy_limits()
+EE = mdfl.common_settings_for_plotting.common_energy_limits()
 
 cmap_fig = sebplt.figure(CMAP_FIGSIZE)
 cmap_ax = sebplt.add_axes(
@@ -181,7 +181,9 @@ for sk in SITES:
             del allsky
 
 
-FIELD_OF_VIEW = mdfl.examples.hemisphere_field_of_view()["wide"]
+FIELD_OF_VIEW = mdfl.common_settings_for_plotting.hemisphere_field_of_view()[
+    "wide"
+]
 
 
 def plane_normal(az1_deg, zd1_deg, az2_deg, zd2_deg):
@@ -196,7 +198,7 @@ def plane_normal(az1_deg, zd1_deg, az2_deg, zd2_deg):
 
 for sk in res:
     sss = atmospheric_cherenkov_response.sites.init(sk)
-    mag = mdfl.examples.magnetic_flux(
+    mag = mdfl.common_settings_for_plotting.magnetic_flux(
         earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
         earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
     )

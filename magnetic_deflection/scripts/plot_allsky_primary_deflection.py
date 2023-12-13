@@ -75,7 +75,7 @@ ON_AXIS_SCALE = 1.0
 
 HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
-EE = mdfl.examples.common_energy_limits()
+EE = mdfl.common_settings_for_plotting.common_energy_limits()
 GRID_COLOR = (0.5, 0.5, 0.5)
 FRACTION = 0.1  # 1.0
 ALPHA = 0.1
@@ -137,14 +137,14 @@ prng = np.random.Generator(np.random.PCG64(1337))
 
 # hemisphere showing deflections
 # ------------------------------
-FIELD_OF_VIEW = mdfl.examples.hemisphere_field_of_view()
+FIELD_OF_VIEW = mdfl.common_settings_for_plotting.hemisphere_field_of_view()
 FIELD_OF_VIEW["wide"]["particles"] = PARTICLES
 FIELD_OF_VIEW["narrow"]["particles"] = ["gamma"]
 
 
 for sk in res:
     sss = atmospheric_cherenkov_response.sites.init(sk)
-    mag = mdfl.examples.magnetic_flux(
+    mag = mdfl.common_settings_for_plotting.magnetic_flux(
         earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
         earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
     )
