@@ -1,6 +1,4 @@
-import os
 import numpy as np
-import binning_utils
 from . import spherical_coordinates
 
 
