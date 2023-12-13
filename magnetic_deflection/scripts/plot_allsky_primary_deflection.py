@@ -9,6 +9,7 @@ from matplotlib import colors as plt_colors
 import matplotlib.pyplot as plt
 import atmospheric_cherenkov_response
 from atmospheric_cherenkov_response import plot
+import json_utils
 
 
 parser = argparse.ArgumentParser(
@@ -76,7 +77,7 @@ HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
 EE = mdfl.examples.common_energy_limits()
 GRID_COLOR = (0.5, 0.5, 0.5)
-FRACTION = 1.0
+FRACTION = 0.1  # 1.0
 ALPHA = 0.1
 
 # energy colorbar
@@ -102,25 +103,34 @@ for sk in SITES:
     for pk in PARTICLES:
         res[sk][pk] = {}
         print("load", sk, pk)
-        allsky = mdfl.allsky.AllSky(
-            work_dir=os.path.join(work_dir, sk, pk),
-            cache_dtype=mdfl.allsky.store.page.dtype(),
-        )
-        showers = mdfl.allsky.analysis.query_cherenkov_ball_in_all_energy(
-            allsky=allsky,
-            azimuth_deg=POINTING["azimuth_deg"],
-            zenith_deg=POINTING["zenith_deg"],
-            half_angle_deg=POINTING["half_angle_deg"],
-            min_num_cherenkov_photons=1e3,
-        )
-        (
-            res[sk][pk]["particle_azimuth_deg"],
-            res[sk][pk]["particle_zenith_deg"],
-        ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
-            cx=showers["particle_cx_rad"],
-            cy=showers["particle_cy_rad"],
-        )
-        res[sk][pk]["particle_energy_GeV"] = showers["particle_energy_GeV"]
+
+        cache_path = os.path.join(out_dir, "{:s}_{:s}.json".format(sk, pk))
+        if os.path.exists(cache_path):
+            with open(cache_path, "rt") as f:
+                res[sk][pk] = json_utils.loads(f.read())
+        else:
+            allsky = mdfl.allsky.AllSky(
+                work_dir=os.path.join(work_dir, sk, pk),
+                cache_dtype=mdfl.allsky.store.page.dtype(),
+            )
+            showers = mdfl.allsky.analysis.query_cherenkov_ball_in_all_energy(
+                allsky=allsky,
+                azimuth_deg=POINTING["azimuth_deg"],
+                zenith_deg=POINTING["zenith_deg"],
+                half_angle_deg=POINTING["half_angle_deg"],
+                min_num_cherenkov_photons=1e3,
+            )
+            (
+                res[sk][pk]["particle_azimuth_deg"],
+                res[sk][pk]["particle_zenith_deg"],
+            ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
+                cx=showers["particle_cx_rad"],
+                cy=showers["particle_cy_rad"],
+            )
+            res[sk][pk]["particle_energy_GeV"] = showers["particle_energy_GeV"]
+
+            with open(cache_path, "wt") as f:
+                f.write(json_utils.dumps(res[sk][pk]))
 
 
 prng = np.random.Generator(np.random.PCG64(1337))
@@ -132,20 +142,24 @@ FIELD_OF_VIEW["wide"]["particles"] = PARTICLES
 FIELD_OF_VIEW["narrow"]["particles"] = ["gamma"]
 
 
-for skey in res:
-    for pkey in res[skey]:
-        showers = res[skey][pkey]
+for sk in res:
+    sss = atmospheric_cherenkov_response.sites.init(sk)
+    mag = mdfl.examples.magnetic_flux(
+        earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
+        earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
+    )
 
-        for fkey in FIELD_OF_VIEW:
-            if pkey not in FIELD_OF_VIEW[fkey]["particles"]:
+    for pk in res[sk]:
+        showers = res[sk][pk]
+
+        for fk in FIELD_OF_VIEW:
+            if pk not in FIELD_OF_VIEW[fk]["particles"]:
                 continue
 
-            fov_deg = FIELD_OF_VIEW[fkey]["angle_deg"]
-            azimuth_minor_deg = np.linspace(0, 360, 24, endpoint=False)
-            zenith_minor_deg = FIELD_OF_VIEW[fkey]["zenith_minor_deg"]
-            rfov = np.sin(np.deg2rad(fov_deg))
-
-            print(skey, pkey, fkey)
+            azimuth_minor_deg = FIELD_OF_VIEW[fk]["azimuth_minor_deg"]
+            zenith_minor_deg = FIELD_OF_VIEW[fk]["zenith_minor_deg"]
+            rfov = FIELD_OF_VIEW[fk]["rfov"]
+            print(sk, pk, fk)
 
             fig = sebplt.figure(FIGSIZE)
             ax = sebplt.add_axes(
@@ -164,6 +178,16 @@ for skey in res:
                 draw_lower_horizontal_edge_deg=None,
                 zenith_min_deg=5,
             )
+
+            if mag["magnitude_uT"] > 1e-6:
+                sebplt.hemisphere.ax_add_magnet_flux_symbol(
+                    ax=ax,
+                    azimuth_deg=mag["azimuth_deg"],
+                    zenith_deg=mag["zenith_deg"],
+                    half_angle_deg=2.5,
+                    color="black",
+                    direction="inwards" if mag["sign"] > 0 else "outwards",
+                )
 
             rgbas = cmap_mappable.to_rgba(showers["particle_energy_GeV"])
             rgbas[:, 3] = ALPHA
@@ -191,7 +215,7 @@ for skey in res:
             ax.set_aspect("equal")
             sebplt.hemisphere.ax_add_ticklabel_text(
                 ax=ax,
-                radius=0.95,
+                radius=0.95 * rfov,
                 label_azimuths_deg=[0, 90, 180, 270],
                 label_azimuths=["N", "E", "S", "W"],
                 xshift=-0.05,
@@ -203,7 +227,7 @@ for skey in res:
             fig.savefig(
                 os.path.join(
                     out_dir,
-                    "{:s}_{:s}_{:s}.jpg".format(skey, pkey, fkey),
+                    "{:s}_{:s}_{:s}.jpg".format(sk, pk, fk),
                 )
             )
             sebplt.close(fig)

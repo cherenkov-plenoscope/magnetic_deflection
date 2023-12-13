@@ -56,6 +56,7 @@ FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 2}
 CMAP_FIGSIZE = {"rows": 300, "cols": 1280, "fontsize": 1.75}
 HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
+PROBABLY_BEYOND_THE_HORIZON_ANGLE_DEG = 60
 GRID_COLOR = (0.5, 0.5, 0.5)
 MARKER_HALF_ANGLE_DEG = 1.25
 ALPHA = 0.75
@@ -182,29 +183,31 @@ for sk in SITES:
 
 FIELD_OF_VIEW = mdfl.examples.hemisphere_field_of_view()["wide"]
 
-for skey in res:
-    sss = atmospheric_cherenkov_response.sites.init(skey)
-    mag = np.array(
-        [sss["earth_magnetic_field_x_muT"], sss["earth_magnetic_field_z_muT"]]
+
+def plane_normal(az1_deg, zd1_deg, az2_deg, zd2_deg):
+    az_zd_to_cx_cy_cz = mdfl.spherical_coordinates._az_zd_to_cx_cy_cz
+    c1 = np.array(az_zd_to_cx_cy_cz(az1_deg, zd1_deg))
+    c2 = np.array(az_zd_to_cx_cy_cz(az2_deg, zd2_deg))
+    assert 0.95 < np.linalg.norm(c1) < 1.05
+    assert 0.95 < np.linalg.norm(c2) < 1.05
+    n = np.cross(c1, c2)
+    return n / np.linalg.norm(n)
+
+
+for sk in res:
+    sss = atmospheric_cherenkov_response.sites.init(sk)
+    mag = mdfl.examples.magnetic_flux(
+        earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
+        earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
     )
-    mag_amplitude_uT = np.linalg.norm(mag)
-    mag = mag / mag_amplitude_uT
-    mag_az_deg, mag_zd_deg = mdfl.spherical_coordinates._cx_cy_cz_to_az_zd_deg(
-        cx=mag[0] * np.sign(mag[1]), cy=0.0, cz=np.abs(mag[1])
-    )
 
-    mag_direction = np.sign(mag[1])
-    mag_x = np.sign(mag[1]) * mag[0]
+    for pk in res[sk]:
+        deflgrid = res[sk][pk]
 
-    for pkey in res[skey]:
-        deflgrid = res[skey][pkey]
-
-        fov_deg = FIELD_OF_VIEW["angle_deg"]
-        azimuth_minor_deg = np.linspace(0, 360, 36, endpoint=False)
+        azimuth_minor_deg = FIELD_OF_VIEW["azimuth_minor_deg"]
         zenith_minor_deg = FIELD_OF_VIEW["zenith_minor_deg"]
-        rfov = np.sin(np.deg2rad(fov_deg))
-
-        print(skey, pkey)
+        rfov = FIELD_OF_VIEW["rfov"]
+        print(sk, pk)
 
         fig = sebplt.figure(FIGSIZE)
         ax = sebplt.add_axes(
@@ -224,23 +227,14 @@ for skey in res:
             zenith_min_deg=5,
         )
 
-        if mag_amplitude_uT > 1e-6:
-            print(
-                sk,
-                mag,
-                mag_amplitude_uT,
-                mag_az_deg,
-                mag_zd_deg,
-                mag_direction,
-            )
-
+        if mag["magnitude_uT"] > 1e-6:
             sebplt.hemisphere.ax_add_magnet_flux_symbol(
                 ax=ax,
-                azimuth_deg=mag_az_deg,
-                zenith_deg=mag_zd_deg,
+                azimuth_deg=mag["azimuth_deg"],
+                zenith_deg=mag["zenith_deg"],
                 half_angle_deg=2.5,
                 color="black",
-                direction="inwards" if mag_direction > 0 else "outwards",
+                direction="inwards" if mag["sign"] > 0 else "outwards",
             )
 
         for gbin in range(len(sample_directions)):
@@ -257,6 +251,7 @@ for skey in res:
                     alpha=ALPHA,
                     zorder=2,
                 )
+
                 if ebin > 0:
                     _start_ebin = ebin - 1
                     _stop_ebin = ebin
@@ -269,26 +264,61 @@ for skey in res:
                         stop_azimuth_deg=_stop[0],
                         stop_zenith_deg=_stop[1],
                     )
+
                     _start_color = cmap_mappable.to_rgba(
                         energy_bin["centers"][_start_ebin]
                     )
                     _stop_color = cmap_mappable.to_rgba(
                         energy_bin["centers"][_stop_ebin]
                     )
+                    _linestyle = "-"
+                    _linewidth = 1.0
+                    _linecolor = np.mean(
+                        [_start_color, _stop_color],
+                        axis=0,
+                    )
+
+                    if ebin < energy_bin["num"] - 1:
+                        _next = deflgrid["grid"][ebin + 1, gbin, :]
+
+                        _next_valid = not np.any(np.isnan(_next))
+                        _start_valid = not np.any(np.isnan(_start))
+                        _stop_valid = not np.any(np.isnan(_stop))
+
+                        if _next_valid and _start_valid and _stop_valid:
+                            _n = plane_normal(
+                                _start[0], _start[1], _stop[0], _stop[1]
+                            )
+                            _l = plane_normal(
+                                _stop[0], _stop[1], _next[0], _next[1]
+                            )
+                            _delta_rad = mdfl.spherical_coordinates._angle_between_vectors_rad(
+                                a=_n, b=_l
+                            )
+                            _delta_deg = np.rad2deg(_delta_rad)
+
+                            if (
+                                _delta_deg
+                                > PROBABLY_BEYOND_THE_HORIZON_ANGLE_DEG
+                            ):
+                                _linestyle = ":"
+                                _linewidth = 0.5
+                                _linecolor = "gray"
+
                     sebplt.hemisphere.ax_add_plot(
                         ax=ax,
                         azimuths_deg=_line[0],
                         zeniths_deg=_line[1],
-                        color=np.mean([_start_color, _stop_color], axis=0),
-                        linewidth=1,
-                        linestyle="-",
+                        color=_linecolor,
+                        linewidth=_linewidth,
+                        linestyle=_linestyle,
                     )
 
         ax.set_axis_off()
         ax.set_aspect("equal")
         sebplt.hemisphere.ax_add_ticklabel_text(
             ax=ax,
-            radius=0.95,
+            radius=0.95 * rfov,
             label_azimuths_deg=[0, 90, 180, 270],
             label_azimuths=["N", "E", "S", "W"],
             xshift=-0.05,
@@ -300,7 +330,7 @@ for skey in res:
         fig.savefig(
             os.path.join(
                 out_dir,
-                "{:s}_{:s}.jpg".format(skey, pkey),
+                "{:s}_{:s}.jpg".format(sk, pk),
             )
         )
         sebplt.close(fig)
