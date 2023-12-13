@@ -225,15 +225,22 @@ class Store:
         showers_path = os.path.join(dir_ene_bin_dir, "{:s}.rec".format(key))
         return page.read(path=showers_path)
 
-    def export_csv(self, path):
+    def export_csv(self, path, fraction=1.0, seed=1337):
         """
         Dumps all thrown showers into a comma seperated value file in 'path'.
 
+        Parameters
+        ----------
         path : str
             Path of the written file.
+        fraction : float
+            Export only this fraction of showers into the tables.
+        seed : int
         """
+        assert 1.0 >= fraction > 0.0
         key = "particle"  # All thrown showers.
 
+        prng = np.random.Generator(np.random.PCG64(seed))
         page_dtype = page.dtype()
 
         with rnw.open(path, "wt") as f:
@@ -250,6 +257,9 @@ class Store:
                 print(dir_ene_bin, (j + 1), "of", len(dir_ene_bins))
 
                 showers = self.read_bin(dir_ene_bin=dir_ene_bin, key=key)
+                mask = prng.uniform(low=0.0, high=1.0, size=len(showers))
+                mask = mask < fraction
+                showers = showers[mask]
 
                 for ee in range(len(showers)):
                     for ii in range(len(page_dtype)):
