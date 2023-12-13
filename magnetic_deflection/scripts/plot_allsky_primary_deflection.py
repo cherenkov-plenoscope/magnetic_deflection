@@ -74,10 +74,8 @@ ON_AXIS_SCALE = 1.0
 
 HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
-ENERGY_START_GEV = 0.5
-ENERGY_STOP_GEV = 100
+EE = mdfl.examples.common_energy_limits()
 GRID_COLOR = (0.5, 0.5, 0.5)
-
 FRACTION = 1.0
 ALPHA = 0.1
 
@@ -88,9 +86,7 @@ cmap_fig = sebplt.figure(CMAP_FIGSIZE)
 cmap_ax = sebplt.add_axes(
     fig=cmap_fig, span=(0.05, 0.75, 0.9, 0.2), style=sebplt.AXES_MATPLOTLIB
 )
-cmap_mappable = atmospheric_cherenkov_response.plot.energy_cmap(
-    energy_start_GeV=ENERGY_START_GEV, energy_stop_GeV=ENERGY_STOP_GEV
-)
+cmap_mappable = atmospheric_cherenkov_response.plot.energy_cmap(**EE)
 plt.colorbar(cmap_mappable, cax=cmap_ax, orientation="horizontal")
 cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
@@ -131,20 +127,9 @@ prng = np.random.Generator(np.random.PCG64(1337))
 
 # hemisphere showing deflections
 # ------------------------------
-FIELD_OF_VIEW = {
-    "wide": {
-        "angle_deg": 60,
-        "particles": PARTICLES,
-        "zenith_mayor_deg": [0, 20, 40, 60],
-        "zenith_minor_deg": [0, 10, 20, 30, 40, 40, 50, 60, 70],
-    },
-    "narrow": {
-        "angle_deg": 10,
-        "particles": ["gamma"],
-        "zenith_mayor_deg": [0, 2, 4, 6, 8, 10],
-        "zenith_minor_deg": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    },
-}
+FIELD_OF_VIEW = mdfl.examples.hemisphere_field_of_view()
+FIELD_OF_VIEW["wide"]["particles"] = PARTICLES
+FIELD_OF_VIEW["narrow"]["particles"] = ["gamma"]
 
 
 for skey in res:
@@ -156,8 +141,6 @@ for skey in res:
                 continue
 
             fov_deg = FIELD_OF_VIEW[fkey]["angle_deg"]
-            azimuth_mayor_deg = np.linspace(0, 360, 12, endpoint=False)
-            zenith_mayor_deg = FIELD_OF_VIEW[fkey]["zenith_mayor_deg"]
             azimuth_minor_deg = np.linspace(0, 360, 24, endpoint=False)
             zenith_minor_deg = FIELD_OF_VIEW[fkey]["zenith_minor_deg"]
             rfov = np.sin(np.deg2rad(fov_deg))
@@ -170,25 +153,16 @@ for skey in res:
                 span=(0.02, 0.02, 0.96, 0.96),
                 style=HEMISPHERE_AXSTYLE,
             )
-            # mayor
-            sebplt.hemisphere.ax_add_grid(
-                ax=ax,
-                azimuths_deg=azimuth_mayor_deg,
-                zeniths_deg=zenith_mayor_deg,
-                linewidth=0.5,
-                color=GRID_COLOR,
-                alpha=1.0,
-                draw_lower_horizontal_edge_deg=fov_deg,
-            )
-            # minor
+
             sebplt.hemisphere.ax_add_grid(
                 ax=ax,
                 azimuths_deg=azimuth_minor_deg,
                 zeniths_deg=zenith_minor_deg,
-                linewidth=0.5 * 0.5,
+                linewidth=0.05,
                 color=GRID_COLOR,
                 alpha=1.0,
                 draw_lower_horizontal_edge_deg=None,
+                zenith_min_deg=5,
             )
 
             rgbas = cmap_mappable.to_rgba(showers["particle_energy_GeV"])
@@ -213,13 +187,16 @@ for skey in res:
                 fill=False,
             )
 
-            ax.text(
-                -1.0 * rfov, -1.0 * rfov, "{:1.1f}$^\\circ$".format(fov_deg)
-            )
             ax.set_axis_off()
             ax.set_aspect("equal")
-            sebplt.hemisphere.ax_add_ticklabels(
-                ax=ax, azimuths_deg=[0, 90, 180, 270], rfov=0.93 * rfov
+            sebplt.hemisphere.ax_add_ticklabel_text(
+                ax=ax,
+                radius=0.95,
+                label_azimuths_deg=[0, 90, 180, 270],
+                label_azimuths=["N", "E", "S", "W"],
+                xshift=-0.05,
+                yshift=-0.025,
+                fontsize=8,
             )
             ax.set_xlim([-1.01 * rfov, 1.01 * rfov])
             ax.set_ylim([-1.01 * rfov, 1.01 * rfov])
