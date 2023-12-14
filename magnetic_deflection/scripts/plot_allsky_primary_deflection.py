@@ -2,6 +2,7 @@ import argparse
 import os
 import numpy as np
 import magnetic_deflection as mdfl
+import spherical_coordinates
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
 from matplotlib import patches as plt_patches
@@ -60,9 +61,9 @@ out_dir = args.out_dir
 os.makedirs(out_dir, exist_ok=True)
 
 POINTING = {
-    "azimuth_deg": args.azimuth_deg,
-    "zenith_deg": args.zenith_deg,
-    "half_angle_deg": args.half_angle_deg,
+    "azimuth_rad": np.deg2rad(args.azimuth_deg),
+    "zenith_rad": np.deg2rad(args.zenith_deg),
+    "half_angle_rad": np.deg2rad(args.half_angle_deg),
 }
 
 PLT = atmospheric_cherenkov_response.plot.config()
@@ -115,15 +116,15 @@ for sk in SITES:
             )
             showers = mdfl.allsky.analysis.query_cherenkov_ball_in_all_energy(
                 allsky=allsky,
-                azimuth_deg=POINTING["azimuth_deg"],
-                zenith_deg=POINTING["zenith_deg"],
-                half_angle_deg=POINTING["half_angle_deg"],
+                azimuth_rad=POINTING["azimuth_rad"],
+                zenith_rad=POINTING["zenith_rad"],
+                half_angle_rad=POINTING["half_angle_rad"],
                 min_num_cherenkov_photons=1e3,
             )
             (
-                res[sk][pk]["particle_azimuth_deg"],
-                res[sk][pk]["particle_zenith_deg"],
-            ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
+                res[sk][pk]["particle_azimuth_rad"],
+                res[sk][pk]["particle_zenith_rad"],
+            ) = spherical_coordinates.cx_cy_to_az_zd(
                 cx=showers["particle_cx_rad"],
                 cy=showers["particle_cy_rad"],
             )
@@ -156,8 +157,6 @@ for sk in res:
             if pk not in FIELD_OF_VIEW[fk]["particles"]:
                 continue
 
-            azimuth_minor_deg = FIELD_OF_VIEW[fk]["azimuth_minor_deg"]
-            zenith_minor_deg = FIELD_OF_VIEW[fk]["zenith_minor_deg"]
             rfov = FIELD_OF_VIEW[fk]["rfov"]
             print(sk, pk, fk)
 
@@ -170,21 +169,21 @@ for sk in res:
 
             sebplt.hemisphere.ax_add_grid(
                 ax=ax,
-                azimuths_deg=azimuth_minor_deg,
-                zeniths_deg=zenith_minor_deg,
+                azimuths_rad=FIELD_OF_VIEW[fk]["azimuth_minor_rad"],
+                zeniths_rad=FIELD_OF_VIEW[fk]["zenith_minor_rad"],
                 linewidth=0.05,
                 color=GRID_COLOR,
                 alpha=1.0,
-                draw_lower_horizontal_edge_deg=None,
-                zenith_min_deg=5,
+                draw_lower_horizontal_edge_rad=None,
+                zenith_min_rad=np.deg2rad(5),
             )
 
             if mag["magnitude_uT"] > 1e-6:
                 sebplt.hemisphere.ax_add_magnet_flux_symbol(
                     ax=ax,
-                    azimuth_deg=mag["azimuth_deg"],
-                    zenith_deg=mag["zenith_deg"],
-                    half_angle_deg=2.5,
+                    azimuth_rad=mag["azimuth_rad"],
+                    zenith_rad=mag["zenith_rad"],
+                    half_angle_rad=np.deg2rad(2.5),
                     color="black",
                     direction="inwards" if mag["sign"] > 0 else "outwards",
                 )
@@ -195,17 +194,17 @@ for sk in res:
 
             sebplt.hemisphere.ax_add_projected_points_with_colors(
                 ax=ax,
-                azimuths_deg=showers["particle_azimuth_deg"][_fm],
-                zeniths_deg=showers["particle_zenith_deg"][_fm],
-                half_angle_deg=0.25 * POINTING["half_angle_deg"],
+                azimuths_rad=showers["particle_azimuth_rad"][_fm],
+                zeniths_rad=showers["particle_zenith_rad"][_fm],
+                half_angle_rad=0.25 * POINTING["half_angle_rad"],
                 rgbas=rgbas[_fm],
             )
 
             sebplt.hemisphere.ax_add_projected_circle(
                 ax=ax,
-                azimuth_deg=POINTING["azimuth_deg"],
-                zenith_deg=POINTING["zenith_deg"],
-                half_angle_deg=POINTING["half_angle_deg"],
+                azimuth_rad=POINTING["azimuth_rad"],
+                zenith_rad=POINTING["zenith_rad"],
+                half_angle_rad=POINTING["half_angle_rad"],
                 linewidth=1.0,
                 color="black",
                 fill=False,
@@ -216,7 +215,12 @@ for sk in res:
             sebplt.hemisphere.ax_add_ticklabel_text(
                 ax=ax,
                 radius=0.95 * rfov,
-                label_azimuths_deg=[0, 90, 180, 270],
+                label_azimuths_rad=[
+                    0,
+                    1 / 2 * np.pi,
+                    2 / 2 * np.pi,
+                    3 / 2 * np.pi,
+                ],
                 label_azimuths=["N", "E", "S", "W"],
                 xshift=-0.05,
                 yshift=-0.025,

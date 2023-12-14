@@ -63,9 +63,9 @@ ND = 65
 energy_bin = binning_utils.Binning(bin_edges=np.geomspace(1e-1, 1e2, NE))
 
 POINTING = {
-    "azimuth_deg": args.azimuth_deg,
-    "zenith_deg": args.zenith_deg,
-    "half_angle_deg": args.half_angle_deg,
+    "azimuth_rad": np.deg2rad(args.azimuth_deg),
+    "zenith_rad": np.deg2rad(args.zenith_deg),
+    "half_angle_rad": np.deg2rad(args.half_angle_deg),
 }
 
 site_keys, particle_keys = mdfl.production.find_site_and_particle_keys(
@@ -87,9 +87,9 @@ for sk in site_keys:
 
         showers = mdfl.allsky.analysis.query_cherenkov_ball_in_all_energy(
             allsky=allsky,
-            azimuth_deg=POINTING["azimuth_deg"],
-            zenith_deg=POINTING["zenith_deg"],
-            half_angle_deg=POINTING["half_angle_deg"],
+            azimuth_rad=POINTING["azimuth_rad"],
+            zenith_rad=POINTING["zenith_rad"],
+            half_angle_rad=POINTING["half_angle_rad"],
             min_num_cherenkov_photons=1e3,
         )
 

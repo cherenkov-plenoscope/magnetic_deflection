@@ -4,9 +4,9 @@ import numpy as np
 
 def query_cherenkov_ball_in_all_energy(
     allsky,
-    azimuth_deg,
-    zenith_deg,
-    half_angle_deg,
+    azimuth_rad,
+    zenith_rad,
+    half_angle_rad,
     min_num_cherenkov_photons=1e3,
 ):
     energy_GeV = allsky.config["binning"]["energy"]["stop_GeV"]
@@ -15,10 +15,10 @@ def query_cherenkov_ball_in_all_energy(
     )
 
     return allsky.query_cherenkov_ball(
-        azimuth_deg=azimuth_deg,
-        zenith_deg=zenith_deg,
+        azimuth_rad=azimuth_rad,
+        zenith_rad=zenith_rad,
         energy_GeV=energy_GeV,
-        half_angle_deg=half_angle_deg,
+        half_angle_rad=half_angle_rad,
         energy_factor=energy_factor,
         min_num_cherenkov_photons=min_num_cherenkov_photons,
     )

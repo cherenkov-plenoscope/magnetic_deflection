@@ -32,7 +32,7 @@ setuptools.setup(
     },
     install_requires=[
         "corsika_primary",
-        "spherical_coordinates",
+        "spherical_coordinates>=0.0.1",
         "rename_after_writing",
         "dynamicsizerecarray>=0.0.2",
         "atmospheric_cherenkov_response_cherenkov-plenoscope-project",

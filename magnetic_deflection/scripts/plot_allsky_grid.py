@@ -3,6 +3,7 @@ import os
 import numpy as np
 import json_utils
 import magnetic_deflection as mdfl
+import spherical_coordinates
 import binning_utils
 import sebastians_matplotlib_addons as sebplt
 import matplotlib
@@ -47,7 +48,7 @@ args = parser.parse_args()
 work_dir = args.work_dir
 out_dir = args.out_dir
 os.makedirs(out_dir, exist_ok=True)
-half_angle_deg = args.half_angle_deg
+half_angle_rad = np.deg2rad(args.half_angle_deg)
 
 PLT = atmospheric_cherenkov_response.plot.config()
 sebplt.matplotlib.rcParams.update(PLT["rcParams"])
@@ -56,10 +57,11 @@ FIGSIZE = {"rows": 1280, "cols": 1280, "fontsize": 2}
 CMAP_FIGSIZE = {"rows": 300, "cols": 1280, "fontsize": 1.75}
 HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
-PROBABLY_BEYOND_THE_HORIZON_ANGLE_DEG = 60
+PROBABLY_BEYOND_THE_HORIZON_ANGLE_RAD = np.deg2rad(60)
 GRID_COLOR = (0.5, 0.5, 0.5)
-MARKER_HALF_ANGLE_DEG = 1.25
+MARKER_HALF_ANGLE_RAD = np.deg2rad(1.25)
 ALPHA = 0.75
+CLUSTER_BANDWIDTH_RAD = np.deg2rad(10.0)
 
 # energy colorbar
 # ---------------
@@ -83,25 +85,20 @@ SITES, PARTICLES = mdfl.production.find_site_and_particle_keys(
     work_dir=work_dir
 )
 
-sample_directions = binning_utils.sphere.fibonacci_space(
+samples = {}
+samples["cxcycz"] = binning_utils.sphere.fibonacci_space(
     size=24,
     max_zenith_distance_rad=np.deg2rad(50),
 )
-
-
-def cxcycz_2_az_zd_deg(cxcycz):
-    out_az_zd = np.zeros(shape=(len(cxcycz), 2))
-    for i in range(len(cxcycz)):
-        (az, zd) = mdfl.spherical_coordinates._cx_cy_cz_to_az_zd_deg(
-            cx=cxcycz[i, 0],
-            cy=cxcycz[i, 1],
-            cz=cxcycz[i, 2],
-        )
-        out_az_zd[i] = np.array([az, zd])
-    return out_az_zd
-
-
-sample_directions_az_zd = cxcycz_2_az_zd_deg(sample_directions)
+samples["num"] = len(samples["cxcycz"])
+(
+    samples["azimuth_rad"],
+    samples["zenith_rad"],
+) = spherical_coordinates.cx_cy_cz_to_az_zd(
+    cx=samples["cxcycz"][:, 0],
+    cy=samples["cxcycz"][:, 1],
+    cz=samples["cxcycz"][:, 2],
+)
 
 
 res = {}
@@ -117,7 +114,7 @@ for sk in SITES:
                 res[sk][pk]["grid"] = json_utils.loads(f.read())
         else:
             res[sk][pk]["grid"] = np.nan * np.ones(
-                shape=(energy_bin["num"], len(sample_directions_az_zd), 2)
+                shape=(energy_bin["num"], samples["num"], 2)
             )
 
             allsky = mdfl.allsky.AllSky(
@@ -125,21 +122,19 @@ for sk in SITES:
                 cache_dtype=mdfl.allsky.store.page.dtype(),
             )
 
-            for gbin, grid_az_zd in enumerate(sample_directions_az_zd):
+            for gbin in range(samples["num"]):
                 showers = (
                     mdfl.allsky.analysis.query_cherenkov_ball_in_all_energy(
                         allsky=allsky,
-                        azimuth_deg=grid_az_zd[0],
-                        zenith_deg=grid_az_zd[1],
-                        half_angle_deg=half_angle_deg,
+                        azimuth_rad=samples["azimuth_rad"][gbin],
+                        zenith_rad=samples["zenith_rad"][gbin],
+                        half_angle_rad=half_angle_rad,
                         min_num_cherenkov_photons=1e3,
                     )
                 )
 
                 for ebin in range(energy_bin["num"]):
-                    print(
-                        gbin, "of", len(sample_directions_az_zd), "ebin", ebin
-                    )
+                    print(gbin, "of", len(samples["num"]), "ebin", ebin)
 
                     _Estart = energy_bin["edges"][ebin]
                     _Estop = energy_bin["edges"][ebin + 1]
@@ -149,30 +144,28 @@ for sk in SITES:
                     _cy = showers["particle_cy_rad"][mask]
 
                     if len(_cx) > 0:
-                        _cz = mdfl.spherical_coordinates.restore_cz(
-                            cx=_cx, cy=_cy
-                        )
+                        _cz = spherical_coordinates.restore_cz(cx=_cx, cy=_cy)
                         X = np.c_[_cx, _cy, _cz]
-                        print("start MS", len(_cx))
+                        print("start MeanShift", len(_cx))
                         min_bin_freq = max([1, int(0.01 * len(_cx))])
                         ms = sklearn.cluster.MeanShift(
-                            bandwidth=np.deg2rad(10),
+                            bandwidth=CLUSTER_BANDWIDTH_RAD,
                             bin_seeding=True,
                             min_bin_freq=min_bin_freq,
                         )
-                        print("start MS.fit")
+                        print("start MeanShift.fit")
                         ms.fit(X=X)
-                        print("done MS.fit")
+                        print("done MeanShift.fit")
                         max_density_cxcycz = ms.cluster_centers_[0]
                         (
-                            max_density_az_deg,
-                            max_density_zd_deg,
-                        ) = mdfl.spherical_coordinates._cx_cy_to_az_zd_deg(
+                            max_density_az_rad,
+                            max_density_zd_rad,
+                        ) = spherical_coordinates.cx_cy_to_az_zd(
                             cx=max_density_cxcycz[0],
                             cy=max_density_cxcycz[1],
                         )
                         res[sk][pk]["grid"][ebin][gbin] = np.array(
-                            [max_density_az_deg, max_density_zd_deg]
+                            [max_density_az_rad, max_density_zd_rad]
                         )
 
             with open(cache_path, "wt") as f:
@@ -186,10 +179,10 @@ FIELD_OF_VIEW = mdfl.common_settings_for_plotting.hemisphere_field_of_view()[
 ]
 
 
-def plane_normal(az1_deg, zd1_deg, az2_deg, zd2_deg):
-    az_zd_to_cx_cy_cz = mdfl.spherical_coordinates._az_zd_to_cx_cy_cz
-    c1 = np.array(az_zd_to_cx_cy_cz(az1_deg, zd1_deg))
-    c2 = np.array(az_zd_to_cx_cy_cz(az2_deg, zd2_deg))
+def plane_normal(az1_rad, zd1_rad, az2_rad, zd2_rad):
+    az_zd_to_cx_cy_cz = spherical_coordinates.az_zd_to_cx_cy_cz
+    c1 = np.array(az_zd_to_cx_cy_cz(az1_rad, zd1_rad))
+    c2 = np.array(az_zd_to_cx_cy_cz(az2_rad, zd2_rad))
     assert 0.95 < np.linalg.norm(c1) < 1.05
     assert 0.95 < np.linalg.norm(c2) < 1.05
     n = np.cross(c1, c2)
@@ -206,8 +199,8 @@ for sk in res:
     for pk in res[sk]:
         deflgrid = res[sk][pk]
 
-        azimuth_minor_deg = FIELD_OF_VIEW["azimuth_minor_deg"]
-        zenith_minor_deg = FIELD_OF_VIEW["zenith_minor_deg"]
+        azimuth_minor_rad = FIELD_OF_VIEW["azimuth_minor_rad"]
+        zenith_minor_rad = FIELD_OF_VIEW["zenith_minor_rad"]
         rfov = FIELD_OF_VIEW["rfov"]
         print(sk, pk)
 
@@ -220,21 +213,21 @@ for sk in res:
 
         sebplt.hemisphere.ax_add_grid(
             ax=ax,
-            azimuths_deg=azimuth_minor_deg,
-            zeniths_deg=zenith_minor_deg,
+            azimuths_rad=azimuth_minor_rad,
+            zeniths_rad=zenith_minor_rad,
             linewidth=0.05,
             color=GRID_COLOR,
             alpha=1.0,
-            draw_lower_horizontal_edge_deg=None,
-            zenith_min_deg=5,
+            draw_lower_horizontal_edge_rad=None,
+            zenith_min_rad=5,
         )
 
         if mag["magnitude_uT"] > 1e-6:
             sebplt.hemisphere.ax_add_magnet_flux_symbol(
                 ax=ax,
-                azimuth_deg=mag["azimuth_deg"],
-                zenith_deg=mag["zenith_deg"],
-                half_angle_deg=2.5,
+                azimuth_rad=mag["azimuth_rad"],
+                zenith_rad=mag["zenith_rad"],
+                half_angle_deg=np.deg2rad(2.5),
                 color="black",
                 direction="inwards" if mag["sign"] > 0 else "outwards",
             )
@@ -244,9 +237,9 @@ for sk in res:
                 rgb = cmap_mappable.to_rgba(energy_bin["centers"][ebin])
                 sebplt.hemisphere.ax_add_projected_circle(
                     ax=ax,
-                    azimuth_deg=deflgrid["grid"][ebin, gbin, 0],
-                    zenith_deg=deflgrid["grid"][ebin, gbin, 1],
-                    half_angle_deg=MARKER_HALF_ANGLE_DEG,
+                    azimuth_rad=deflgrid["grid"][ebin, gbin, 0],
+                    zenith_rad=deflgrid["grid"][ebin, gbin, 1],
+                    half_angle_rad=MARKER_HALF_ANGLE_RAD,
                     fill=True,
                     facecolor=rgb,
                     linewidth=0.0,
@@ -260,11 +253,14 @@ for sk in res:
 
                     _start = deflgrid["grid"][_start_ebin, gbin, :]
                     _stop = deflgrid["grid"][_stop_ebin, gbin, :]
-                    _line = mdfl.common_settings_for_plotting.make_great_circle_line(
-                        start_azimuth_deg=_start[0],
-                        start_zenith_deg=_start[1],
-                        stop_azimuth_deg=_stop[0],
-                        stop_zenith_deg=_stop[1],
+                    (
+                        _line_az,
+                        _line_zd,
+                    ) = mdfl.common_settings_for_plotting.make_great_circle_line(
+                        start_azimuth_rad=np.deg2rad(_start[0]),
+                        start_zenith_rad=np.deg2rad(_start[1]),
+                        stop_azimuth_rad=np.deg2rad(_stop[0]),
+                        stop_zenith_rad=np.deg2rad(_stop[1]),
                     )
 
                     _start_color = cmap_mappable.to_rgba(
@@ -294,14 +290,13 @@ for sk in res:
                             _l = plane_normal(
                                 _stop[0], _stop[1], _next[0], _next[1]
                             )
-                            _delta_rad = mdfl.spherical_coordinates._angle_between_vectors_rad(
-                                a=_n, b=_l
+                            _delta_rad = (
+                                spherical_coordinates.angle_between_xyz(_n, _l)
                             )
-                            _delta_deg = np.rad2deg(_delta_rad)
 
                             if (
-                                _delta_deg
-                                > PROBABLY_BEYOND_THE_HORIZON_ANGLE_DEG
+                                _delta_rad
+                                > PROBABLY_BEYOND_THE_HORIZON_ANGLE_RAD
                             ):
                                 _linestyle = ":"
                                 _linewidth = 0.5
@@ -309,8 +304,8 @@ for sk in res:
 
                     sebplt.hemisphere.ax_add_plot(
                         ax=ax,
-                        azimuths_deg=_line[0],
-                        zeniths_deg=_line[1],
+                        azimuths_rad=_line_az,
+                        zeniths_rad=_line_zd,
                         color=_linecolor,
                         linewidth=_linewidth,
                         linestyle=_linestyle,
@@ -321,7 +316,12 @@ for sk in res:
         sebplt.hemisphere.ax_add_ticklabel_text(
             ax=ax,
             radius=0.95 * rfov,
-            label_azimuths_deg=[0, 90, 180, 270],
+            label_azimuths_rad=[
+                0,
+                1 / 2 * np.pi,
+                2 / 2 * np.pi,
+                3 / 2 * np.pi,
+            ],
             label_azimuths=["N", "E", "S", "W"],
             xshift=-0.05,
             yshift=-0.025,

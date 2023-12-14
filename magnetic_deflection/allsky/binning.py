@@ -1,5 +1,5 @@
 import scipy
-from .. import spherical_coordinates
+import spherical_coordinates
 from scipy import spatial
 import solid_angle_utils
 import binning_utils
@@ -24,10 +24,10 @@ class Binning:
             self.config["energy"]["num_bins"] + 1,
         )
         self.energy = binning_utils.Binning(bin_edges=_energy_bin_edges)
-        self.max_zenith_distance_deg = 90
+        self.max_zenith_distance_rad = np.pi / 2
         centers = binning_utils.sphere.fibonacci_space(
             size=self.config["direction"]["num_bins"],
-            max_zenith_distance_rad=np.deg2rad(self.max_zenith_distance_deg),
+            max_zenith_distance_rad=self.max_zenith_distance_rad,
         )
         _hemisphere_solid_angle = 2.0 * np.pi
         _expected_num_delaunay_faces = (
@@ -38,8 +38,8 @@ class Binning:
         )
         self.direction = scipy.spatial.cKDTree(data=centers)
         self.horizon_vertices = []
-        for az_deg in np.linspace(0, 360, 36, endpoint=False):
-            self.horizon_vertices.append([np.cos(az_deg), np.sin(az_deg), 0.0])
+        for az_rad in np.linspace(0, 2 * np.pi, 36, endpoint=False):
+            self.horizon_vertices.append([np.cos(az_rad), np.sin(az_rad), 0.0])
         self.horizon_vertices = np.array(self.horizon_vertices)
 
     def query(self, cx, cy, energy_GeV):
@@ -58,9 +58,9 @@ class Binning:
 
         Retruns
         -------
-        (d_angle_deg, e_distance_GeV), (dbin, ebin)
+        (d_angle_rad, e_distance_GeV), (dbin, ebin)
 
-        d_angle_deg : float
+        d_angle_rad : float
             Angle to the closest direction-bin-center.
         e_distance_GeV : float
             Absolute energy-distance to the closest bin-edge in energy.
@@ -82,14 +82,13 @@ class Binning:
 
         e_distance_GeV = np.abs(self.energy["edges"][eclose] - energy_GeV)
 
-        d_angle_deg = np.rad2deg(p_angle_rad)
-        return (d_angle_deg, e_distance_GeV), (dbin, ebin)
+        return (p_angle_rad, e_distance_GeV), (dbin, ebin)
 
     def query_ball(
         self,
         cx,
         cy,
-        half_angle_deg,
+        half_angle_rad,
         energy_start_GeV,
         energy_stop_GeV,
     ):
@@ -102,7 +101,7 @@ class Binning:
             x-component of direction.
         cy : float
             y-component of direction.
-        half_angle_deg : float
+        half_angle_rad : float
             Cone's half angle (on the sky-dome) which encircles the direction.
             All direction-bins within this cone will be returned.
         energy_start_GeV : float
@@ -125,7 +124,7 @@ class Binning:
 
         dbins = self.query_ball_direction(
             direction_unit_vector=direction_unit_vector,
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
         )
         ebins = self.query_ball_energy(
             energy_start_GeV=energy_start_GeV, energy_stop_GeV=energy_stop_GeV
@@ -136,8 +135,8 @@ class Binning:
                 debins.append((dbin, ebin))
         return debins
 
-    def query_ball_direction(self, direction_unit_vector, half_angle_deg):
-        assert half_angle_deg >= 0
+    def query_ball_direction(self, direction_unit_vector, half_angle_rad):
+        assert half_angle_rad >= 0
         assert 0.95 <= np.linalg.norm(direction_unit_vector) <= 1.05
 
         third_furthest_neighbor_angle_rad = np.max(
@@ -146,19 +145,19 @@ class Binning:
 
         dd = self.direction.query_ball_point(
             x=direction_unit_vector,
-            r=np.deg2rad(half_angle_deg) + third_furthest_neighbor_angle_rad,
+            r=half_angle_rad + third_furthest_neighbor_angle_rad,
         )
         return np.array(dd)
 
     def query_ball_direction_azimuth_zenith(
-        self, azimuth_deg, zenith_deg, half_angle_deg
+        self, azimuth_rad, zenith_rad, half_angle_rad
     ):
-        direction_unit_vector = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+        direction_unit_vector = spherical_coordinates.az_zd_to_cx_cy_cz(
+            azimuth_rad=azimuth_rad, zenith_rad=zenith_rad
         )
         return self.query_ball_direction(
             direction_unit_vector=direction_unit_vector,
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
         )
 
     def query_ball_energy(self, energy_start_GeV, energy_stop_GeV):
@@ -209,22 +208,22 @@ class Binning:
         fig = splt.Fig(cols=1080, rows=1080)
         ax = splt.hemisphere.Ax(fig=fig)
 
-        max_par_zd_deg = self.config["direction"][
-            "particle_max_zenith_distance_deg"
+        max_par_zd_rad = self.config["direction"][
+            "particle_max_zenith_distance_rad"
         ]
         splt.shapes.ax_add_circle(
             ax=ax,
             xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_par_zd_deg)),
+            radius=np.sin(max_par_zd_rad),
             stroke=splt.color.css("red"),
         )
-        max_cer_zd_deg = self.config["direction"][
-            "cherenkov_max_zenith_distance_deg"
+        max_cer_zd_rad = self.config["direction"][
+            "cherenkov_max_zenith_distance_rad"
         ]
         splt.shapes.ax_add_circle(
             ax=ax,
             xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_cer_zd_deg)),
+            radius=np.sin(max_cer_zd_rad),
             stroke=splt.color.css("blue"),
         )
 

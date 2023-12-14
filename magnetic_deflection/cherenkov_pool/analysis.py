@@ -1,5 +1,5 @@
 import corsika_primary as cpw
-from .. import spherical_coordinates
+import spherical_coordinates
 import numpy as np
 
 

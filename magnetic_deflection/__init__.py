@@ -1,7 +1,6 @@
 from .version import __version__
 from . import allsky
 from . import cherenkov_pool
-from . import spherical_coordinates
 from . import common_settings_for_plotting
 from . import utils
 
@@ -209,7 +208,7 @@ def export_csv(work_dir, out_dir, fraction=1.0):
 def demonstrate_query(
     work_dir,
     out_dir,
-    cherenkov_field_of_view_half_angle_deg=6.5,
+    cherenkov_field_of_view_half_angle_rad=np.deg2rad(6.5),
     random_seed=43,
     num=64,
 ):
@@ -226,7 +225,7 @@ def demonstrate_query(
         Contains the site-dirs which in turn contain the particle-dirs.
     out_dir : str
         Here the demonstration plots and comments will be written to.
-    cherenkov_field_of_view_half_angle_deg : float
+    cherenkov_field_of_view_half_angle_rad : float
         Include showers which emit Cherenkov light within this view-cone.
     random_seed : int
         Seed for the random requests for the query.
@@ -234,7 +233,7 @@ def demonstrate_query(
         Make this many examples for each combination of site and particle.
     """
     os.makedirs(out_dir, exist_ok=True)
-    assert cherenkov_field_of_view_half_angle_deg > 0
+    assert cherenkov_field_of_view_half_angle_rad > 0
 
     hemisphere_grid = allsky.hemisphere.Grid(num_vertices=4069)
     site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
@@ -252,9 +251,9 @@ def demonstrate_query(
 
             allsky_deflection = allsky.AllSky(sk_pk_dir)
 
-            particle_scatter_half_angle_deg = allsky_deflection.config[
+            particle_scatter_half_angle_rad = allsky_deflection.config[
                 "particle"
-            ]["population"]["direction"]["scatter_cone_half_angle_deg"]
+            ]["population"]["direction"]["scatter_cone_half_angle_rad"]
 
             for q in range(num):
                 print(sk, pk, q)
@@ -266,8 +265,8 @@ def demonstrate_query(
                     allsky_deflection=allsky_deflection,
                 )
                 request[
-                    "cherenkov_field_of_view_half_angle_deg"
-                ] = cherenkov_field_of_view_half_angle_deg
+                    "cherenkov_field_of_view_half_angle_rad"
+                ] = cherenkov_field_of_view_half_angle_rad
 
                 request_path = os.path.join(
                     out_sk_pk_dir, qkey + "_request.json"
@@ -289,11 +288,11 @@ def demonstrate_query(
                     dbg_cone,
                 ) = allsky.random.draw_particle_direction_with_cone(
                     prng=prng,
-                    azimuth_deg=request["cherenkov_azimuth_deg"],
-                    zenith_deg=request["cherenkov_zenith_deg"],
-                    half_angle_deg=cherenkov_field_of_view_half_angle_deg,
+                    azimuth_rad=request["cherenkov_azimuth_rad"],
+                    zenith_rad=request["cherenkov_zenith_rad"],
+                    half_angle_rad=cherenkov_field_of_view_half_angle_rad,
                     energy_GeV=request["primary_particle_energy_GeV"],
-                    shower_spread_half_angle_deg=particle_scatter_half_angle_deg,
+                    shower_spread_half_angle_rad=particle_scatter_half_angle_rad,
                     min_num_cherenkov_photons=1e2,
                     allsky_deflection=allsky_deflection,
                 )
@@ -309,11 +308,11 @@ def demonstrate_query(
                     dbg_grid,
                 ) = allsky.random.draw_particle_direction_with_masked_grid(
                     prng=prng,
-                    azimuth_deg=request["cherenkov_azimuth_deg"],
-                    zenith_deg=request["cherenkov_zenith_deg"],
-                    half_angle_deg=cherenkov_field_of_view_half_angle_deg,
+                    azimuth_rad=request["cherenkov_azimuth_rad"],
+                    zenith_rad=request["cherenkov_zenith_rad"],
+                    half_angle_rad=cherenkov_field_of_view_half_angle_rad,
                     energy_GeV=request["primary_particle_energy_GeV"],
-                    shower_spread_half_angle_deg=particle_scatter_half_angle_deg,
+                    shower_spread_half_angle_rad=particle_scatter_half_angle_rad,
                     min_num_cherenkov_photons=1e2,
                     allsky_deflection=allsky_deflection,
                     hemisphere_grid=hemisphere_grid,
@@ -369,11 +368,9 @@ def _draw_shower_request(prng, allsky_deflection):
         azimuth_rad=0.0,
         zenith_rad=0.0,
         min_scatter_opening_angle_rad=0.0,
-        max_scatter_opening_angle_rad=np.deg2rad(
-            allsky_deflection.config["binning"]["direction"][
-                "particle_max_zenith_distance_deg"
-            ]
-        ),
+        max_scatter_opening_angle_rad=allsky_deflection.config["binning"][
+            "direction"
+        ]["particle_max_zenith_distance_rad"],
     )
     energy_GeV = corsika_primary.random.distributions.draw_power_law(
         prng=prng,
@@ -383,7 +380,7 @@ def _draw_shower_request(prng, allsky_deflection):
         num_samples=1,
     )[0]
     return {
-        "cherenkov_azimuth_deg": np.rad2deg(cer_az_rad),
-        "cherenkov_zenith_deg": np.rad2deg(cer_zd_rad),
+        "cherenkov_azimuth_rad": cer_az_rad,
+        "cherenkov_zenith_rad": cer_zd_rad,
         "primary_particle_energy_GeV": energy_GeV,
     }

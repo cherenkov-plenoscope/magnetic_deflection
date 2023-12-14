@@ -1,7 +1,7 @@
 import numpy as np
 import homogeneous_transformation as ht
 import corsika_primary
-from .. import spherical_coordinates
+import spherical_coordinates
 
 
 def draw_xy_in_disc(prng, x, y, size, radius=1e2):
@@ -25,14 +25,11 @@ def draw_direction(prng, max_zenith_distance):
         zenith_rad=0.0,
         min_scatter_opening_angle_rad=0.0,
         max_scatter_opening_angle_rad=max_zenith_distance,
-        max_zenith_rad=np.deg2rad(180),
+        max_zenith_rad=np.pi,
         max_iterations=1000 * 1000,
     )
     ppp = np.array(
-        spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=np.rad2deg(az),
-            zenith_deg=np.rad2deg(zd),
-        )
+        spherical_coordinates.az_zd_to_cx_cy_cz(azimuth_rad=az, zenith_rad=zd)
     )
     return ppp
 
@@ -53,14 +50,12 @@ def draw_cxcy_in_cone(prng, cx, cy, size, half_angle):
         disc_point = np.array([lf["x"][i], lf["y"][i], 0.0])
         ddd = -disc_point + emission_point
         ddn = ddd / np.linalg.norm(ddd)
-        theta[i] = spherical_coordinates._angle_between_vectors_rad(
-            ddn, unit_z
-        )
+        theta[i] = spherical_coordinates.angle_between_xyz(a=ddn, b=unit_z)
         ppp[i] = ddn
 
     rotaxis = np.cross(pointing, unit_z)
-    rotangle = -1.0 * spherical_coordinates._angle_between_vectors_rad(
-        unit_z, pointing
+    rotangle = -1.0 * spherical_coordinates.angle_between_xyz(
+        a=unit_z, b=pointing
     )
 
     trafo_civil = {

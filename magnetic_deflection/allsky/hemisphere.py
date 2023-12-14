@@ -9,13 +9,12 @@ import io
 import triangle_mesh_io
 import merlict
 import corsika_primary
-
-from .. import spherical_coordinates
+import spherical_coordinates
 
 
 def make_vertices(
     num_vertices=1024,
-    max_zenith_distance_deg=corsika_primary.MAX_ZENITH_DEG,
+    max_zenith_distance_rad=None,
 ):
     """
     Makes vertices on a unit-sphere using a Fibonacci-space.
@@ -32,7 +31,7 @@ def make_vertices(
     ----------
     num_vertices : int
         A guidence for the number of verties in the mesh.
-    max_zenith_distance_deg : float
+    max_zenith_distance_rad : float
         Vertices will only be put up to this zenith-distance.
         The ring-vertices will be put right at this zenith-distance.
 
@@ -41,28 +40,32 @@ def make_vertices(
     vertices : numpy.array, shape(N, 3)
         The xyz-coordinates of the vertices.
     """
-    assert 0 < max_zenith_distance_deg <= 90
+    PI = np.pi
+    TAU = 2 * PI
+
+    if max_zenith_distance_rad is None:
+        max_zenith_distance_rad = corsika_primary.MAX_ZENITH_RAD
+    assert 0 < max_zenith_distance_rad <= np.pi / 2
     assert num_vertices > 0
     num_vertices = int(num_vertices)
 
     inner_vertices = binning_utils.sphere.fibonacci_space(
         size=num_vertices,
-        max_zenith_distance_rad=np.deg2rad(max_zenith_distance_deg),
+        max_zenith_distance_rad=max_zenith_distance_rad,
     )
 
     _hemisphere_solid_angle = 2.0 * np.pi
     _expected_num_faces = 2.0 * num_vertices
     _face_expected_solid_angle = _hemisphere_solid_angle / _expected_num_faces
     _face_expected_edge_angle_rad = np.sqrt(_face_expected_solid_angle)
-    _face_expected_edge_angle_deg = np.rad2deg(_face_expected_edge_angle_rad)
-    num_horizon_vertices = int(np.ceil(360.0 / _face_expected_edge_angle_deg))
+    num_horizon_vertices = int(np.ceil(TAU / _face_expected_edge_angle_rad))
 
     horizon_vertices = []
-    for az_deg in np.linspace(0, 360, num_horizon_vertices, endpoint=False):
+    for az_rad in np.linspace(0, TAU, num_horizon_vertices, endpoint=False):
         uvec = np.array(
-            spherical_coordinates._az_zd_to_cx_cy_cz(
-                azimuth_deg=az_deg,
-                zenith_deg=max_zenith_distance_deg,
+            spherical_coordinates.az_zd_to_cx_cy_cz(
+                azimuth_rad=az_rad,
+                zenith_rad=max_zenith_distance_rad,
             )
         )
         horizon_vertices.append(uvec)
@@ -226,7 +229,7 @@ class Grid:
     def __init__(
         self,
         num_vertices,
-        max_zenith_distance_deg=corsika_primary.MAX_ZENITH_DEG,
+        max_zenith_distance_rad=None,
     ):
         """
         Parameters
@@ -234,15 +237,18 @@ class Grid:
         num_vertices : int
             A guideline for the number of vertices in the grid's mesh.
             See make_vertices().
-        max_zenith_distance_deg : float
+        max_zenith_distance_rad : float
             Vertices will only be put up to this zenith-distance.
             The ring-vertices will be put right at this zenith-distance.
         """
+        if max_zenith_distance_rad is None:
+            max_zenith_distance_rad = corsika_primary.MAX_ZENITH_RAD
+
         self._init_num_vertices = int(num_vertices)
-        self.max_zenith_distance_deg = float(max_zenith_distance_deg)
+        self.max_zenith_distance_rad = float(max_zenith_distance_rad)
         self.vertices = make_vertices(
             num_vertices=self._init_num_vertices,
-            max_zenith_distance_deg=self.max_zenith_distance_deg,
+            max_zenith_distance_rad=self.max_zenith_distance_rad,
         )
         self.vertices_tree = scipy.spatial.cKDTree(data=self.vertices)
         self.faces = make_faces(vertices=self.vertices)
@@ -255,13 +261,13 @@ class Grid:
         )
         self.faces_tree = Tree(vertices=self.vertices, faces=self.faces)
 
-    def query_azimuth_zenith(self, azimuth_deg, zenith_deg):
+    def query_azimuth_zenith(self, azimuth_rad, zenith_rad):
         """
         Returns the index of the face hit at direction
-        (azimuth_deg, zenith_deg).
+        (azimuth_rad, zenith_rad).
         """
         return self.faces_tree.query_azimuth_zenith(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+            azimuth_rad=azimuth_rad, zenith_rad=zenith_rad
         )
 
     def query_cx_cy(self, cx, cy):
@@ -379,9 +385,9 @@ class Tree:
         ray["direction.z"] = direction_unit_vector[2]
         return ray
 
-    def query_azimuth_zenith(self, azimuth_deg, zenith_deg):
-        direction_unit_vector = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+    def query_azimuth_zenith(self, azimuth_rad, zenith_rad):
+        direction_unit_vector = spherical_coordinates.az_zd_to_cx_cy_cz(
+            azimuth_rad=azimuth_rad, zenith_rad=zenith_rad
         )
         return self.query(direction_unit_vector=direction_unit_vector)
 
@@ -431,32 +437,31 @@ class Mask:
             total_sr += self.grid.faces_solid_angles[iface]
         return total_sr
 
-    def append_azimuth_zenith(self, azimuth_deg, zenith_deg, half_angle_deg):
+    def append_azimuth_zenith(self, azimuth_rad, zenith_rad, half_angle_rad):
         """
-        Marks all faces in a cone at direction (azimuth_deg, zenith_deg) and
-        opening half_angle_deg.
+        Marks all faces in a cone at direction (azimuth_rad, zenith_rad) and
+        opening half_angle_rad.
         """
-        direction_unit_vector = spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=azimuth_deg, zenith_deg=zenith_deg
+        direction_unit_vector = spherical_coordinates.az_zd_to_cx_cy_cz(
+            azimuth_rad=azimuth_rad, zenith_rad=zenith_rad
         )
         return self.append(
             direction_unit_vector=direction_unit_vector,
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
         )
 
-    def append_cx_cy(self, cx, cy, half_angle_deg):
+    def append_cx_cy(self, cx, cy, half_angle_rad):
         cz = spherical_coordinates.restore_cz(cx=cx, cy=cy)
         assert 0.0 <= cz <= 1.0
         direction_unit_vector = np.array([cx, cy, cz])
         self.append(
             direction_unit_vector=direction_unit_vector,
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
         )
 
-    def append(self, direction_unit_vector, half_angle_deg):
-        assert half_angle_deg >= 0
+    def append(self, direction_unit_vector, half_angle_rad):
+        assert half_angle_rad >= 0
         assert 0.99 <= np.linalg.norm(direction_unit_vector) <= 1.01
-        half_angle_rad = np.deg2rad(half_angle_deg)
 
         third_neighbor_angle_rad = np.max(
             self.grid.vertices_tree.query(x=direction_unit_vector, k=3)[0]

@@ -4,7 +4,7 @@ import numpy as np
 import tempfile
 import atmospheric_cherenkov_response as acr
 from . import analysis
-from .. import spherical_coordinates
+import spherical_coordinates
 
 
 def make_example_steering():
@@ -15,9 +15,9 @@ def make_example_steering():
         particle_energy_start_GeV=1.0,
         particle_energy_stop_GeV=5.0,
         particle_energy_power_slope=-2,
-        particle_cone_azimuth_deg=0.0,
-        particle_cone_zenith_deg=0.0,
-        particle_cone_opening_angle_deg=70.0,
+        particle_cone_azimuth_rad=0.0,
+        particle_cone_zenith_rad=0.0,
+        particle_cone_opening_angle_rad=cpw.MAX_ZENITH_RAD,
         num_showers=1000,
     )
 
@@ -29,9 +29,9 @@ def make_steering(
     particle_energy_start_GeV,
     particle_energy_stop_GeV,
     particle_energy_power_slope,
-    particle_cone_azimuth_deg,
-    particle_cone_zenith_deg,
-    particle_cone_opening_angle_deg,
+    particle_cone_azimuth_rad,
+    particle_cone_zenith_rad,
+    particle_cone_opening_angle_rad,
     num_showers,
 ):
     assert run_id > 0
@@ -59,12 +59,10 @@ def make_steering(
     for airshower_id in np.arange(1, num_showers + 1):
         az, zd = cpw.random.distributions.draw_azimuth_zenith_in_viewcone(
             prng=prng,
-            azimuth_rad=np.deg2rad(particle_cone_azimuth_deg),
-            zenith_rad=np.deg2rad(particle_cone_zenith_deg),
-            min_scatter_opening_angle_rad=np.deg2rad(0.0),
-            max_scatter_opening_angle_rad=np.deg2rad(
-                particle_cone_opening_angle_deg
-            ),
+            azimuth_rad=particle_cone_azimuth_rad,
+            zenith_rad=particle_cone_zenith_rad,
+            min_scatter_opening_angle_rad=0.0,
+            max_scatter_opening_angle_rad=particle_cone_opening_angle_rad,
             max_iterations=1000,
         )
         energy_GeV = cpw.random.distributions.draw_power_law(
@@ -155,22 +153,20 @@ def particle_direction_uxyz(evth):
     momentum[2] = evth[cpw.I.EVTH.PZ_MOMENTUM_GEV_PER_C]
     particle_direction_from_momentum = momentum / np.linalg.norm(momentum)
 
-    particle_azimuth_deg = np.rad2deg(evth[cpw.I.EVTH.AZIMUTH_RAD])
-    particle_zenith_deg = np.rad2deg(evth[cpw.I.EVTH.ZENITH_RAD])
-
-    particle_direction_from_alt_az = np.array(
-        spherical_coordinates._az_zd_to_cx_cy_cz(
-            azimuth_deg=particle_azimuth_deg, zenith_deg=particle_zenith_deg
+    particle_direction_from_az_zd = np.array(
+        spherical_coordinates.az_zd_to_cx_cy_cz(
+            azimuth_rad=evth[cpw.I.EVTH.AZIMUTH_RAD],
+            zenith_rad=evth[cpw.I.EVTH.ZENITH_RAD],
         )
     )
-
-    particle_direction_delta_vector = (
-        particle_direction_from_momentum - particle_direction_from_alt_az
+    delta_rad = spherical_coordinates.angle_between_cx_cy_cz(
+        cx1=particle_direction_from_momentum[0],
+        cy1=particle_direction_from_momentum[1],
+        cz1=particle_direction_from_momentum[2],
+        cx2=particle_direction_from_az_zd[0],
+        cy2=particle_direction_from_az_zd[1],
+        cz2=particle_direction_from_az_zd[2],
     )
-    particle_direction_delta_rad = np.linalg.norm(
-        particle_direction_delta_vector
-    )
-    particle_direction_delta_deg = np.rad2deg(particle_direction_delta_rad)
-    assert particle_direction_delta_deg < 1e-2
+    assert delta_rad < (2.0 * np.pi * 1e-4)
 
     return particle_direction_from_momentum

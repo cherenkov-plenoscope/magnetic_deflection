@@ -20,7 +20,7 @@ from . import binning
 from . import production
 from . import store
 from . import viewcone
-from .. import spherical_coordinates
+import spherical_coordinates
 from .. import cherenkov_pool
 from . import hemisphere
 from . import analysis
@@ -34,7 +34,7 @@ def init(
     energy_start_GeV=0.25,
     energy_stop_GeV=64,
     energy_num_bins=3,
-    direction_particle_max_zenith_distance_deg=70,
+    direction_particle_max_zenith_distance_rad=None,
     direction_num_bins=8,
     corsika_primary_path=None,
 ):
@@ -46,14 +46,18 @@ def init(
     path : str
         Directory to store the allsky.
     """
+    if direction_particle_max_zenith_distance_rad is None:
+        direction_particle_max_zenith_distance_rad = (
+            corsika_primary.MAX_ZENITH_RAD
+        )
     assert energy_start_GeV > 0.0
     assert energy_stop_GeV > 0.0
     assert energy_stop_GeV > energy_start_GeV
     assert energy_num_bins >= 1
-    assert direction_particle_max_zenith_distance_deg >= 0.0
+    assert direction_particle_max_zenith_distance_rad >= 0.0
     assert (
-        direction_particle_max_zenith_distance_deg
-        <= corsika_primary.MAX_ZENITH_DEG
+        direction_particle_max_zenith_distance_rad
+        <= corsika_primary.MAX_ZENITH_RAD
     )
     assert direction_num_bins >= 1
 
@@ -94,7 +98,7 @@ def init(
         f.write(
             json_utils.dumps(
                 {
-                    "particle_max_zenith_distance_deg": direction_particle_max_zenith_distance_deg,
+                    "particle_max_zenith_distance_rad": direction_particle_max_zenith_distance_rad,
                     "num_bins": direction_num_bins,
                 },
                 indent=4,
@@ -131,7 +135,7 @@ def read_config(work_dir):
 
 def assert_config_valid(config):
     b = config["binning"]
-    assert b["direction"]["particle_max_zenith_distance_deg"] > 0.0
+    assert b["direction"]["particle_max_zenith_distance_rad"] > 0.0
 
     assert b["energy"]["start_GeV"] > 0.0
     assert b["energy"]["stop_GeV"] > 0.0
@@ -239,8 +243,8 @@ class AllSky:
         ax["particle_cmap"] = svgplt.hemisphere.Ax(fig=fig)
         ax["particle_cmap"]["span"] = (0.55, 0.05, 0.45, 0.02)
 
-        max_par_zd_deg = self.config["binning"]["direction"][
-            "particle_max_zenith_distance_deg"
+        max_par_zd_rad = self.config["binning"]["direction"][
+            "particle_max_zenith_distance_rad"
         ]
 
         vertices, faces = self.binning.direction_delaunay_mesh()
@@ -291,7 +295,7 @@ class AllSky:
         svgplt.shapes.ax_add_circle(
             ax=ax["particle"],
             xy=[0, 0],
-            radius=np.sin(np.deg2rad(max_par_zd_deg)),
+            radius=np.sin(max_par_zd_rad),
             stroke=svgplt.color.css("red"),
         )
         svgplt.hemisphere.ax_add_grid(ax=ax["particle"])
@@ -317,25 +321,25 @@ class AllSky:
 
     def plot_query_cherenkov_ball(
         self,
-        azimuth_deg,
-        zenith_deg,
-        half_angle_deg,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
         energy_GeV,
         energy_factor,
         path,
         particle_marker_opacity=0.5,
-        particle_marker_half_angle_deg=1.0,
+        particle_marker_half_angle_rad=1.0,
         max_num_showers=10000,
         random_shuffle_seed=42,
         min_num_cherenkov_photons=1e3,
     ):
         # query
         _ll = self.query_cherenkov_ball(
-            azimuth_deg=azimuth_deg,
-            zenith_deg=zenith_deg,
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
             energy_GeV=energy_GeV,
             energy_factor=energy_factor,
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
             min_num_cherenkov_photons=min_num_cherenkov_photons,
         )
 
@@ -352,18 +356,18 @@ class AllSky:
         ax["span"] = (0.1, 0.1, 0.8, 0.8)
 
         fov_ring_verts_uxyz = viewcone.make_ring(
-            half_angle_deg=half_angle_deg,
+            half_angle_rad=half_angle_rad,
             endpoint=True,
             fn=137,
         )
         fov_ring_verts_uxyz = viewcone.rotate(
             vertices_uxyz=fov_ring_verts_uxyz,
-            azimuth_deg=azimuth_deg,
-            zenith_deg=zenith_deg,
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
             mount="cable_robot_mount",
         )
         par_ring_verts_uxyz = viewcone.make_ring(
-            half_angle_deg=particle_marker_half_angle_deg,
+            half_angle_rad=particle_marker_half_angle_rad,
             endpoint=False,
             fn=3,
         )
@@ -376,17 +380,17 @@ class AllSky:
 
         for i in range(min([len(ll), max_num_showers])):
             (
-                particle_azimuth_deg,
-                particle_zenith_deg,
-            ) = spherical_coordinates._cx_cy_to_az_zd_deg(
+                particle_azimuth_rad,
+                particle_zenith_rad,
+            ) = spherical_coordinates.cx_cy_to_az_zd(
                 ll[i]["particle_cx_rad"],
                 ll[i]["particle_cy_rad"],
             )
 
             rot_par_ring_verts_uxyz = viewcone.rotate(
                 vertices_uxyz=par_ring_verts_uxyz,
-                azimuth_deg=particle_azimuth_deg,
-                zenith_deg=particle_zenith_deg,
+                azimuth_rad=particle_azimuth_rad,
+                zenith_rad=particle_zenith_rad,
                 mount="altitude_azimuth_mount",
             )
 
@@ -446,9 +450,9 @@ class AllSky:
 
     def query_cherenkov_ball(
         self,
-        azimuth_deg,
-        zenith_deg,
-        half_angle_deg,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
         energy_GeV,
         energy_factor,
         min_num_cherenkov_photons=1e3,
@@ -457,11 +461,11 @@ class AllSky:
         """
         Parameters
         ----------
-        azimuth_deg : float
+        azimuth_rad : float
             Median azimuth angle of Cherenkov-photons in shower.
-        zenith_deg : float
+        zenith_rad : float
             Median zenith angle of Cherenkov-photons in shower.
-        half_angle_deg : float > 0
+        half_angle_rad : float > 0
             Cone's half angle to query showers in based on the median direction
             of their Cherenkov-photons.
         energy_GeV : float
@@ -480,19 +484,19 @@ class AllSky:
         matches : numpy.recarray
             All showers which match the query.
         """
-        overhead_half_angle_deg = 4.0 * half_angle_deg
+        overhead_half_angle_rad = 4.0 * half_angle_rad
         overhead_energy_start_GeV = energy_GeV * (1 - energy_factor) ** 2
         overhead_energy_stop_GeV = energy_GeV * (1 + energy_factor) ** 2
 
-        cx, cy = spherical_coordinates._az_zd_to_cx_cy(
-            azimuth_deg=azimuth_deg,
-            zenith_deg=zenith_deg,
+        cx, cy = spherical_coordinates.az_zd_to_cx_cy(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
         )
 
         dir_ene_bins = self.binning.query_ball(
             cx=cx,
             cy=cy,
-            half_angle_deg=overhead_half_angle_deg,
+            half_angle_rad=overhead_half_angle_rad,
             energy_start_GeV=overhead_energy_start_GeV,
             energy_stop_GeV=overhead_energy_stop_GeV,
         )
@@ -509,17 +513,17 @@ class AllSky:
 
             # direction
             # ---------
-            cer_az_deg, cer_zd_deg = spherical_coordinates._cx_cy_to_az_zd_deg(
+            cer_az_rad, cer_zd_rad = spherical_coordinates.cx_cy_to_az_zd(
                 cx=cer_bin["cherenkov_cx_rad"],
                 cy=cer_bin["cherenkov_cy_rad"],
             )
-            offaxis_angle_deg = spherical_coordinates._angle_between_az_zd_deg(
-                az1_deg=azimuth_deg,
-                zd1_deg=zenith_deg,
-                az2_deg=cer_az_deg,
-                zd2_deg=cer_zd_deg,
+            offaxis_angle_rad = spherical_coordinates.angle_between_az_zd(
+                azimuth1_rad=azimuth_rad,
+                zenith1_rad=zenith_rad,
+                azimuth2_rad=cer_az_rad,
+                zenith2_rad=cer_zd_rad,
             )
-            viewcone_mask = offaxis_angle_deg <= half_angle_deg
+            viewcone_mask = offaxis_angle_rad <= half_angle_rad
 
             # energy
             # ------
@@ -546,7 +550,7 @@ class AllSky:
             direction_weights = []
             energy_weights = []
             for i in range(len(matches)):
-                delta_rad = spherical_coordinates._angle_between_cx_cy_rad(
+                delta_rad = spherical_coordinates.angle_between_cx_cy(
                     cx1=cx,
                     cy1=cy,
                     cx2=matches["cherenkov_cx_rad"][i],
@@ -555,7 +559,7 @@ class AllSky:
                 dir_weight = gauss1d(
                     x=delta_rad,
                     mean=0.0,
-                    sigma=1 / 2 * half_angle_deg,
+                    sigma=1 / 2 * half_angle_rad,
                 )
                 ene_weight = gauss1d(
                     x=matches["particle_energy_GeV"][i],
@@ -586,10 +590,10 @@ def _population_run_job(job):
         particle_energy_start_GeV=allsky.binning.energy["start"],
         particle_energy_stop_GeV=allsky.binning.energy["stop"],
         particle_energy_power_slope=-2.0,
-        particle_cone_azimuth_deg=0.0,
-        particle_cone_zenith_deg=0.0,
-        particle_cone_opening_angle_deg=allsky.config["binning"]["direction"][
-            "particle_max_zenith_distance_deg"
+        particle_cone_azimuth_rad=0.0,
+        particle_cone_zenith_rad=0.0,
+        particle_cone_opening_angle_rad=allsky.config["binning"]["direction"][
+            "particle_max_zenith_distance_rad"
         ],
         num_showers=job["num_showers_per_job"],
     )
@@ -610,7 +614,7 @@ def _population_run_job(job):
             # cherenkov
             # ---------
             (
-                (delta_phi_deg, delta_energy),
+                (delta_phi_rad, delta_energy),
                 dir_ene_bin,
             ) = allsky.binning.query(
                 cx=shower["cherenkov_cx_rad"],
@@ -629,7 +633,7 @@ def _population_run_job(job):
         # prticle
         # -------
         (
-            (delta_phi_deg, delta_energy),
+            (delta_phi_rad, delta_energy),
             dir_ene_bin,
         ) = allsky.binning.query(
             cx=shower["particle_cx_rad"],
