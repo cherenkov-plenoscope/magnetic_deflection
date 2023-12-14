@@ -78,7 +78,7 @@ HEMISPHERE_AXSTYLE = {"spines": [], "axes": [], "grid": False}
 
 EE = mdfl.common_settings_for_plotting.common_energy_limits()
 GRID_COLOR = (0.5, 0.5, 0.5)
-FRACTION = 0.1  # 1.0
+MAX_NUM_SHOWERS_TO_PLOT = int(1e4)
 ALPHA = 0.1
 
 # energy colorbar
@@ -185,17 +185,19 @@ for sk in res:
                     color="black",
                     direction="inwards" if mag["sign"] > 0 else "outwards",
                 )
+            _num_showers = len(showers["particle_energy_GeV"])
+            _fraction = MAX_NUM_SHOWERS_TO_PLOT / _num_showers
+            _fm = prng.uniform(size=_num_showers) <= _fraction
 
-            rgbas = cmap_mappable.to_rgba(showers["particle_energy_GeV"])
+            rgbas = cmap_mappable.to_rgba(showers["particle_energy_GeV"][_fm])
             rgbas[:, 3] = ALPHA
-            _fm = prng.uniform(size=rgbas.shape[0]) <= FRACTION
 
             sebplt.hemisphere.ax_add_projected_points_with_colors(
                 ax=ax,
                 azimuths_rad=showers["particle_azimuth_rad"][_fm],
                 zeniths_rad=showers["particle_zenith_rad"][_fm],
                 half_angle_rad=0.25 * POINTING["half_angle_rad"],
-                rgbas=rgbas[_fm],
+                rgbas=rgbas,
             )
 
             sebplt.hemisphere.ax_add_projected_circle(

@@ -87,7 +87,6 @@ energy_bin = binning_utils.Binning(
     )
 )
 SITES, PARTICLES = mdfl.find_site_and_particle_keys(work_dir=work_dir)
-SITES, PARTICLES = (["chile"], ["electron", "proton"])
 
 samples = {}
 samples["cxcycz"] = binning_utils.sphere.fibonacci_space(
