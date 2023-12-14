@@ -260,7 +260,7 @@ for sk in res:
 
                     _start = deflgrid["grid"][_start_ebin, gbin, :]
                     _stop = deflgrid["grid"][_stop_ebin, gbin, :]
-                    _line = mdfl.spherical_coordinates.make_great_circle_line(
+                    _line = mdfl.common_settings_for_plotting.make_great_circle_line(
                         start_azimuth_deg=_start[0],
                         start_zenith_deg=_start[1],
                         stop_azimuth_deg=_stop[0],
