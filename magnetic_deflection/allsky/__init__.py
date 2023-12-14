@@ -14,13 +14,13 @@ import binning_utils
 import corsika_primary
 import svg_cartesian_plot as svgplt
 import numpy as np
+import spherical_coordinates
 
 from . import random
 from . import binning
 from . import production
 from . import store
 from . import viewcone
-import spherical_coordinates
 from .. import cherenkov_pool
 from . import hemisphere
 from . import analysis

@@ -1,5 +1,6 @@
 import numpy as np
 import spherical_coordinates
+import homogeneous_transformation
 
 
 def hemisphere_field_of_view():
@@ -14,7 +15,7 @@ def hemisphere_field_of_view():
             "azimuth_minor_rad": np.linspace(0, TAU, 36, endpoint=False),
         },
         "narrow": {
-            "half_angle_rad": np.pi * 1 / 9,
+            "half_angle_rad": (np.pi / 2) * 1 / 9,
             "zenith_mayor_rad": [],
             "zenith_minor_rad": np.deg2rad([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
             "azimuth_minor_rad": np.linspace(0, TAU, 36, endpoint=False),
@@ -89,6 +90,8 @@ def make_great_circle_line(
         )
     )
     rot_axis = np.cross(start, stop)
+    rot_axis = rot_axis / np.linalg.norm(rot_axis)
+
     alpha_rad = spherical_coordinates.angle_between_az_zd(
         azimuth1_rad=start_azimuth_rad,
         zenith1_rad=start_zenith_rad,

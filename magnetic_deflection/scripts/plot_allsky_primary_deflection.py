@@ -95,9 +95,7 @@ cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 sebplt.close(cmap_fig)
 
 
-SITES, PARTICLES = mdfl.production.find_site_and_particle_keys(
-    work_dir=work_dir
-)
+SITES, PARTICLES = mdfl.find_site_and_particle_keys(work_dir=work_dir)
 res = {}
 for sk in SITES:
     res[sk] = {}

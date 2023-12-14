@@ -62,6 +62,7 @@ GRID_COLOR = (0.5, 0.5, 0.5)
 MARKER_HALF_ANGLE_RAD = np.deg2rad(1.25)
 ALPHA = 0.75
 CLUSTER_BANDWIDTH_RAD = np.deg2rad(10.0)
+NUM_ENERGY_BINS = 8
 
 # energy colorbar
 # ---------------
@@ -79,11 +80,14 @@ cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 sebplt.close(cmap_fig)
 
 energy_bin = binning_utils.Binning(
-    bin_edges=np.geomspace(EE["energy_start_GeV"], EE["energy_stop_GeV"], 9)
+    bin_edges=np.geomspace(
+        EE["energy_start_GeV"],
+        EE["energy_stop_GeV"],
+        NUM_ENERGY_BINS + 1,
+    )
 )
-SITES, PARTICLES = mdfl.production.find_site_and_particle_keys(
-    work_dir=work_dir
-)
+SITES, PARTICLES = mdfl.find_site_and_particle_keys(work_dir=work_dir)
+SITES, PARTICLES = (["chile"], ["electron", "proton"])
 
 samples = {}
 samples["cxcycz"] = binning_utils.sphere.fibonacci_space(
@@ -134,7 +138,15 @@ for sk in SITES:
                 )
 
                 for ebin in range(energy_bin["num"]):
-                    print(gbin, "of", len(samples["num"]), "ebin", ebin)
+                    print(
+                        gbin + 1,
+                        "/",
+                        samples["num"],
+                        " ",
+                        ebin + 1,
+                        "/",
+                        energy_bin["num"],
+                    )
 
                     _Estart = energy_bin["edges"][ebin]
                     _Estop = energy_bin["edges"][ebin + 1]
@@ -146,16 +158,14 @@ for sk in SITES:
                     if len(_cx) > 0:
                         _cz = spherical_coordinates.restore_cz(cx=_cx, cy=_cy)
                         X = np.c_[_cx, _cy, _cz]
-                        print("start MeanShift", len(_cx))
                         min_bin_freq = max([1, int(0.01 * len(_cx))])
                         ms = sklearn.cluster.MeanShift(
                             bandwidth=CLUSTER_BANDWIDTH_RAD,
                             bin_seeding=True,
                             min_bin_freq=min_bin_freq,
                         )
-                        print("start MeanShift.fit")
+                        print("MeanShift.fit", len(_cx), "num showers")
                         ms.fit(X=X)
-                        print("done MeanShift.fit")
                         max_density_cxcycz = ms.cluster_centers_[0]
                         (
                             max_density_az_rad,
@@ -172,11 +182,6 @@ for sk in SITES:
                 f.write(json_utils.dumps(res[sk][pk]["grid"]))
 
             del allsky
-
-
-FIELD_OF_VIEW = mdfl.common_settings_for_plotting.hemisphere_field_of_view()[
-    "wide"
-]
 
 
 def plane_normal(az1_rad, zd1_rad, az2_rad, zd2_rad):
@@ -199,9 +204,7 @@ for sk in res:
     for pk in res[sk]:
         deflgrid = res[sk][pk]
 
-        azimuth_minor_rad = FIELD_OF_VIEW["azimuth_minor_rad"]
-        zenith_minor_rad = FIELD_OF_VIEW["zenith_minor_rad"]
-        rfov = FIELD_OF_VIEW["rfov"]
+        rfov = 1.0
         print(sk, pk)
 
         fig = sebplt.figure(FIGSIZE)
@@ -210,29 +213,19 @@ for sk in res:
             span=(0.02, 0.02, 0.96, 0.96),
             style=HEMISPHERE_AXSTYLE,
         )
-
-        sebplt.hemisphere.ax_add_grid(
-            ax=ax,
-            azimuths_rad=azimuth_minor_rad,
-            zeniths_rad=zenith_minor_rad,
-            linewidth=0.05,
-            color=GRID_COLOR,
-            alpha=1.0,
-            draw_lower_horizontal_edge_rad=None,
-            zenith_min_rad=5,
-        )
+        sebplt.hemisphere.ax_add_grid_stellarium_style(ax=ax)
 
         if mag["magnitude_uT"] > 1e-6:
             sebplt.hemisphere.ax_add_magnet_flux_symbol(
                 ax=ax,
                 azimuth_rad=mag["azimuth_rad"],
                 zenith_rad=mag["zenith_rad"],
-                half_angle_deg=np.deg2rad(2.5),
+                half_angle_rad=np.deg2rad(2.5),
                 color="black",
                 direction="inwards" if mag["sign"] > 0 else "outwards",
             )
 
-        for gbin in range(len(sample_directions)):
+        for gbin in range(samples["num"]):
             for ebin in range(energy_bin["num"]):
                 rgb = cmap_mappable.to_rgba(energy_bin["centers"][ebin])
                 sebplt.hemisphere.ax_add_projected_circle(
@@ -257,10 +250,10 @@ for sk in res:
                         _line_az,
                         _line_zd,
                     ) = mdfl.common_settings_for_plotting.make_great_circle_line(
-                        start_azimuth_rad=np.deg2rad(_start[0]),
-                        start_zenith_rad=np.deg2rad(_start[1]),
-                        stop_azimuth_rad=np.deg2rad(_stop[0]),
-                        stop_zenith_rad=np.deg2rad(_stop[1]),
+                        start_azimuth_rad=_start[0],
+                        start_zenith_rad=_start[1],
+                        stop_azimuth_rad=_stop[0],
+                        stop_zenith_rad=_stop[1],
                     )
 
                     _start_color = cmap_mappable.to_rgba(

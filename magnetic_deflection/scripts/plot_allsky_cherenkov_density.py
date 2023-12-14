@@ -68,9 +68,7 @@ POINTING = {
     "half_angle_rad": np.deg2rad(args.half_angle_deg),
 }
 
-site_keys, particle_keys = mdfl.production.find_site_and_particle_keys(
-    work_dir=work_dir
-)
+site_keys, particle_keys = mdfl.find_site_and_particle_keys(work_dir=work_dir)
 
 res = {}
 for sk in site_keys:
