@@ -2,6 +2,7 @@ import numpy as np
 import corsika_primary
 import svg_cartesian_plot as svgplt
 import solid_angle_utils
+import warnings
 
 from . import hemisphere
 from . import viewcone
@@ -71,6 +72,20 @@ def cluster_showers_to_remove_outliers(
     return dense_showers, dbg
 
 
+def try_get_max_zenith_distance_rad(allsky_deflection):
+    direction = allsky_deflection.config["binning"]["direction"]
+    if "particle_max_zenith_distance_rad" in direction:
+        max_zenith_distance_rad = direction["particle_max_zenith_distance_rad"]
+    else:
+        max_zenith_distance_rad = np.deg2rad(
+            direction["particle_max_zenith_distance_deg"]
+        )
+        warnings.warn(
+            "Unit 'deg' in config is depricated.", category=DeprecationWarning
+        )
+    return max_zenith_distance_rad
+
+
 def draw_particle_direction_with_cone(
     prng,
     azimuth_rad,
@@ -100,9 +115,9 @@ def draw_particle_direction_with_cone(
         "min_num_cherenkov_photons": min_num_cherenkov_photons,
     }
 
-    max_zenith_distance_rad = allsky_deflection.config["binning"]["direction"][
-        "particle_max_zenith_distance_rad"
-    ]
+    max_zenith_distance_rad = try_get_max_zenith_distance_rad(
+        allsky_deflection=allsky_deflection
+    )
     debug["max_zenith_distance_rad"] = max_zenith_distance_rad
 
     try:
@@ -206,8 +221,10 @@ def draw_particle_direction_with_cone(
             max_zenith_distance_rad=max_zenith_distance_rad,
         )
         cone_faces = hemisphere.make_faces(vertices=cone_vertices)
-        solid_angle_thrown_sr = hemisphere.estimate_solid_angles(
-            vertices=cone_vertices, faces=cone_faces
+        solid_angle_thrown_sr = np.sum(
+            hemisphere.estimate_solid_angles(
+                vertices=cone_vertices, faces=cone_faces
+            )
         )
         debug["cone"]["vertices"] = cone_vertices
         debug["cone"]["faces"] = cone_faces
@@ -283,12 +300,11 @@ def draw_particle_direction_with_masked_grid(
     }
     debug["hemisphere_grid_num_vertices"] = hemisphere_grid._init_num_vertices
 
-    assert (
-        hemisphere_grid.max_zenith_distance_rad
-        == allsky_deflection.config["binning"]["direction"][
-            "particle_max_zenith_distance_rad"
-        ]
+    max_zenith_distance_rad = try_get_max_zenith_distance_rad(
+        allsky_deflection=allsky_deflection
     )
+
+    assert hemisphere_grid.max_zenith_distance_rad == max_zenith_distance_rad
 
     # prime mask with showers
     # -----------------------
@@ -493,7 +509,41 @@ class Random:
         else:
             raise KeyError("Expected either 'grid' or 'cone'.")
 
+        if res["cutoff"]:
+            res = fall_back_in_case_of_cutoff(
+                result=res, allsky_deflection=self.allsky_deflection, prng=prng
+            )
+
         return res, dbg
+
+
+def fall_back_in_case_of_cutoff(result, allsky_deflection, prng):
+    """
+    The tables can not predict a good guess for the primary
+    particles direction. In this 'cutoff' case, we just widen the
+    solid angle to draw from to the entire sky which can be thrown to.
+    """
+    assert result["cutoff"]
+
+    max_zenith_distance_rad = try_get_max_zenith_distance_rad(
+        allsky_deflection=allsky_deflection
+    )
+    (
+        result["particle_azimuth_rad"],
+        result["particle_zenith_rad"],
+    ) = corsika_primary.random.distributions.draw_azimuth_zenith_in_viewcone(
+        prng=prng,
+        azimuth_rad=0.0,
+        zenith_rad=0.0,
+        min_scatter_opening_angle_rad=0.0,
+        max_scatter_opening_angle_rad=max_zenith_distance_rad,
+        max_zenith_rad=max_zenith_distance_rad,
+        max_iterations=1000 * 1000,
+    )
+    result["solid_angle_thrown_sr"] = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=max_zenith_distance_rad,
+    )
+    return result
 
 
 def _style():

@@ -36,12 +36,11 @@ def limit_zenith_distance(vertices_uxyz, max_zenith_distance_rad):
     return np.array(out)
 
 
-def rotate(vertices_uxyz, azimuth_rad, zenith_rad, mount="cable_robot_mount"):
-    _rot_civil = acr.pointing.make_civil_rotation_of_principal_aperture_plane(
-        pointing={
-            "azimuth_deg": np.rad2deg(azimuth_rad),
-            "zenith_deg": np.rad2deg(zenith_rad),
-        },
+def rotate(vertices_uxyz, azimuth_rad, zenith_rad, mount="cable_robot"):
+    _rot_civil = acr.pointing.pointing_to_civil_rotation(
+        pointing=acr.pointing.Pointing(
+            azimuth_rad=azimuth_rad, zenith_rad=zenith_rad
+        ),
         mount=mount,
     )
     _trafo_civil = {"pos": [0, 0, 0], "rot": _rot_civil}

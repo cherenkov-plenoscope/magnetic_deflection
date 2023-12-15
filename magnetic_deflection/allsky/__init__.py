@@ -16,6 +16,7 @@ import svg_cartesian_plot as svgplt
 import numpy as np
 import spherical_coordinates
 
+from . import testing
 from . import random
 from . import binning
 from . import production
