@@ -116,7 +116,13 @@ def find_site_and_particle_keys(work_dir):
     return utils._get_common_sites_and_particles(tree=tree)
 
 
-def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
+def run(
+    work_dir,
+    pool,
+    num_runs=192,
+    num_showers_per_run=1280,
+    num_showers_target=2 * 1000 * 1000,
+):
     """
     Increase the population of showers in each table (site,particle)
     combination.
@@ -133,9 +139,13 @@ def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
         Add this many runs of showers. (A run is a production run of showers).
     num_showers_per_run : int
         Number of showers in a single run.
+    num_showers_target : int
+        Targeted population in each allsky. It is the number of showers
+        stored in the allsky.
     """
     assert num_runs >= 0
     assert num_showers_per_run >= 0
+    assert num_showers_target > 0
 
     site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
 
@@ -146,12 +156,41 @@ def run(work_dir, pool, num_runs=960, num_showers_per_run=1280):
 
             print(sk, pk)
             sky = allsky.AllSky(sk_pk_dir)
-            sky.populate(
-                pool=pool,
-                num_chunks=1,
-                num_jobs=num_runs,
-                num_showers_per_job=num_showers_per_run,
-            )
+            if sky.num_showers() < num_showers_target:
+                sky.populate(
+                    pool=pool,
+                    num_chunks=1,
+                    num_jobs=num_runs,
+                    num_showers_per_job=num_showers_per_run,
+                )
+
+
+def needs_to_run(work_dir, num_showers_target):
+    num = num_showers(work_dir=work_dir)
+    for sk in num:
+        for pk in num[sk]:
+            if num[sk][pk] < num_showers_target:
+                return True
+    return False
+
+
+def num_showers(work_dir):
+    """
+    Returns the number of simulates and stored showers.
+
+    Parameters
+    ----------
+    work_dir : str
+        Contains the site-dirs which in turn contain the particle-dirs.
+    """
+    out = {}
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+    for sk in site_keys:
+        out[sk] = {}
+        for pk in particle_keys:
+            sky = allsky.AllSky(os.path.join(work_dir, sk, pk))
+            out[sk][pk] = sky.num_showers()
+    return out
 
 
 def export_csv(work_dir, out_dir, fraction=1.0):

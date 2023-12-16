@@ -183,6 +183,12 @@ class AllSky:
             cache_dtype=cache_dtype,
         )
 
+    def num_showers(self):
+        """
+        Returns the number of thrown showers.
+        """
+        return np.sum(self.store.population_particle())
+
     def version_of_when_work_dir_was_initiated(self):
         version_path = os.path.join(self.work_dir, "version.json")
         with builtins.open(version_path, "rt") as f:
