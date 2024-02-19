@@ -205,7 +205,6 @@ class AllSky:
         assert num_showers_per_job > 0
         assert num_jobs > 0
         assert num_chunks > 0
-        assert os.path.exists(self.config["corsika_primary"]["path"])
 
         production_lock = production.Production(
             production_dir=os.path.join(self.work_dir, "production")
