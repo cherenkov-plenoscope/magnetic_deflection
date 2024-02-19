@@ -18,7 +18,6 @@ def init(
     energy_stop_GeV=64.0,
     site_keys=None,
     particle_keys=None,
-    corsika_primary_path=None,
 ):
     """
     Creates tables listing the magnetic deflection of atmospheric showers
@@ -39,8 +38,6 @@ def init(
     particle_keys : list [str]
         The keys (names) of the particles to be simulated.
         See atmospheric_cherenkov_response.particles package.
-    corsika_primary_path : str
-        Path to the CORSIKA-primary-mod executable.
 
     example
     -------
@@ -64,10 +61,6 @@ def init(
         site_keys = atmospheric_cherenkov_response.sites.keys()
     if particle_keys is None:
         particle_keys = atmospheric_cherenkov_response.particles.keys()
-    if corsika_primary_path is None:
-        corsika_primary_path = (
-            corsika_primary.install.typical_corsika_primary_mod_path()
-        )
 
     os.makedirs(work_dir, exist_ok=True)
 
@@ -95,7 +88,6 @@ def init(
                     site_key=sk,
                     energy_start_GeV=energy_start_GeV,
                     energy_stop_GeV=energy_stop_GeV,
-                    corsika_primary_path=corsika_primary_path,
                 )
 
 

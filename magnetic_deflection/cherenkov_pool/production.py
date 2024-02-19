@@ -85,11 +85,10 @@ def make_steering(
     return steering
 
 
-def estimate_cherenkov_pool(corsika_primary_path, corsika_steering_dict):
+def estimate_cherenkov_pool(corsika_steering_dict):
     pools = []
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
         with cpw.CorsikaPrimary(
-            corsika_path=corsika_primary_path,
             steering_dict=corsika_steering_dict,
             particle_output_path=os.path.join(tmp_dir, "corsika.par.dat"),
             stdout_path=os.path.join(tmp_dir, "corsika.stdout"),

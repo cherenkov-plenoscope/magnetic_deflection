@@ -37,7 +37,6 @@ def init(
     energy_num_bins=3,
     direction_particle_max_zenith_distance_rad=None,
     direction_num_bins=8,
-    corsika_primary_path=None,
 ):
     """
     Init a new allsky
@@ -105,14 +104,6 @@ def init(
                 indent=4,
             )
         )
-
-    if corsika_primary_path is None:
-        corsika_primary_path = (
-            corsika_primary.install.typical_corsika_primary_mod_path()
-        )
-
-    with rnw.open(os.path.join(config_dir, "corsika_primary.json"), "wt") as f:
-        f.write(json_utils.dumps({"path": corsika_primary_path}))
 
     config = read_config(work_dir=work_dir)
     assert_config_valid(config=config)
@@ -606,7 +597,6 @@ def _population_run_job(job):
     )
 
     showers = cherenkov_pool.production.estimate_cherenkov_pool(
-        corsika_primary_path=allsky.config["corsika_primary"]["path"],
         corsika_steering_dict=corsika_steering_dict,
     )
     assert len(showers) == len(corsika_steering_dict["primaries"])
