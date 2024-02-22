@@ -1,6 +1,7 @@
 import atmospheric_cherenkov_response
 import os
 import glob
+import numpy as np
 
 
 def _get_common_sites_and_particles(tree):
@@ -52,3 +53,7 @@ def _filter_keys(keys, keys_to_keep):
         if key in keys_to_keep:
             out.append(key)
     return out
+
+
+def gauss1d(x, mean, sigma):
+    return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))

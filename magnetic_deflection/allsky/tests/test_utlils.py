@@ -7,14 +7,12 @@ def assert_approx(a, b, eps=1e-6):
 
 
 def test_gauss1d():
-    assert_approx(1.0, mdfl.allsky.gauss1d(x=0, mean=0.0, sigma=1.0))
-    assert_approx(0.0, mdfl.allsky.gauss1d(x=100, mean=0.0, sigma=1.0))
-    assert_approx(0.0, mdfl.allsky.gauss1d(x=-100, mean=0.0, sigma=1.0))
+    assert_approx(1.0, mdfl.utils.gauss1d(x=0, mean=0.0, sigma=1.0))
+    assert_approx(0.0, mdfl.utils.gauss1d(x=100, mean=0.0, sigma=1.0))
+    assert_approx(0.0, mdfl.utils.gauss1d(x=-100, mean=0.0, sigma=1.0))
+    assert_approx(0.60, mdfl.utils.gauss1d(x=1, mean=0.0, sigma=1.0), eps=0.01)
     assert_approx(
-        0.60, mdfl.allsky.gauss1d(x=1, mean=0.0, sigma=1.0), eps=0.01
-    )
-    assert_approx(
-        0.60, mdfl.allsky.gauss1d(x=-1, mean=0.0, sigma=1.0), eps=0.01
+        0.60, mdfl.utils.gauss1d(x=-1, mean=0.0, sigma=1.0), eps=0.01
     )
 
 

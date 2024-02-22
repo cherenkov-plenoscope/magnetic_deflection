@@ -6,6 +6,7 @@ import spherical_coordinates
 import atmospheric_cherenkov_response as acr
 
 from . import store
+from .. import utils
 
 
 class AllSkyDummy:
@@ -95,10 +96,18 @@ class AllSkyDummy:
         matches = dynamicsizerecarray.DynamicSizeRecarray(
             dtype=self.cache_dtype
         )
+        direction_weights = []
+        energy_weights = []
+
         num = int(prng.uniform(low=100, high=200))
 
         energy_start_GeV = energy_GeV * (1 - energy_factor)
         energy_stop_GeV = energy_GeV * (1 + energy_factor)
+
+        cx, cy = spherical_coordinates.az_zd_to_cx_cy(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+        )
 
         energies_GeV = corsika_primary.random.distributions.draw_power_law(
             prng=prng,
@@ -160,4 +169,28 @@ class AllSkyDummy:
             if prm_zd < corsika_primary.MAX_ZENITH_RAD:
                 matches.append_record(rec)
 
-        return matches.to_recarray()
+                ene_weight = utils.gauss1d(
+                    x=rec["particle_energy_GeV"],
+                    mean=energy_GeV,
+                    sigma=(energy_GeV * energy_factor),
+                )
+                energy_weights.append(ene_weight)
+
+                delta_rad = spherical_coordinates.angle_between_cx_cy(
+                    cx1=cx,
+                    cy1=cy,
+                    cx2=rec["cherenkov_cx_rad"],
+                    cy2=rec["cherenkov_cy_rad"],
+                )
+                dir_weight = utils.gauss1d(
+                    x=delta_rad,
+                    mean=0.0,
+                    sigma=1 / 2 * half_angle_rad,
+                )
+                direction_weights.append(dir_weight)
+
+        return (
+            matches.to_recarray(),
+            np.array(direction_weights),
+            np.array(energy_weights),
+        )

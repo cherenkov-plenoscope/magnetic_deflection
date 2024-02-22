@@ -23,6 +23,7 @@ from . import production
 from . import store
 from . import viewcone
 from .. import cherenkov_pool
+from .. import utils
 from . import hemisphere
 from . import analysis
 from ..version import __version__
@@ -553,12 +554,12 @@ class AllSky:
                     cx2=matches["cherenkov_cx_rad"][i],
                     cy2=matches["cherenkov_cy_rad"][i],
                 )
-                dir_weight = gauss1d(
+                dir_weight = utils.gauss1d(
                     x=delta_rad,
                     mean=0.0,
                     sigma=1 / 2 * half_angle_rad,
                 )
-                ene_weight = gauss1d(
+                ene_weight = utils.gauss1d(
                     x=matches["particle_energy_GeV"][i],
                     mean=energy_GeV,
                     sigma=(energy_GeV * energy_factor),
@@ -571,10 +572,6 @@ class AllSky:
                 np.array(direction_weights),
                 np.array(energy_weights),
             )
-
-
-def gauss1d(x, mean, sigma):
-    return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
 
 
 def _population_run_job(job):
