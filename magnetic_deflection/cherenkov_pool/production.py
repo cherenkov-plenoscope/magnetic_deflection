@@ -135,10 +135,11 @@ def estimate_cherenkov_maximum_asl_m(corsika_bunches):
 def init_light_field_from_corsika_bunches(corsika_bunches):
     cb = corsika_bunches
     lf = {}
+    MOMENTUM_TO_INCIDENT = (-1.0)
     lf["x"] = cb[:, cpw.I.BUNCH.X_CM] * cpw.CM2M  # cm to m
     lf["y"] = cb[:, cpw.I.BUNCH.Y_CM] * cpw.CM2M  # cm to m
-    lf["cx"] = cb[:, cpw.I.BUNCH.CX_RAD]
-    lf["cy"] = cb[:, cpw.I.BUNCH.CY_RAD]
+    lf["cx"] = MOMENTUM_TO_INCIDENT * cb[:, cpw.I.BUNCH.UX_1]
+    lf["cy"] = MOMENTUM_TO_INCIDENT * cb[:, cpw.I.BUNCH.VY_1]
     lf["t"] = cb[:, cpw.I.BUNCH.TIME_NS] * 1e-9  # ns to s
     lf["size"] = cb[:, cpw.I.BUNCH.BUNCH_SIZE_1]
     lf["wavelength"] = cb[:, cpw.I.BUNCH.WAVELENGTH_NM] * 1e-9  # nm to m
