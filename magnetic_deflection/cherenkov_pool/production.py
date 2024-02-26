@@ -65,6 +65,10 @@ def make_steering(
             max_scatter_opening_angle_rad=particle_cone_opening_angle_rad,
             max_iterations=1000,
         )
+        phi, theta = spherical_coordinates.az_zd_to_phi_theta(
+            azimuth_rad=az,
+            zenith_rad=zd,
+        )
         energy_GeV = cpw.random.distributions.draw_power_law(
             prng=prng,
             lower_limit=particle_energy_start_GeV,
@@ -75,8 +79,8 @@ def make_steering(
         prm = {
             "particle_id": f8(particle_id),
             "energy_GeV": f8(energy_GeV),
-            "zenith_rad": f8(zd),
-            "azimuth_rad": f8(az),
+            "theta_rad": f8(theta),
+            "phi_rad": f8(phi),
             "depth_g_per_cm2": f8(0.0),
         }
         steering["primaries"].append(prm)
@@ -106,9 +110,9 @@ def estimate_cherenkov_pool(corsika_steering_dict):
                 pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
                 pool["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
 
-                par_uxyz = particle_direction_uxyz(evth=evth)
-                pool["particle_cx_rad"] = par_uxyz[0]
-                pool["particle_cy_rad"] = par_uxyz[1]
+                par_cxcycz = particle_pointing_cxcycz(evth=evth)
+                pool["particle_cx_rad"] = par_cxcycz[0]
+                pool["particle_cy_rad"] = par_cxcycz[1]
                 pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
                 pool["cherenkov_num_photons"] = np.sum(light_field["size"])
                 pool["cherenkov_num_bunches"] = light_field["x"].shape[0]
@@ -135,38 +139,42 @@ def estimate_cherenkov_maximum_asl_m(corsika_bunches):
 def init_light_field_from_corsika_bunches(corsika_bunches):
     cb = corsika_bunches
     lf = {}
-    MOMENTUM_TO_INCIDENT = -1.0
     lf["x"] = cb[:, cpw.I.BUNCH.X_CM] * cpw.CM2M  # cm to m
     lf["y"] = cb[:, cpw.I.BUNCH.Y_CM] * cpw.CM2M  # cm to m
-    lf["cx"] = MOMENTUM_TO_INCIDENT * cb[:, cpw.I.BUNCH.UX_1]
-    lf["cy"] = MOMENTUM_TO_INCIDENT * cb[:, cpw.I.BUNCH.VY_1]
+    lf["cx"] = spherical_coordinates.corsika.ux_to_cx(ux=cb[:, cpw.I.BUNCH.UX_1])
+    lf["cy"] = spherical_coordinates.corsika.vy_to_cy(uy=cb[:, cpw.I.BUNCH.VY_1])
     lf["t"] = cb[:, cpw.I.BUNCH.TIME_NS] * 1e-9  # ns to s
     lf["size"] = cb[:, cpw.I.BUNCH.BUNCH_SIZE_1]
     lf["wavelength"] = cb[:, cpw.I.BUNCH.WAVELENGTH_NM] * 1e-9  # nm to m
     return lf
 
 
-def particle_direction_uxyz(evth):
-    momentum = np.zeros(3, dtype=np.float64)
-    momentum[0] = evth[cpw.I.EVTH.PX_MOMENTUM_GEV_PER_C]
-    momentum[1] = evth[cpw.I.EVTH.PY_MOMENTUM_GEV_PER_C]
-    momentum[2] = evth[cpw.I.EVTH.PZ_MOMENTUM_GEV_PER_C]
-    particle_direction_from_momentum = momentum / np.linalg.norm(momentum)
+def particle_pointing_cxcycz(evth):
+    # from momentum
+    # -------------
+    pointing_from_momentum_cxcycz = cpw.I.EVTH.get_pointing_cxcycz(evth=evth)
+    # from angles
+    # -----------
+    (
+        pointing_from_angles_azimuth,
+        pointing_from_angles_zenith
+    ) = cpw.I.EVTH.get_pointing_az_zd(evth=evth)
 
-    particle_direction_from_az_zd = np.array(
-        spherical_coordinates.az_zd_to_cx_cy_cz(
-            azimuth_rad=evth[cpw.I.EVTH.AZIMUTH_RAD],
-            zenith_rad=evth[cpw.I.EVTH.ZENITH_RAD],
-        )
+    # check that momentum and angles agree
+    # ------------------------------------
+    pointing_from_angles_cxcycz = spherical_coordinates.az_zd_to_cx_cy_cz(
+        azimuth_rad=pointing_from_angles_azimuth,
+        zenith_rad=pointing_from_angles_zenith,
     )
+
     delta_rad = spherical_coordinates.angle_between_cx_cy_cz(
-        cx1=particle_direction_from_momentum[0],
-        cy1=particle_direction_from_momentum[1],
-        cz1=particle_direction_from_momentum[2],
-        cx2=particle_direction_from_az_zd[0],
-        cy2=particle_direction_from_az_zd[1],
-        cz2=particle_direction_from_az_zd[2],
+        cx1=pointing_from_momentum_cxcycz[0],
+        cy1=pointing_from_momentum_cxcycz[1],
+        cz1=pointing_from_momentum_cxcycz[2],
+        cx2=pointing_from_angles_cxcycz[0],
+        cy2=pointing_from_angles_cxcycz[1],
+        cz2=pointing_from_angles_cxcycz[2],
     )
     assert delta_rad < (2.0 * np.pi * 1e-4)
 
-    return particle_direction_from_momentum
+    return pointing_from_momentum_cxcycz

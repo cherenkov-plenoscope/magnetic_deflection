@@ -31,8 +31,8 @@ setuptools.setup(
         "magnetic_deflection": [os.path.join("scripts", "*.py")],
     },
     install_requires=[
-        "corsika_primary>=2.3.3",
-        "spherical_coordinates>=0.0.1",
+        "spherical_coordinates>=0.1.2",
+        "corsika_primary>=2.4.6",
         "rename_after_writing",
         "dynamicsizerecarray>=0.0.2",
         "atmospheric_cherenkov_response_cherenkov-plenoscope-project",
