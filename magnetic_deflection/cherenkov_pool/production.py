@@ -65,7 +65,7 @@ def make_steering(
             max_scatter_opening_angle_rad=particle_cone_opening_angle_rad,
             max_iterations=1000,
         )
-        phi, theta = spherical_coordinates.az_zd_to_phi_theta(
+        phi, theta = spherical_coordinates.corsika.az_zd_to_phi_theta(
             azimuth_rad=az,
             zenith_rad=zd,
         )
