@@ -145,7 +145,7 @@ def init_light_field_from_corsika_bunches(corsika_bunches):
         ux=cb[:, cpw.I.BUNCH.UX_1]
     )
     lf["cy"] = spherical_coordinates.corsika.vy_to_cy(
-        uy=cb[:, cpw.I.BUNCH.VY_1]
+        vy=cb[:, cpw.I.BUNCH.VY_1]
     )
     lf["t"] = cb[:, cpw.I.BUNCH.TIME_NS] * 1e-9  # ns to s
     lf["size"] = cb[:, cpw.I.BUNCH.BUNCH_SIZE_1]
