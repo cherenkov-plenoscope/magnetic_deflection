@@ -239,7 +239,7 @@ def draw_particle_direction_with_cone(
         zenith_rad=avg_particle_zenith_rad,
         min_scatter_opening_angle_rad=0.0,
         max_scatter_opening_angle_rad=half_angle_thrown_rad,
-        max_zenith_rad=corsika_primary.MAX_ZENITH_RAD,
+        max_zenith_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
         max_iterations=max_iterations,
     )
 
@@ -376,8 +376,8 @@ def draw_particle_direction_with_masked_grid(
             azimuth_rad=0.0,
             zenith_rad=0.0,
             min_scatter_opening_angle_rad=0.0,
-            max_scatter_opening_angle_rad=corsika_primary.MAX_ZENITH_RAD,
-            max_zenith_rad=corsika_primary.MAX_ZENITH_RAD,
+            max_scatter_opening_angle_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
+            max_zenith_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
             max_iterations=max_iterations,
         )
 

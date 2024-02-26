@@ -26,7 +26,7 @@ class AllSkyDummy:
         self.config["binning"]["direction"] = {}
         self.config["binning"]["direction"][
             "particle_max_zenith_distance_rad"
-        ] = corsika_primary.MAX_ZENITH_RAD
+        ] = corsika_primary.MAX_ZENITH_DISTANCE_RAD
         self.config["binning"]["direction"]["num_bins"] = 8
         self.config["binning"]["energy"] = {
             "start_GeV": 0.3981071705534972,
@@ -166,7 +166,7 @@ class AllSkyDummy:
                 cz=prm_cxcycz[2],
             )
 
-            if prm_zd < corsika_primary.MAX_ZENITH_RAD:
+            if prm_zd < corsika_primary.MAX_ZENITH_DISTANCE_RAD:
                 matches.append_record(rec)
 
                 ene_weight = utils.gauss1d(

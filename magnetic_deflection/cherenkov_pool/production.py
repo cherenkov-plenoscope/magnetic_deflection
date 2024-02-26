@@ -17,7 +17,7 @@ def make_example_steering():
         particle_energy_power_slope=-2,
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
-        particle_cone_opening_angle_rad=cpw.MAX_ZENITH_RAD,
+        particle_cone_opening_angle_rad=cpw.MAX_ZENITH_DISTANCE_RAD,
         num_showers=1000,
     )
 
@@ -141,8 +141,12 @@ def init_light_field_from_corsika_bunches(corsika_bunches):
     lf = {}
     lf["x"] = cb[:, cpw.I.BUNCH.X_CM] * cpw.CM2M  # cm to m
     lf["y"] = cb[:, cpw.I.BUNCH.Y_CM] * cpw.CM2M  # cm to m
-    lf["cx"] = spherical_coordinates.corsika.ux_to_cx(ux=cb[:, cpw.I.BUNCH.UX_1])
-    lf["cy"] = spherical_coordinates.corsika.vy_to_cy(uy=cb[:, cpw.I.BUNCH.VY_1])
+    lf["cx"] = spherical_coordinates.corsika.ux_to_cx(
+        ux=cb[:, cpw.I.BUNCH.UX_1]
+    )
+    lf["cy"] = spherical_coordinates.corsika.vy_to_cy(
+        uy=cb[:, cpw.I.BUNCH.VY_1]
+    )
     lf["t"] = cb[:, cpw.I.BUNCH.TIME_NS] * 1e-9  # ns to s
     lf["size"] = cb[:, cpw.I.BUNCH.BUNCH_SIZE_1]
     lf["wavelength"] = cb[:, cpw.I.BUNCH.WAVELENGTH_NM] * 1e-9  # nm to m
@@ -157,7 +161,7 @@ def particle_pointing_cxcycz(evth):
     # -----------
     (
         pointing_from_angles_azimuth,
-        pointing_from_angles_zenith
+        pointing_from_angles_zenith,
     ) = cpw.I.EVTH.get_pointing_az_zd(evth=evth)
 
     # check that momentum and angles agree

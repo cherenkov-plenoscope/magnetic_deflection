@@ -49,7 +49,7 @@ def init(
     """
     if direction_particle_max_zenith_distance_rad is None:
         direction_particle_max_zenith_distance_rad = (
-            corsika_primary.MAX_ZENITH_RAD
+            corsika_primary.MAX_ZENITH_DISTANCE_RAD
         )
     assert energy_start_GeV > 0.0
     assert energy_stop_GeV > 0.0
@@ -58,7 +58,7 @@ def init(
     assert direction_particle_max_zenith_distance_rad >= 0.0
     assert (
         direction_particle_max_zenith_distance_rad
-        <= corsika_primary.MAX_ZENITH_RAD
+        <= corsika_primary.MAX_ZENITH_DISTANCE_RAD
     )
     assert direction_num_bins >= 1
 

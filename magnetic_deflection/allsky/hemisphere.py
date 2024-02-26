@@ -44,7 +44,7 @@ def make_vertices(
     TAU = 2 * PI
 
     if max_zenith_distance_rad is None:
-        max_zenith_distance_rad = corsika_primary.MAX_ZENITH_RAD
+        max_zenith_distance_rad = corsika_primary.MAX_ZENITH_DISTANCE_RAD
     assert 0 < max_zenith_distance_rad <= np.pi / 2
     assert num_vertices > 0
     num_vertices = int(num_vertices)
@@ -242,7 +242,7 @@ class Grid:
             The ring-vertices will be put right at this zenith-distance.
         """
         if max_zenith_distance_rad is None:
-            max_zenith_distance_rad = corsika_primary.MAX_ZENITH_RAD
+            max_zenith_distance_rad = corsika_primary.MAX_ZENITH_DISTANCE_RAD
 
         self._init_num_vertices = int(num_vertices)
         self.max_zenith_distance_rad = float(max_zenith_distance_rad)
