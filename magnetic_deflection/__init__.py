@@ -282,9 +282,11 @@ def demonstrate_query(
 
             allsky_deflection = allsky.AllSky(sk_pk_dir)
 
-            particle_scatter_half_angle_rad = allsky_deflection.config[
-                "particle"
-            ]["population"]["direction"]["scatter_cone_half_angle_rad"]
+            particle_scatter_half_angle_rad = np.deg2rad(
+                allsky_deflection.config["particle"]["population"][
+                    "direction"
+                ]["scatter_cone_half_angle_deg"]
+            )
 
             for q in range(num):
                 print(sk, pk, q)

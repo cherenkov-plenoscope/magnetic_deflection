@@ -675,8 +675,8 @@ def plot_cone(result, debug, path):
         # resulting particle direction which was drawn
         # --------------------------------------------
         result_cx_cy = spherical_coordinates.az_zd_to_cx_cy(
-            azimuth_rad=np.rad2deg(result["particle_azimuth_rad"]),
-            zenith_rad=np.rad2deg(result["particle_zenith_rad"]),
+            azimuth_rad=result["particle_azimuth_rad"],
+            zenith_rad=result["particle_zenith_rad"],
         )
         ax_add_marker(
             ax=ax,
@@ -816,7 +816,7 @@ def ax_add_marker(
     marker_half_angle_rad,
     marker_fill_all=None,
     marker_fill_opacity_all=None,
-    mount="altitude_azimuth_mount",
+    mount="altitude_azimuth",
 ):
     assert len(cx) == len(cy)
     assert marker_half_angle_rad > 0.0
