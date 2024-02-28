@@ -5,6 +5,7 @@ import binning_utils
 import sebastians_matplotlib_addons as sebplt
 import atmospheric_cherenkov_response
 from atmospheric_cherenkov_response import plot
+import numpy as np
 
 
 parser = argparse.ArgumentParser(

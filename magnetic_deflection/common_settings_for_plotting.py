@@ -34,17 +34,35 @@ def magnetic_flux(
     earth_magnetic_field_x_muT,
     earth_magnetic_field_z_muT,
 ):
-    mag = np.array([earth_magnetic_field_x_muT, earth_magnetic_field_z_muT])
-    magnitude_uT = np.linalg.norm(mag)
-    mag = mag / magnitude_uT
+    EARTH_MAGNETIC_FIELD_Y_MUT = 0.0
+
+    mag_uxvywz = np.array(
+        [
+            earth_magnetic_field_x_muT,
+            EARTH_MAGNETIC_FIELD_Y_MUT,
+            earth_magnetic_field_z_muT,
+        ]
+    )
+    magnitude_uT = np.linalg.norm(mag_uxvywz)
+    mag_uxvywz = mag_uxvywz / magnitude_uT
+    sign_z = np.sign(mag_uxvywz[2])
+
+    mag_cxcycz = np.array(
+        [
+            spherical_coordinates.corsika.ux_to_cx(ux=mag_uxvywz[0]),
+            spherical_coordinates.corsika.vy_to_cy(vy=mag_uxvywz[1]),
+            spherical_coordinates.corsika.wz_to_cz(wz=mag_uxvywz[2]),
+        ]
+    )
+
     mag_az, mag_zd = spherical_coordinates.cx_cy_cz_to_az_zd(
-        cx=mag[0] * np.sign(mag[1]), cy=0.0, cz=np.abs(mag[1])
+        cx=mag_cxcycz[0] * sign_z, cy=0.0, cz=np.abs(mag_cxcycz[2])
     )
     return {
         "azimuth_rad": mag_az,
         "zenith_rad": mag_zd,
         "magnitude_uT": magnitude_uT,
-        "sign": np.sign(mag[1]),
+        "sign": sign_z,
     }
 
 

@@ -31,8 +31,8 @@ def guess_min_samples_for_clustering(num_showers, min_samples=10):
 
 
 def guess_eps_rad_for_clustering(shower_spread_half_angle_rad):
-    arbitrary_factor = 2.5
-    return arbitrary_factor * np.sqrt(shower_spread_half_angle_rad)
+    arbitrary_factor = 0.5
+    return arbitrary_factor * shower_spread_half_angle_rad
 
 
 def estimate_cluster_labels_for_showers(showers, eps_rad, min_samples):
