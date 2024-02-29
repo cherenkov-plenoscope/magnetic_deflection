@@ -7,18 +7,18 @@ from . import analysis
 import spherical_coordinates
 
 
-def make_example_steering():
+def make_example_steering(num_showers=1000, particle_id=3.0):
     return make_steering(
         run_id=1337,
         site=acr.sites.init("lapalma"),
-        particle_id=3.0,
+        particle_id=particle_id,
         particle_energy_start_GeV=1.0,
         particle_energy_stop_GeV=5.0,
         particle_energy_power_slope=-2,
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
         particle_cone_opening_angle_rad=cpw.MAX_ZENITH_DISTANCE_RAD,
-        num_showers=1000,
+        num_showers=num_showers,
     )
 
 
@@ -182,3 +182,177 @@ def particle_pointing_cxcycz(evth):
     assert delta_rad < (2.0 * np.pi * 1e-4)
 
     return pointing_from_momentum_cxcycz
+
+
+from .. import allsky
+import un_bound_histogram
+
+
+def histogram_cherenkov_pool(corsika_steering_dict):
+    UX_1 = cpw.I.BUNCH.UX_1
+    VY_1 = cpw.I.BUNCH.VY_1
+
+    ux_to_cx = spherical_coordinates.corsika.ux_to_cx
+    vy_to_cy = spherical_coordinates.corsika.vy_to_cy
+
+    pools = []
+    hemi_hist = HemisphereHist()
+
+    with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
+        with cpw.CorsikaPrimary(
+            steering_dict=corsika_steering_dict,
+            particle_output_path=os.path.join(tmp_dir, "corsika.par.dat"),
+            stdout_path=os.path.join(tmp_dir, "corsika.stdout"),
+            stderr_path=os.path.join(tmp_dir, "corsika.stderr"),
+        ) as corsika_run:
+            for event in corsika_run:
+                evth, bunch_reader = event
+
+                hemi_hist.reset()
+                altitude_hist = un_bound_histogram.UnBoundHistogram(
+                    bin_width=10.0
+                )
+                print(len(pools))
+
+                pool = {}
+                pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
+                pool["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
+
+                par_cxcycz = particle_pointing_cxcycz(evth=evth)
+                pool["particle_cx_rad"] = par_cxcycz[0]
+                pool["particle_cy_rad"] = par_cxcycz[1]
+                pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
+                pool["cherenkov_num_photons"] = 0
+                pool["cherenkov_num_bunches"] = 0.0
+
+                for bunches in bunch_reader:
+                    hemi_hist.assign_cx_cy(
+                        cx=ux_to_cx(ux=bunches[:, UX_1]),
+                        cy=vy_to_cy(vy=bunches[:, VY_1]),
+                    )
+                    altitude_hist.assign(
+                        x=cpw.CM2M
+                        * bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
+                    )
+                    pool["cherenkov_num_photons"] += np.sum(
+                        bunches[:, cpw.I.BUNCH.BUNCH_SIZE_1]
+                    )
+                    pool["cherenkov_num_bunches"] += bunches.shape[0]
+
+                if len(altitude_hist.bins) == 0:
+                    pool["cherenkov_maximum_asl_m"] = float("nan")
+                else:
+                    pool["cherenkov_maximum_asl_m"] = altitude_hist.percentile(
+                        p=50
+                    )
+
+                pool["hemisphere"] = hemi_hist.to_dict()
+
+                pools.append(pool)
+        return pools
+
+
+class HemisphereHist:
+    def __init__(
+        self,
+        num_vertices=2047,
+        max_zenith_distance_rad=np.deg2rad(89.0),
+    ):
+        self.grid = allsky.hemisphere.Grid(
+            num_vertices=num_vertices,
+            max_zenith_distance_rad=max_zenith_distance_rad,
+        )
+        self.reset()
+
+    def reset(self):
+        self.overflow = 0
+        self.bins = {}
+
+    def assign_cx_cy(self, cx, cy):
+        bb = self.grid.query_cx_cy(cx=cx, cy=cy)
+        unique, counts = np.unique(bb, return_counts=True)
+        bins = dict(zip(unique, counts))
+        for b in bins:
+            if b == -1:
+                self.overflow += bins[b]
+            elif b in self.bins:
+                self.bins[b] += bins[b]
+            else:
+                self.bins[b] = bins[b]
+
+    def to_dict(self):
+        return {"overflow": self.overflow, "bins": self.bins}
+
+
+import svg_cartesian_plot as svgplt
+
+
+def plot_histogram_cherenkov_pool(path, pool):
+    hemi_hist = HemisphereHist()
+
+    fig = svgplt.Fig(cols=1080, rows=1080)
+    ax = svgplt.hemisphere.Ax(fig=fig)
+
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[0.0, 1.1],
+        text="energy {:.2f} GeV".format(pool["particle_energy_GeV"]),
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=30,
+    )
+
+    _mesh_look = svgplt.hemisphere.init_mesh_look(
+        num_faces=len(hemi_hist.grid.faces),
+        stroke=svgplt.color.css("blue"),
+        fill=svgplt.color.css("green"),
+        fill_opacity=0.0,
+        stroke_opacity=0.0,
+    )
+
+    if len(pool["hemisphere"]["bins"]) == 0:
+        vmax = 1
+    else:
+        vmax = max(
+            [
+                pool["hemisphere"]["bins"][bb]
+                for bb in pool["hemisphere"]["bins"]
+            ]
+        )
+    for i in range(len(hemi_hist.grid.faces)):
+        if i in pool["hemisphere"]["bins"]:
+            _mesh_look["faces_fill_opacity"][i] = (
+                pool["hemisphere"]["bins"][i] / vmax
+            )
+            _mesh_look["faces_stroke_opacity"][i] = (
+                pool["hemisphere"]["bins"][i] / vmax
+            )
+
+    # particle direction
+    # ------------------
+    allsky.random.ax_add_marker(
+        ax=ax,
+        cx=[pool["particle_cx_rad"]],
+        cy=[pool["particle_cy_rad"]],
+        marker_half_angle_rad=np.deg2rad(1.0),
+        marker_fill_all=svgplt.color.css("red"),
+        marker_fill_opacity_all=0.8,
+    )
+    svgplt.hemisphere.ax_add_mesh(
+        ax=ax,
+        vertices=hemi_hist.grid.vertices,
+        faces=hemi_hist.grid.faces,
+        max_radius=1.0,
+        **_mesh_look,
+    )
+
+    svgplt.hemisphere.ax_add_grid(ax=ax)
+    svgplt.fig_write(fig=fig, path=path)
+    from svg_cartesian_plot import inkscape
+
+    inkscape.render(
+        svg_path=path,
+        out_path=path + ".png",
+        background_opacity=0.0,
+        export_type="png",
+    )

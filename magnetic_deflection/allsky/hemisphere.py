@@ -375,15 +375,32 @@ class Tree:
         self._tree = merlict.compile(sceneryPy=scenery_py)
 
     def _make_probing_ray(self, direction_unit_vector):
-        assert 0.99 <= np.linalg.norm(direction_unit_vector) <= 1.01
-        ray = merlict.ray.init(1)
-        ray["support.x"] = 0.0
-        ray["support.y"] = 0.0
-        ray["support.z"] = 0.0
-        ray["direction.x"] = direction_unit_vector[0]
-        ray["direction.y"] = direction_unit_vector[1]
-        ray["direction.z"] = direction_unit_vector[2]
-        return ray
+        if len(direction_unit_vector.shape) == 2:
+            num_vectors = direction_unit_vector.shape[0]
+            assert direction_unit_vector.shape[1] == 3
+            rays = merlict.ray.init(num_vectors)
+            rays["support.x"] = np.zeros(num_vectors)
+            rays["support.y"] = np.zeros(num_vectors)
+            rays["support.z"] = np.zeros(num_vectors)
+            rays["direction.x"] = direction_unit_vector[:, 0]
+            rays["direction.y"] = direction_unit_vector[:, 1]
+            rays["direction.z"] = direction_unit_vector[:, 2]
+            return rays
+
+        elif len(direction_unit_vector.shape) == 1:
+            assert 0.99 <= np.linalg.norm(direction_unit_vector) <= 1.01
+            ray = merlict.ray.init(1)
+            ray["support.x"] = 0.0
+            ray["support.y"] = 0.0
+            ray["support.z"] = 0.0
+            ray["direction.x"] = direction_unit_vector[0]
+            ray["direction.y"] = direction_unit_vector[1]
+            ray["direction.z"] = direction_unit_vector[2]
+            return ray
+        else:
+            raise ValueError(
+                "vector must either have shape (3,) or shape (N,3)"
+            )
 
     def query_azimuth_zenith(self, azimuth_rad, zenith_rad):
         direction_unit_vector = spherical_coordinates.az_zd_to_cx_cy_cz(
@@ -393,26 +410,22 @@ class Tree:
 
     def query_cx_cy(self, cx, cy):
         cz = spherical_coordinates.restore_cz(cx=cx, cy=cy)
-        assert 0.0 <= cz <= 1.0
-        direction_unit_vector = np.array([cx, cy, cz])
+        direction_unit_vector = np.c_[cx, cy, cz]
         return self.query(direction_unit_vector=direction_unit_vector)
 
     def query(self, direction_unit_vector):
+        assert len(direction_unit_vector.shape) == 2
+        num_vectors = direction_unit_vector.shape[0]
+        assert direction_unit_vector.shape[1] == 3
+
         _hits, _intersecs = self._tree.query_intersection(
             self._make_probing_ray(direction_unit_vector)
         )
-        assert len(_hits) == 1
-        assert len(_intersecs) == 1
 
-        hit = _hits[0]
-        intersec = _intersecs[0]
-        face_id = -1
-
-        if hit:
-            face_id = intersec["geometry_id.face"]
-            assert 0.95 < intersec["distance_of_ray"] <= (1.0 + 1e-6)
-
-        return face_id
+        face_ids = np.zeros(num_vectors, dtype=int)
+        face_ids[np.logical_not(_hits)] = -1
+        face_ids[_hits] = _intersecs["geometry_id.face"][_hits]
+        return face_ids
 
 
 class Mask:
