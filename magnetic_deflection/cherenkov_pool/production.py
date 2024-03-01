@@ -1,10 +1,17 @@
 import corsika_primary as cpw
+import spherical_coordinates
+import spherical_histogram
+import un_bound_histogram
 import os
 import numpy as np
 import tempfile
 import atmospheric_cherenkov_response as acr
+import svg_cartesian_plot as svgplt
+
 from . import analysis
-import spherical_coordinates
+from . import cherenkov_to_primary_map
+
+from .. import allsky
 
 
 def make_example_steering(num_showers=1000, particle_id=3.0):
@@ -184,8 +191,8 @@ def particle_pointing_cxcycz(evth):
     return pointing_from_momentum_cxcycz
 
 
-from .. import allsky
-import un_bound_histogram
+NUM_VERTICES = 511
+MAX_ZENITH_DISTANCE_RAD = np.deg2rad(89)
 
 
 def histogram_cherenkov_pool(corsika_steering_dict):
@@ -195,8 +202,13 @@ def histogram_cherenkov_pool(corsika_steering_dict):
     ux_to_cx = spherical_coordinates.corsika.ux_to_cx
     vy_to_cy = spherical_coordinates.corsika.vy_to_cy
 
+    cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap.from_defaults()
+
     pools = []
-    hemi_hist = HemisphereHist()
+    cherenkov_altitude = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
+    cherenkov_sky = spherical_histogram.HemisphereHistogram(
+        bin_geometry=cer_to_prm.sky_bin_geometry
+    )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
         with cpw.CorsikaPrimary(
@@ -208,10 +220,9 @@ def histogram_cherenkov_pool(corsika_steering_dict):
             for event in corsika_run:
                 evth, bunch_reader = event
 
-                hemi_hist.reset()
-                altitude_hist = un_bound_histogram.UnBoundHistogram(
-                    bin_width=10.0
-                )
+                cherenkov_sky.reset()
+                cherenkov_altitude.reset()
+
                 print(len(pools))
 
                 pool = {}
@@ -219,18 +230,18 @@ def histogram_cherenkov_pool(corsika_steering_dict):
                 pool["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
 
                 par_cxcycz = particle_pointing_cxcycz(evth=evth)
-                pool["particle_cx_rad"] = par_cxcycz[0]
-                pool["particle_cy_rad"] = par_cxcycz[1]
+                pool["particle_cx"] = par_cxcycz[0]
+                pool["particle_cy"] = par_cxcycz[1]
                 pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
                 pool["cherenkov_num_photons"] = 0
                 pool["cherenkov_num_bunches"] = 0.0
 
                 for bunches in bunch_reader:
-                    hemi_hist.assign_cx_cy(
+                    cherenkov_sky.assign_cx_cy(
                         cx=ux_to_cx(ux=bunches[:, UX_1]),
                         cy=vy_to_cy(vy=bunches[:, VY_1]),
                     )
-                    altitude_hist.assign(
+                    cherenkov_altitude.assign(
                         x=cpw.CM2M
                         * bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
                     )
@@ -239,56 +250,32 @@ def histogram_cherenkov_pool(corsika_steering_dict):
                     )
                     pool["cherenkov_num_bunches"] += bunches.shape[0]
 
-                if len(altitude_hist.bins) == 0:
-                    pool["cherenkov_maximum_asl_m"] = float("nan")
+                if len(cherenkov_altitude.bins) == 0:
+                    pool["cherenkov_altitude_p50_m"] = float("nan")
                 else:
-                    pool["cherenkov_maximum_asl_m"] = altitude_hist.percentile(
-                        p=50
+                    pool[
+                        "cherenkov_altitude_p50_m"
+                    ] = cherenkov_altitude.percentile(p=50)
+
+                    cer_to_prm.assign(
+                        particle_cx=pool["particle_cx"],
+                        particle_cy=pool["particle_cy"],
+                        particle_energy_GeV=pool["particle_energy_GeV"],
+                        cherenkov_altitude_p50_m=pool[
+                            "cherenkov_altitude_p50_m"
+                        ],
+                        cherenkov_sky_bin_counts=cherenkov_sky.bin_counts,
                     )
 
-                pool["hemisphere"] = hemi_hist.to_dict()
-
                 pools.append(pool)
-        return pools
-
-
-class HemisphereHist:
-    def __init__(
-        self,
-        num_vertices=2047,
-        max_zenith_distance_rad=np.deg2rad(89.0),
-    ):
-        self.grid = allsky.hemisphere.Grid(
-            num_vertices=num_vertices,
-            max_zenith_distance_rad=max_zenith_distance_rad,
-        )
-        self.reset()
-
-    def reset(self):
-        self.overflow = 0
-        self.bins = {}
-
-    def assign_cx_cy(self, cx, cy):
-        bb = self.grid.query_cx_cy(cx=cx, cy=cy)
-        unique, counts = np.unique(bb, return_counts=True)
-        bins = dict(zip(unique, counts))
-        for b in bins:
-            if b == -1:
-                self.overflow += bins[b]
-            elif b in self.bins:
-                self.bins[b] += bins[b]
-            else:
-                self.bins[b] = bins[b]
-
-    def to_dict(self):
-        return {"overflow": self.overflow, "bins": self.bins}
-
-
-import svg_cartesian_plot as svgplt
+        return pools, cer_to_prm
 
 
 def plot_histogram_cherenkov_pool(path, pool):
-    hemi_hist = HemisphereHist()
+    hemi_hist = spherical_histogram.HemisphereHistogram(
+        num_vertices=NUM_VERTICES,
+        max_zenith_distance_rad=MAX_ZENITH_DISTANCE_RAD,
+    )
 
     fig = svgplt.Fig(cols=1080, rows=1080)
     ax = svgplt.hemisphere.Ax(fig=fig)
@@ -303,7 +290,7 @@ def plot_histogram_cherenkov_pool(path, pool):
     )
 
     _mesh_look = svgplt.hemisphere.init_mesh_look(
-        num_faces=len(hemi_hist.grid.faces),
+        num_faces=len(hemi_hist.bin_geometry.faces),
         stroke=svgplt.color.css("blue"),
         fill=svgplt.color.css("green"),
         fill_opacity=0.0,
@@ -319,7 +306,7 @@ def plot_histogram_cherenkov_pool(path, pool):
                 for bb in pool["hemisphere"]["bins"]
             ]
         )
-    for i in range(len(hemi_hist.grid.faces)):
+    for i in range(len(hemi_hist.bin_geometry.faces)):
         if i in pool["hemisphere"]["bins"]:
             _mesh_look["faces_fill_opacity"][i] = (
                 pool["hemisphere"]["bins"][i] / vmax
@@ -340,8 +327,8 @@ def plot_histogram_cherenkov_pool(path, pool):
     )
     svgplt.hemisphere.ax_add_mesh(
         ax=ax,
-        vertices=hemi_hist.grid.vertices,
-        faces=hemi_hist.grid.faces,
+        vertices=hemi_hist.bin_geometry.vertices,
+        faces=hemi_hist.bin_geometry.faces,
         max_radius=1.0,
         **_mesh_look,
     )
