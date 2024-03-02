@@ -2,6 +2,7 @@ import atmospheric_cherenkov_response
 import os
 import glob
 import numpy as np
+import tarfile
 
 
 def _get_common_sites_and_particles(tree):
@@ -57,3 +58,78 @@ def _filter_keys(keys, keys_to_keep):
 
 def gauss1d(x, mean, sigma):
     return np.exp((-1 / 2) * ((x - mean) ** 2) / (sigma**2))
+
+
+def estimate_num_bins_to_contain_quantile(
+    counts, q, mode="min_num_bins", bin_apertures=None
+):
+    """
+    Parameters
+    ----------
+    counts : array_like, ints / uints >= 0
+        The counting content of bins. Counts must be >= 0
+    q : float
+        Quantile
+    mode : str
+        To either return tne 'min_num_bins' or the 'max_num_bins' which
+        is required to contain the desired quantile.
+    bin_apertures : array_like or None
+        The apertures of the bins. Default is ones.
+
+    Returns
+    -------
+    num_bins : float
+        The number of bins which must be taken into account to contain the
+        desired quantile.
+    (num_bins, aperture) : (float, float)
+        If the parameter bin_apertures is not None, the accumulated apertue
+        of the bins (related to num_bins) is returned, too.
+    """
+    assert 0.0 <= q <= 1.0
+    counts = np.asarray(counts)
+    assert np.all(counts >= 0)
+
+    if bin_apertures is None:
+        APERTURE = False
+        bin_apertures = np.ones(len(counts))
+    else:
+        APERTURE = True
+        assert len(bin_apertures) == len(counts)
+
+    if mode == "min_num_bins":
+        mode_factor = -1
+    elif mode == "max_num_bins":
+        mode_factor = +1
+    else:
+        raise ValueError("Unknown mode '{:s}'.".format(mode))
+
+    ars = np.argsort(mode_factor * counts)
+
+    sorted_counts = counts[ars]
+    sorted_bin_apertures = bin_apertures[ars]
+
+    total = np.sum(sorted_counts)
+    if total == 0:
+        return float("nan")
+    target = total * q
+    part = 0
+    numbins = 0
+    aperture = 0.0
+    for i in range(len(counts)):
+        if part + sorted_counts[numbins] < target:
+            part += sorted_counts[numbins]
+            aperture += sorted_bin_apertures[numbins]
+            numbins += 1
+        else:
+            break
+    missing = target - part
+    assert missing <= sorted_counts[numbins]
+    frac = missing / sorted_counts[numbins]
+
+    aperture += frac * sorted_bin_apertures[numbins]
+    numbins += frac
+
+    if APERTURE:
+        return numbins, aperture
+    else:
+        return numbins
