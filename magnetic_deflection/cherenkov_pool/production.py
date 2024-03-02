@@ -200,7 +200,6 @@ def histogram_cherenkov_pool(
     cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap(
         sky_bin_geometry=binning["sky"],
         energy_bin_edges_GeV=binning["energy"]["edges"],
-        altitude_bin_edges_m=binning["altitude"]["edges"],
     )
 
     reports = []
@@ -245,9 +244,6 @@ def histogram_cherenkov_pool(
                     particle_cx=report["particle_cx"],
                     particle_cy=report["particle_cy"],
                     particle_energy_GeV=report["particle_energy_GeV"],
-                    cherenkov_altitude_p50_m=report[
-                        "cherenkov_altitude_p50_m"
-                    ],
                     cherenkov_sky_mask=cherenkov_sky_mask,
                 )
                 report.update(cermap_report)

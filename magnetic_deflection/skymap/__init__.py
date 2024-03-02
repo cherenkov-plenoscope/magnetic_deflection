@@ -23,7 +23,6 @@ def init(
     particle_key,
     site_key,
     energy_bin_edges_GeV,
-    altitude_bin_edges_m,
     threshold_num_photons,
     sky_vertices,
     sky_faces,
@@ -61,14 +60,6 @@ def init(
     _json_write(
         path=opj(binning_dir, "energy_bin_edges_GeV.json"),
         o=energy_bin_edges_GeV,
-    )
-
-    # altitude
-    # --------
-    assert binning_utils.is_strictly_monotonic_increasing(altitude_bin_edges_m)
-    _json_write(
-        path=opj(binning_dir, "altitude_bin_edges_m.json"),
-        o=altitude_bin_edges_m,
     )
 
     # sky
@@ -125,7 +116,6 @@ def init_example(work_dir):
         particle_key="electron",
         site_key="lapalma",
         energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(),
-        altitude_bin_edges_m=_guess_cherenkov_altitude_p50_bin_edges_m(),
         threshold_num_photons=(PORTAL_THRESHOLD_NUM_PHOTONS / overhead),
         sky_vertices=vertices,
         sky_faces=faces,
@@ -160,9 +150,6 @@ class SkyMap:
         self.binning = {}
         self.binning["energy"] = binning_utils.Binning(
             bin_edges=cfg["binning"]["energy_bin_edges_GeV"]
-        )
-        self.binning["altitude"] = binning_utils.Binning(
-            bin_edges=cfg["binning"]["altitude_bin_edges_m"]
         )
 
         (
@@ -219,10 +206,6 @@ class SkyMap:
             self.__class__.__name__, self.work_dir
         )
         return out
-
-
-def _guess_cherenkov_altitude_p50_bin_edges_m():
-    return np.geomspace(2**10, 2**16, 3 + 1)
 
 
 def _guess_energy_bin_edges_GeV():
