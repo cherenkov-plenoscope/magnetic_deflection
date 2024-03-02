@@ -24,9 +24,10 @@ def init(
     site_key,
     energy_bin_edges_GeV,
     altitude_bin_edges_m,
-    threshold_num_photons_per_sr,
+    threshold_num_photons,
     sky_vertices,
     sky_faces,
+    ground_bin_area_m2,
 ):
     opj = os.path.join
 
@@ -80,12 +81,20 @@ def init(
     with rnw.open(opj(binning_dir, "sky.obj"), "wt") as f:
         f.write(triangle_mesh_io.obj.dumps(sky_obj))
 
+    # ground
+    # ------
+    assert ground_bin_area_m2 > 0.0
+    _json_write(
+        path=opj(binning_dir, "ground_bin_area_m2.json"),
+        o=ground_bin_area_m2,
+    )
+
     # threshold
     # ---------
-    assert threshold_photons_per_sr >= 0.0
+    assert threshold_num_photons > 0.0
     _json_write(
-        path=opj(binning_dir, "threshold_photons_per_sr.json"),
-        o={"threshold_photons_per_sr": threshold_photons_per_sr},
+        path=opj(binning_dir, "threshold_num_photons.json"),
+        o=threshold_num_photons,
     )
 
     # run_id
@@ -96,16 +105,31 @@ def init(
 
 
 def init_example(work_dir):
-    vertices, faces = _default_sky_bin_geometry_vertices_and_faces()
+    PORTAL_FOV_HALF_ANGLE_RAD = np.deg2rad(3.25)
+    PORTAL_MIRROR_DIAMETER_M = 71.0
+    PORTAL_THRESHOLD_NUM_PHOTONS = 25
+    overhead = 2.0
+
+    vertices, faces = _guess_sky_vertices_and_faces(
+        fov_half_angle_rad=PORTAL_FOV_HALF_ANGLE_RAD,
+        num_faces_in_fov=overhead,
+        max_zenith_distance_rad=np.deg2rad(89.0),
+    )
+    ground_bin_area_m2 = _guess_ground_bin_area_m2(
+        mirror_diameter_m=PORTAL_MIRROR_DIAMETER_M,
+        num_bins_in_mirror=overhead,
+    )
+
     return init(
         work_dir=work_dir,
         particle_key="electron",
         site_key="lapalma",
         energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(),
         altitude_bin_edges_m=_guess_cherenkov_altitude_p50_bin_edges_m(),
-        threshold_photons_per_sr=_guess_threshold_photons_per_sr_for_portal_cherenkov_plenoscope(),
+        threshold_num_photons=(PORTAL_THRESHOLD_NUM_PHOTONS / overhead),
         sky_vertices=vertices,
         sky_faces=faces,
+        ground_bin_area_m2=ground_bin_area_m2,
     )
 
 
@@ -127,50 +151,36 @@ class SkyMap:
         # read
         # ----
         self.config = json_utils.tree.read(path=opj(work_dir, "config"))
-        self.threshold_photons_per_sr = conbin["threshold_photons_per_sr"][
-            "threshold_photons_per_sr"
-        ]
+        cfg = self.config
+        self.threshold_num_photons = cfg["binning"]["threshold_num_photons"]
 
         with open(opj(work_dir, "config", "binning", "sky.obj"), "rt") as f:
             _sky_obj = triangle_mesh_io.obj.loads(f.read())
+
+        self.binning = {}
+        self.binning["energy"] = binning_utils.Binning(
+            bin_edges=cfg["binning"]["energy_bin_edges_GeV"]
+        )
+        self.binning["altitude"] = binning_utils.Binning(
+            bin_edges=cfg["binning"]["altitude_bin_edges_m"]
+        )
 
         (
             _sky_vertices,
             _sky_faces,
         ) = spherical_histogram.mesh.obj_to_vertices_and_faces(obj=_sky_obj)
-
-        self.binning = Binning(
-            energy_bin_edges_GeV=self.config["binning"][
-                "energy_bin_edges_GeV"
-            ],
-            altitude_bin_edges_m=self.config["binning"][
-                "altitude_bin_edges_m"
-            ],
-            sky_vertices=_sky_vertices,
-            sky_faces=_sky_faces,
+        self.binning["sky"] = spherical_histogram.geometry.HemisphereGeometry(
+            vertices=_sky_vertices,
+            faces=_sky_faces,
         )
+        self.binning["ground"] = {}
+        self.binning["ground"]["area"] = cfg["binning"]["ground_bin_area_m2"]
 
     def __repr__(self):
         out = "{:s}(work_dir='{:s}')".format(
             self.__class__.__name__, self.work_dir
         )
         return out
-
-
-class Binning:
-    def __init__(
-        self,
-        energy_bin_edges_GeV,
-        altitude_bin_edges_m,
-        sky_vertices,
-        sky_faces,
-    ):
-        self.energy = binning_utils.Binning(bin_edges=energy_bin_edges_GeV)
-        self.altitude = binning_utils.Binning(bin_edges=altitude_bin_edges_m)
-        self.sky = spherical_histogram.geometry.HemisphereGeometry(
-            vertices=sky_vertices,
-            faces=sky_faces,
-        )
 
 
 def _guess_cherenkov_altitude_p50_bin_edges_m():
@@ -181,27 +191,18 @@ def _guess_energy_bin_edges_GeV():
     return np.geomspace(2 ** (-2), 2 ** (6), 32 + 1)
 
 
-def _guess_threshold_photons_per_sr_for_portal_cherenkov_plenoscope():
-    num_photons_in_fov = 25
-    HALF_ANGLE_PORTAL_DEG = 3.25
-    fov_solid_angle_sr = solid_angle_utils.cone.solid_angle(
-        half_angle_rad=np.deg2rad(HALF_ANGLE_PORTAL_DEG)
-    )
-    return num_photons_in_fov / fov_solid_angle_sr
-
-
-def _default_sky_bin_geometry_vertices_and_faces(
+def _guess_sky_vertices_and_faces(
+    fov_half_angle_rad,
+    num_faces_in_fov,
     max_zenith_distance_rad=np.deg2rad(89),
 ):
-    HALF_ANGLE_PORTAL_DEG = 3.25
-    sky_solid_angle_sr = solid_angle_utils.cone.solid_angle(
+    sky_sr = solid_angle_utils.cone.solid_angle(
         half_angle_rad=max_zenith_distance_rad
     )
-    fov_solid_angle_sr = solid_angle_utils.cone.solid_angle(
-        half_angle_rad=np.deg2rad(HALF_ANGLE_PORTAL_DEG)
+    fov_sr = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=fov_half_angle_rad
     )
-    NUM_FACES_IN_FOV = 2
-    num_faces = NUM_FACES_IN_FOV * sky_solid_angle_sr / fov_solid_angle_sr
+    num_faces = num_faces_in_fov * sky_sr / fov_sr
 
     APPROX_NUM_VERTICES_PER_FACE = 0.5
     num_vertices = APPROX_NUM_VERTICES_PER_FACE * num_faces
@@ -216,11 +217,10 @@ def _default_sky_bin_geometry_vertices_and_faces(
     return vertices, faces
 
 
-def _default_ground_bin_area():
-    MIRROR_RADIUS_PORTAL = 71 / 2
-    mirror_area_m2 = np.pi * MIRROR_RADIUS_PORTAL**2
-    NUM_BINS_IN_MIRROR = 2
-    ground_bin_area_m2 = mirror_area_m2 / NUM_BINS_IN_MIRROR
+def _guess_ground_bin_area_m2(mirror_diameter_m, num_bins_in_mirror):
+    mirror_radius_m = 0.5 * mirror_diameter_m
+    mirror_area_m2 = np.pi * mirror_radius_m**2
+    ground_bin_area_m2 = mirror_area_m2 / num_bins_in_mirror
     return ground_bin_area_m2
 
 
@@ -276,7 +276,7 @@ def _population_run_job(job):
     pools, cer_to_par_map = cherenkov_pool.production.histogram_cherenkov_pool(
         corsika_steering_dict=corsika_steering_dict,
         binning=sm.binning,
-        threshold_photons_per_sr=sm.threshold_photons_per_sr,
+        threshold_num_photons=sm.threshold_num_photons,
     )
 
     assert len(pools) == len(corsika_steering_dict["primaries"])
