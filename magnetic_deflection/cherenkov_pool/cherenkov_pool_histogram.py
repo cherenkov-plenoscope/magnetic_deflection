@@ -142,7 +142,10 @@ class CherenkovPoolHistogram:
         self.num_bunches += bunches.shape[0]
 
     def sky_above_threshold(self):
-        return self.sky.bin_counts > self.threshold_num_photons
+        return self.sky_intensity() > self.threshold_num_photons
+
+    def sky_intensity(self):
+        return self.sky.bin_counts
 
     def _report_sky_above_threshold(self):
         mask = self.sky_above_threshold()

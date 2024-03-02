@@ -29,24 +29,36 @@ class CherenkovToPrimaryMap:
         self.sky_bin_geometry = sky_bin_geometry
         self.energy_bin = binning_utils.Binning(bin_edges=energy_bin_edges_GeV)
 
-        self.map = np.zeros(
+        self.cherenkov_to_primary = np.zeros(
             shape=(
-                len(self.sky_bin_geometry.faces),  # num cherenkov directions
                 self.energy_bin["num"],
-                len(self.sky_bin_geometry.faces),  # num primary directions
+                self.num_sky_bins(),  # cherenkov directions
+                self.num_sky_bins(),  # primary directions
             ),
-            dtype=np.uint8,
+            dtype=np.uint16,
+        )
+
+        self.primary_to_cherenkov = np.zeros(
+            shape=(
+                self.energy_bin["num"],
+                self.num_sky_bins(),  # primary directions
+                self.num_sky_bins(),  # cherenkov directions
+            ),
+            dtype=np.float32,
         )
 
         self.exposure = np.zeros(
             shape=(
-                len(self.sky_bin_geometry.faces),  # num cherenkov directions
                 self.energy_bin["num"],
+                self.num_sky_bins(),  # num cherenkov directions
             ),
             dtype=np.uint64,
         )
 
         self.overflow = 0
+
+    def num_sky_bins(self):
+        return len(self.sky_bin_geometry.faces)
 
     @classmethod
     def from_defaults(cls):
@@ -71,8 +83,10 @@ class CherenkovToPrimaryMap:
         particle_cy,
         particle_energy_GeV,
         cherenkov_sky_mask,
+        cherenkov_sky_intensity,
     ):
-        assert cherenkov_sky_mask.shape[0] == len(self.sky_bin_geometry.faces)
+        assert cherenkov_sky_mask.shape[0] == self.num_sky_bins()
+        assert cherenkov_sky_intensity.shape[0] == self.num_sky_bins()
 
         matching_bin = self.find_matching_bin(
             particle_cx=particle_cx,
@@ -86,14 +100,24 @@ class CherenkovToPrimaryMap:
             m = matching_bin
             # exposure
             # --------
-            self.exposure[m["sky"], m["ene"]] += 1
+            self.exposure[m["ene"], m["sky"]] += 1
 
-            # map
-            # ---
-            stage = self.map[m["sky"], m["ene"]].astype(np.uint64)
-            stage[cherenkov_sky_mask] += 1
-            assert np.all(stage <= np.iinfo(np.uint8).max)
-            self.map[m["sky"], m["ene"]] = stage
+            # cherenkov_to_primary
+            # --------------------
+            stage = self.cherenkov_to_primary[
+                m["ene"], cherenkov_sky_mask, m["sky"]
+            ].astype(np.uint64)
+            stage += 1
+            assert np.all(stage <= np.iinfo(np.uint16).max)
+            self.cherenkov_to_primary[
+                m["ene"], cherenkov_sky_mask, m["sky"]
+            ] = stage
+
+            # primary_to_cherenkov
+            # --------------------
+            self.primary_to_cherenkov[
+                m["ene"], m["sky"]
+            ] += cherenkov_sky_intensity
 
         return {
             "map_sky_bin": matching_bin["sky"],

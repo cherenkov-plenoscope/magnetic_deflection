@@ -221,8 +221,6 @@ def histogram_cherenkov_pool(
 
                 cerpoolhist.reset()
 
-                print(len(reports))
-
                 report = {}
                 report["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
                 report["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
@@ -239,12 +237,14 @@ def histogram_cherenkov_pool(
 
                 report.update(cerpoolhist.report())
                 cherenkov_sky_mask = cerpoolhist.sky_above_threshold()
+                cherenkov_sky_intensity = cerpoolhist.sky_intensity()
 
                 cermap_report = cer_to_prm.assign(
                     particle_cx=report["particle_cx"],
                     particle_cy=report["particle_cy"],
                     particle_energy_GeV=report["particle_energy_GeV"],
                     cherenkov_sky_mask=cherenkov_sky_mask,
+                    cherenkov_sky_intensity=cherenkov_sky_intensity,
                 )
                 report.update(cermap_report)
 
