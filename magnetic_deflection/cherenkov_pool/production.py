@@ -390,22 +390,3 @@ def plot_histogram_cherenkov_pool(path, pool):
         background_opacity=0.0,
         export_type="png",
     )
-
-
-def estimate_smallest_num_bins_to_contain_quantile(counts, q):
-    assert 0.0 <= q <= 1.0
-    sorted_counts_descending = (-1) * np.sort((-1) * counts)
-    total = np.sum(sorted_counts_descending)
-    target = total * q
-    part = 0
-    for i in range(len(sorted_counts_descending)):
-        if part + sorted_counts_descending[i] < target:
-            part += sorted_counts_descending[i]
-        else:
-            break
-    missing = target - part
-    assert missing <= sorted_counts_descending[i]
-    bin_frac = missing / sorted_counts_descending[i]
-    bin_center = i
-    bin_quantile = bin_center + bin_frac
-    return bin_quantile
