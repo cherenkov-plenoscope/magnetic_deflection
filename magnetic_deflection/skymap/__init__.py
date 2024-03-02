@@ -176,6 +176,41 @@ class SkyMap:
         self.binning["ground"] = {}
         self.binning["ground"]["area"] = cfg["binning"]["ground_bin_area_m2"]
 
+    def _populate_make_jobs(
+        self, num_jobs, num_showers_per_job, production_lock
+    ):
+        jobs = []
+        for j in range(num_jobs):
+            job = {}
+            job["work_dir"] = str(self.work_dir)
+            job["run_id"] = int(production_lock.get_next_run_id_and_bumb())
+            job["num_showers"] = int(num_showers_per_job)
+            jobs.append(job)
+        return jobs
+
+    def populate(
+        self, pool, num_chunks=1, num_jobs=1, num_showers_per_job=1000
+    ):
+        assert num_showers_per_job > 0
+        assert num_jobs > 0
+        assert num_chunks > 0
+
+        production_lock = allsky.production.Production(
+            production_dir=os.path.join(self.work_dir, "production")
+        )
+        production_lock.lock()
+
+        for ichunk in range(num_chunks):
+            jobs = self._populate_make_jobs(
+                num_jobs=num_jobs,
+                num_showers_per_job=num_showers_per_job,
+                production_lock=production_lock,
+            )
+            results = pool.map(_population_run_job, jobs)
+            self.store.commit_stage(pool=pool)
+
+        production_lock.unlock()
+
     def __repr__(self):
         out = "{:s}(work_dir='{:s}')".format(
             self.__class__.__name__, self.work_dir
@@ -270,7 +305,7 @@ def _population_run_job(job):
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
         particle_cone_opening_angle_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
-        num_showers=job["num_showers_per_job"],
+        num_showers=job["num_showers"],
     )
 
     pools, cer_to_par_map = cherenkov_pool.production.histogram_cherenkov_pool(

@@ -195,7 +195,7 @@ def particle_pointing_cxcycz(evth):
 def histogram_cherenkov_pool(
     corsika_steering_dict,
     binning,
-    threshold_photons_per_sr,
+    threshold_num_photons,
 ):
     cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap(
         sky_bin_geometry=binning["sky"],
@@ -203,23 +203,10 @@ def histogram_cherenkov_pool(
         altitude_bin_edges_m=binning["altitude"]["edges"],
     )
 
-    cherenkov_sky_mask_threshold_num_photons = (
-        threshold_photons_per_sr * binning["sky"].faces_solid_angles
-    )
-
-    pools = []
-    cerpoolhist = CherenkovPoolHistogram(
+    reports = []
+    cerpoolhist = cherenkov_pool_histogram.CherenkovPoolHistogram(
         sky_bin_geometry=binning["sky"],
         ground_bin_width_m=binning["ground"]["width"],
-    )
-    cherenkov_altitude = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
-    cherenkov_x = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
-    cherenkov_y = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
-    cherenkov_x_y = un_bound_histogram.UnBoundHistogram2d(
-        x_bin_width=50.0, y_bin_width=50.0
-    )
-    cherenkov_sky = spherical_histogram.HemisphereHistogram(
-        bin_geometry=binning["sky"]
     )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
@@ -232,11 +219,7 @@ def histogram_cherenkov_pool(
             for event in corsika_run:
                 evth, bunch_reader = event
 
-                cherenkov_sky.reset()
-                cherenkov_altitude.reset()
-                cherenkov_x.reset()
-                cherenkov_y.reset()
-                cherenkov_x_y.reset()
+                cerpoolhist.reset()
 
                 print(len(pools))
 
@@ -248,67 +231,20 @@ def histogram_cherenkov_pool(
                 pool["particle_cx"] = par_cxcycz[0]
                 pool["particle_cy"] = par_cxcycz[1]
                 pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
-                pool["cherenkov_num_photons"] = 0
-                pool["cherenkov_num_bunches"] = 0.0
 
                 for bunches in bunch_reader:
-                    cherenkov_sky.assign_cx_cy(
-                        cx=ux_to_cx(ux=bunches[:, UX_1]),
-                        cy=vy_to_cy(vy=bunches[:, VY_1]),
-                    )
-                    cherenkov_altitude.assign(
-                        x=cpw.CM2M
-                        * bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
-                    )
-                    cherenkov_x.assign(
-                        x=cpw.CM2M * bunches[:, cpw.I.BUNCH.X_CM]
-                    )
-                    cherenkov_y.assign(
-                        y=cpw.CM2M * bunches[:, cpw.I.BUNCH.Y_CM]
-                    )
-                    cherenkov_x_y.assign(
-                        x=cpw.CM2M * bunches[:, cpw.I.BUNCH.X_CM],
-                        y=cpw.CM2M * bunches[:, cpw.I.BUNCH.Y_CM],
-                    )
+                    cerpoolhist.assign_bunch(bunches=bunches)
 
-                    pool["cherenkov_num_photons"] += np.sum(
-                        bunches[:, cpw.I.BUNCH.BUNCH_SIZE_1]
-                    )
-                    pool["cherenkov_num_bunches"] += bunches.shape[0]
+                pool.update(cerpoolhist.report())
+                sky_above_threshold = cerpoolhist.sky_above_threshold()
 
-                cherenkov_sky_mask = (
-                    cherenkov_sky.bin_counts
-                    > cherenkov_sky_mask_threshold_num_photons
+                cer_to_prm.assign(
+                    particle_cx=pool["particle_cx"],
+                    particle_cy=pool["particle_cy"],
+                    particle_energy_GeV=pool["particle_energy_GeV"],
+                    cherenkov_altitude_p50_m=pool["cherenkov_altitude_p50_m"],
+                    cherenkov_sky_mask=cherenkov_sky_mask,
                 )
-
-                pool["num_sky_bins_above_threshold"] = np.sum(
-                    cherenkov_sky_mask
-                )
-
-                if len(cherenkov_altitude.bins) == 0:
-                    pool["cherenkov_altitude_p16_m"] = float("nan")
-                    pool["cherenkov_altitude_p50_m"] = float("nan")
-                    pool["cherenkov_altitude_p84_m"] = float("nan")
-                else:
-                    pool[
-                        "cherenkov_altitude_p16_m"
-                    ] = cherenkov_altitude.percentile(p=16)
-                    pool[
-                        "cherenkov_altitude_p50_m"
-                    ] = cherenkov_altitude.percentile(p=50)
-                    pool[
-                        "cherenkov_altitude_p84_m"
-                    ] = cherenkov_altitude.percentile(p=84)
-
-                    cer_to_prm.assign(
-                        particle_cx=pool["particle_cx"],
-                        particle_cy=pool["particle_cy"],
-                        particle_energy_GeV=pool["particle_energy_GeV"],
-                        cherenkov_altitude_p50_m=pool[
-                            "cherenkov_altitude_p50_m"
-                        ],
-                        cherenkov_sky_mask=cherenkov_sky_mask,
-                    )
 
                 pools.append(pool)
         return pools, cer_to_prm

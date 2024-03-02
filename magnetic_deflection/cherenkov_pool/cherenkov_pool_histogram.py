@@ -10,7 +10,7 @@ def report_dtype():
         # size
         # ----
         ("cherenkov_num_photons", "f4"),
-        ("cherenkov_num_bunches", "f4"),
+        ("cherenkov_num_bunches", "u4"),
         # altitude
         # --------
         ("cherenkov_altitude_p16_m", "f4"),
@@ -47,6 +47,12 @@ def report_dtype():
         ("cherenkov_time_p16_ns", "f4"),
         ("cherenkov_time_p50_ns", "f4"),
         ("cherenkov_time_p84_ns", "f4"),
+        # above threshold
+        # ---------------
+        ("cherenkov_sky_num_bins_above_threshold", "u4"),
+        ("cherenkov_sky_solid_angle_above_threshold_sr", "f4"),
+        ("cherenkov_ground_num_bins_above_threshold", "u4"),
+        ("cherenkov_ground_area_above_threshold_m2", "f4"),
     ]
 
 
@@ -55,10 +61,13 @@ class CherenkovPoolHistogram:
         self,
         sky_bin_geometry,
         ground_bin_width_m,
+        threshold_num_photons,
         altitude_bin_width_m=10.0,
         time_bin_duration_ns=10.0,
         cx_cy_bin_width=np.deg2rad(0.5),
     ):
+        self.threshold_num_photons = threshold_num_photons
+
         self.altitude = un_bound_histogram.UnBoundHistogram(
             bin_width=altitude_bin_width_m
         )
@@ -129,6 +138,34 @@ class CherenkovPoolHistogram:
         self.num_photons += np.sum(bunches[:, cpw.I.BUNCH.BUNCH_SIZE_1])
         self.num_bunches += bunches.shape[0]
 
+    def sky_above_threshold(self):
+        return self.sky.bin_counts > self.threshold_num_photons
+
+    def _report_sky_above_threshold(self):
+        mask = self.sky_above_threshold()
+        o = {}
+        o["cherenkov_sky_num_bins_above_threshold"] = np.sum(mask)
+        o["cherenkov_sky_solid_angle_above_threshold_sr"] = np.sum(
+            self.sky.bin_geometry.faces_solid_angles[mask]
+        )
+        return o
+
+    def _report_ground_above_threshold(self):
+        _, _, counts = self.ground.to_array()
+        mask = counts > self.threshold_num_photons
+        total_num_bins = np.sum(mask)
+        total_area = (
+            total_num_bins * self.ground.x_bin_width * self.ground.y_bin_width
+        )
+        o = {}
+        o["cherenkov_ground_num_bins_above_threshold"] = np.sum(mask)
+        o["cherenkov_ground_area_above_threshold_m2"] = (
+            o["cherenkov_ground_num_bins_above_threshold"]
+            * self.ground.x_bin_width
+            * self.ground.y_bin_width
+        )
+        return o
+
     def report(self):
         if self.num_bunches == 0:
             out = self._zero_bunches_report()
@@ -143,8 +180,15 @@ class CherenkovPoolHistogram:
         o = {}
         for key, dtype in report_dtype():
             o[key] = float("nan")
-        o["cherenkov_num_photons"] = self.num_photons
-        o["cherenkov_num_bunches"] = self.num_bunches
+
+        o["cherenkov_num_photons"] = 0.0
+        o["cherenkov_num_bunches"] = 0
+
+        o["cherenkov_sky_num_bins_above_threshold"] = 0
+        o["cherenkov_sky_solid_angle_above_threshold_sr"] = 0.0
+        o["cherenkov_ground_num_bins_above_threshold"] = 0
+        o["cherenkov_ground_area_above_threshold_m2"] = 0.0
+
         return o
 
     def _report(self):
@@ -217,4 +261,6 @@ class CherenkovPoolHistogram:
         o["cherenkov_cx_modus"] = cx_modus
         o["cherenkov_cy_modus"] = cy_modus
 
+        o.update(self._report_sky_above_threshold())
+        o.update(self._report_ground_above_threshold())
         return o

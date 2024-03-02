@@ -27,16 +27,20 @@ def pool_dtype():
         ("cherenkov_y_p16_m", "f4"),
         ("cherenkov_y_p50_m", "f4"),
         ("cherenkov_y_p84_m", "f4"),
+        ("cherenkov_x_modus_m", "f4"),
+        ("cherenkov_y_modus_m", "f4"),
         ("cherenkov_cx_p16_rad", "f4"),
         ("cherenkov_cx_p50_rad", "f4"),
         ("cherenkov_cx_p84_rad", "f4"),
         ("cherenkov_cy_p16_rad", "f4"),
         ("cherenkov_cy_p50_rad", "f4"),
         ("cherenkov_cy_p84_rad", "f4"),
+        ("cherenkov_cx_modus", "f4"),
+        ("cherenkov_cy_modus", "f4"),
         # time
-        ("cherenkov_t_p16_ns", "f4"),
-        ("cherenkov_t_p50_ns", "f4"),
-        ("cherenkov_t_p84_ns", "f4"),
+        ("cherenkov_time_p16_ns", "f4"),
+        ("cherenkov_time_p50_ns", "f4"),
+        ("cherenkov_time_p84_ns", "f4"),
     ]
 
 
