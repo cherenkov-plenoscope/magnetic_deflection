@@ -191,10 +191,6 @@ def particle_pointing_cxcycz(evth):
     return pointing_from_momentum_cxcycz
 
 
-NUM_VERTICES = 511
-MAX_ZENITH_DISTANCE_RAD = np.deg2rad(89)
-
-
 def histogram_cherenkov_pool(
     corsika_steering_dict,
     binning,
