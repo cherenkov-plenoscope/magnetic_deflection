@@ -8,6 +8,14 @@ import corsika_primary
 import numpy as np
 
 
+def report_dtype():
+    return [
+        ("map_sky_bin", "i2"),
+        ("map_energy_bin", "i2"),
+        ("map_altitude_bin", "i2"),
+    ]
+
+
 class CherenkovToPrimaryMap:
     def __init__(
         self,
@@ -50,7 +58,7 @@ class CherenkovToPrimaryMap:
             dtype=np.uint64,
         )
 
-        self.overflow = []
+        self.overflow = 0
 
     @classmethod
     def from_defaults(cls):
@@ -71,22 +79,25 @@ class CherenkovToPrimaryMap:
             self.altitude_bin["num"],
         )
 
-    def assign(self, pool, cherenkov_sky_mask):
+    def assign(
+        self,
+        particle_cx,
+        particle_cy,
+        particle_energy_GeV,
+        cherenkov_altitude_p50_m,
+        cherenkov_sky_mask,
+    ):
         assert cherenkov_sky_mask.shape[0] == len(self.sky_bin_geometry.faces)
 
         matching_bin = self.find_matching_bin(
-            particle_cx=pool["particle_cx"],
-            particle_cy=pool["particle_cy"],
-            particle_energy_GeV=pool["particle_energy_GeV"],
-            cherenkov_altitude_p50_m=pool["cherenkov_altitude_p50_m"],
+            particle_cx=particle_cx,
+            particle_cy=particle_cy,
+            particle_energy_GeV=particle_energy_GeV,
+            cherenkov_altitude_p50_m=cherenkov_altitude_p50_m,
         )
 
         if matching_bin["overflow"]:
-            report = {}
-            report["run"] = pool["run"]
-            report["event"] = pool["event"]
-            report["matching_bin"] = matching_bin
-            self.overflow.append(report)
+            self.overflow += 1
         else:
             m = matching_bin
             # exposure
@@ -99,6 +110,12 @@ class CherenkovToPrimaryMap:
             stage[cherenkov_sky_mask] += 1
             assert np.all(stage <= np.iinfo(np.uint8).max)
             self.map[m["sky"], m["ene"], m["alt"]] = stage
+
+        return {
+            "map_sky_bin": matching_bin["sky"],
+            "map_energy_bin": matching_bin["ene"],
+            "map_altitude_bin": matching_bin["alt"],
+        }
 
     def find_matching_bin(
         self,

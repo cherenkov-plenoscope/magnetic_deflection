@@ -207,6 +207,7 @@ def histogram_cherenkov_pool(
     cerpoolhist = cherenkov_pool_histogram.CherenkovPoolHistogram(
         sky_bin_geometry=binning["sky"],
         ground_bin_width_m=binning["ground"]["width"],
+        threshold_num_photons=threshold_num_photons,
     )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
@@ -221,33 +222,38 @@ def histogram_cherenkov_pool(
 
                 cerpoolhist.reset()
 
-                print(len(pools))
+                print(len(reports))
 
-                pool = {}
-                pool["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
-                pool["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
+                report = {}
+                report["run"] = int(evth[cpw.I.EVTH.RUN_NUMBER])
+                report["event"] = int(evth[cpw.I.EVTH.EVENT_NUMBER])
 
                 par_cxcycz = particle_pointing_cxcycz(evth=evth)
-                pool["particle_cx"] = par_cxcycz[0]
-                pool["particle_cy"] = par_cxcycz[1]
-                pool["particle_energy_GeV"] = evth[cpw.I.EVTH.TOTAL_ENERGY_GEV]
+                report["particle_cx"] = par_cxcycz[0]
+                report["particle_cy"] = par_cxcycz[1]
+                report["particle_energy_GeV"] = evth[
+                    cpw.I.EVTH.TOTAL_ENERGY_GEV
+                ]
 
                 for bunches in bunch_reader:
-                    cerpoolhist.assign_bunch(bunches=bunches)
+                    cerpoolhist.assign_bunches(bunches=bunches)
 
-                pool.update(cerpoolhist.report())
-                sky_above_threshold = cerpoolhist.sky_above_threshold()
+                report.update(cerpoolhist.report())
+                cherenkov_sky_mask = cerpoolhist.sky_above_threshold()
 
-                cer_to_prm.assign(
-                    particle_cx=pool["particle_cx"],
-                    particle_cy=pool["particle_cy"],
-                    particle_energy_GeV=pool["particle_energy_GeV"],
-                    cherenkov_altitude_p50_m=pool["cherenkov_altitude_p50_m"],
+                cermap_report = cer_to_prm.assign(
+                    particle_cx=report["particle_cx"],
+                    particle_cy=report["particle_cy"],
+                    particle_energy_GeV=report["particle_energy_GeV"],
+                    cherenkov_altitude_p50_m=report[
+                        "cherenkov_altitude_p50_m"
+                    ],
                     cherenkov_sky_mask=cherenkov_sky_mask,
                 )
+                report.update(cermap_report)
 
-                pools.append(pool)
-        return pools, cer_to_prm
+                reports.append(report)
+        return reports, cer_to_prm
 
 
 def plot_histogram_cherenkov_pool(path, pool):

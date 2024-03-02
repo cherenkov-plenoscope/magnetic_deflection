@@ -1,8 +1,11 @@
-import un_bound_histogram
-import numpy as np
-import spherical_coordinates
-import corsika_primary as cpw
 from .. import utils
+
+import un_bound_histogram
+import spherical_coordinates
+import spherical_histogram
+import corsika_primary as cpw
+
+import numpy as np
 
 
 def report_dtype():
@@ -31,12 +34,12 @@ def report_dtype():
         ("cherenkov_containment_area_p84_m2", "f4"),
         # sky
         # ---
-        ("cherenkov_cx_p16_rad", "f4"),
-        ("cherenkov_cx_p50_rad", "f4"),
-        ("cherenkov_cx_p84_rad", "f4"),
-        ("cherenkov_cy_p16_rad", "f4"),
-        ("cherenkov_cy_p50_rad", "f4"),
-        ("cherenkov_cy_p84_rad", "f4"),
+        ("cherenkov_cx_p16", "f4"),
+        ("cherenkov_cx_p50", "f4"),
+        ("cherenkov_cx_p84", "f4"),
+        ("cherenkov_cy_p16", "f4"),
+        ("cherenkov_cy_p50", "f4"),
+        ("cherenkov_cy_p84", "f4"),
         ("cherenkov_cx_modus", "f4"),
         ("cherenkov_cy_modus", "f4"),
         ("cherenkov_containment_solid_angle_p16_sr", "f4"),
@@ -173,7 +176,7 @@ class CherenkovPoolHistogram:
             out = self._report()
 
         for key, dtype in report_dtype():
-            assert key in out
+            assert key in out, "Missing key {:s}".format(key)
         return out
 
     def _zero_bunches_report(self):
@@ -202,7 +205,7 @@ class CherenkovPoolHistogram:
         # altitude
         # --------
         for p in PERCENTILES:
-            key = "cherenkov_altitude_{:02d}_m".format(p)
+            key = "cherenkov_altitude_p{:02d}_m".format(p)
             o[key] = self.altitude.percentile(p)
 
         # time
@@ -241,7 +244,7 @@ class CherenkovPoolHistogram:
             key = "cherenkov_cy_p{:02d}".format(p)
             o[key] = self.cy.percentile(p)
 
-        bin_counts = self.sky.bin_counts()
+        bin_counts = self.sky.bin_counts
         bin_apertures = self.sky.bin_geometry.faces_solid_angles
 
         for p in PERCENTILES:
@@ -256,7 +259,7 @@ class CherenkovPoolHistogram:
         v2 = self.sky.bin_geometry.vertices[iv2]
         v3 = self.sky.bin_geometry.vertices[iv3]
         cx_modus = np.mean([v1[0], v2[0], v3[0]])
-        cy_modus = np.mean([v1[2], v2[2], v3[2]])
+        cy_modus = np.mean([v1[1], v2[1], v3[1]])
 
         o["cherenkov_cx_modus"] = cx_modus
         o["cherenkov_cy_modus"] = cy_modus

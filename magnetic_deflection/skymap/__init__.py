@@ -175,6 +175,9 @@ class SkyMap:
         )
         self.binning["ground"] = {}
         self.binning["ground"]["area"] = cfg["binning"]["ground_bin_area_m2"]
+        self.binning["ground"]["width"] = np.sqrt(
+            self.binning["ground"]["area"]
+        )
 
     def _populate_make_jobs(
         self, num_jobs, num_showers_per_job, production_lock
