@@ -7,6 +7,7 @@ import numpy as np
 import tempfile
 import atmospheric_cherenkov_response as acr
 import svg_cartesian_plot as svgplt
+import dynamicsizerecarray
 
 from . import analysis
 from . import cherenkov_to_primary_map
@@ -192,6 +193,21 @@ def particle_pointing_cxcycz(evth):
     return pointing_from_momentum_cxcycz
 
 
+def histogram_cherenkov_pool_report_dtype():
+    identification = [
+        ("run", "u4"),
+        ("event", "u4"),
+        ("particle_cx", "f4"),
+        ("particle_cy", "f4"),
+        ("particle_energy_GeV", "f4"),
+    ]
+    return (
+        identification
+        + cherenkov_pool_histogram.report_dtype()
+        + cherenkov_to_primary_map.report_dtype()
+    )
+
+
 def histogram_cherenkov_pool(
     corsika_steering_dict,
     binning,
@@ -202,7 +218,9 @@ def histogram_cherenkov_pool(
         energy_bin_edges_GeV=binning["energy"]["edges"],
     )
 
-    reports = []
+    reports = dynamicsizerecarray.DynamicSizeRecarray(
+        dtype=histogram_cherenkov_pool_report_dtype()
+    )
     cerpoolhist = cherenkov_pool_histogram.CherenkovPoolHistogram(
         sky_bin_geometry=binning["sky"],
         ground_bin_width_m=binning["ground"]["width"],
@@ -248,8 +266,8 @@ def histogram_cherenkov_pool(
                 )
                 report.update(cermap_report)
 
-                reports.append(report)
-        return reports, cer_to_prm
+                reports.append_record(report)
+        return reports.to_recarray(), cer_to_prm
 
 
 def plot_histogram_cherenkov_pool(path, pool):

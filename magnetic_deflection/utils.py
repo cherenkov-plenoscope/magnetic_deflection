@@ -3,6 +3,7 @@ import os
 import glob
 import numpy as np
 import tarfile
+import rename_after_writing as rnw
 
 
 def _get_common_sites_and_particles(tree):
@@ -133,3 +134,31 @@ def estimate_num_bins_to_contain_quantile(
         return numbins, aperture
     else:
         return numbins
+
+
+def write_array(path, a):
+    with rnw.open(path, "wb") as f:
+        dtypeline = a.dtype.str + "\n"
+        f.write(str.encode(dtypeline))
+
+        shapeline = str.join(",", [str(i) for i in a.shape])
+        shapeline += "\n"
+        f.write(str.encode(shapeline))
+
+        f.write(a.tobytes(order="c"))
+
+
+def read_array(path):
+    with open(path, "rb") as f:
+        dtypeline = f.readline()
+        dtypeline = str(dtypeline, encoding="ascii")
+        dtypeline = str.strip(dtypeline, "\n")
+        dtype = dtypeline
+
+        shapeline = f.readline()
+        shapeline = str(shapeline, encoding="ascii")
+        shapeline = str.strip(shapeline, "\n")
+        shape = [int(s) for s in str.split(shapeline, ",")]
+
+        a = np.frombuffer(buffer=f.read(), dtype=dtype)
+    return a.reshape(shape)

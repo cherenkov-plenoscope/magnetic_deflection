@@ -3,9 +3,13 @@ from ..version import __version__
 from .. import allsky
 from .. import cherenkov_pool
 
+import io
 import os
 import numpy as np
 import copy
+import gzip
+import glob
+import tarfile
 
 import atmospheric_cherenkov_response
 import rename_after_writing as rnw
@@ -23,6 +27,7 @@ def init(
     particle_key,
     site_key,
     energy_bin_edges_GeV,
+    energy_power_slope,
     threshold_num_photons,
     sky_vertices,
     sky_faces,
@@ -60,6 +65,12 @@ def init(
     _json_write(
         path=opj(binning_dir, "energy_bin_edges_GeV.json"),
         o=energy_bin_edges_GeV,
+    )
+
+    assert not np.isnan(energy_power_slope)
+    _json_write(
+        path=opj(config_dir, "energy_power_slope.json"),
+        o=energy_power_slope,
     )
 
     # sky
@@ -111,11 +122,16 @@ def init_example(work_dir):
         num_bins_in_mirror=overhead,
     )
 
+    ENERGY_POWER_SLOPE = -1.5
+
     return init(
         work_dir=work_dir,
         particle_key="electron",
         site_key="lapalma",
-        energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(),
+        energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(
+            energy_power_slope=ENERGY_POWER_SLOPE
+        ),
+        energy_power_slope=ENERGY_POWER_SLOPE,
         threshold_num_photons=(PORTAL_THRESHOLD_NUM_PHOTONS / overhead),
         sky_vertices=vertices,
         sky_faces=faces,
@@ -196,8 +212,8 @@ class SkyMap:
                 num_showers_per_job=num_showers_per_job,
                 production_lock=production_lock,
             )
-            results = pool.map(_population_run_job, jobs)
-            self.store.commit_stage(pool=pool)
+            _ = pool.map(_population_run_job, jobs)
+            _collect_stage_into_results(work_dir=self.work_dir, skymap=self)
 
         production_lock.unlock()
 
@@ -208,8 +224,13 @@ class SkyMap:
         return out
 
 
-def _guess_energy_bin_edges_GeV():
-    return np.geomspace(2 ** (-2), 2 ** (6), 32 + 1)
+def _guess_energy_bin_edges_GeV(energy_power_slope):
+    return binning_utils.powerspace(
+        start=2 ** (-2),
+        stop=2 ** (6),
+        power_slope=energy_power_slope,
+        size=32 + 1,
+    )
 
 
 def _guess_sky_vertices_and_faces(
@@ -285,36 +306,135 @@ def _population_run_job(job):
         run_id=job["run_id"],
         site=sm.config["site"],
         particle_id=sm.config["particle"]["corsika_particle_id"],
-        particle_energy_start_GeV=sm.energy["start"],
-        particle_energy_stop_GeV=sm.energy["stop"],
-        particle_energy_power_slope=-2.0,
+        particle_energy_start_GeV=sm.binning["energy"]["start"],
+        particle_energy_stop_GeV=sm.binning["energy"]["stop"],
+        particle_energy_power_slope=sm.config["energy_power_slope"],
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
         particle_cone_opening_angle_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
         num_showers=job["num_showers"],
     )
 
-    pools, cer_to_par_map = cherenkov_pool.production.histogram_cherenkov_pool(
+    reports, cermap = cherenkov_pool.production.histogram_cherenkov_pool(
         corsika_steering_dict=corsika_steering_dict,
         binning=sm.binning,
         threshold_num_photons=sm.threshold_num_photons,
     )
 
-    assert len(pools) == len(corsika_steering_dict["primaries"])
+    assert len(reports) == len(corsika_steering_dict["primaries"])
+
     stage_dir = opj(job["work_dir"], "stage")
+    os.makedirs(stage_dir, exist_ok=True)
 
-    pools_path = opj(stage_dir, "{:06d}_pools.jsonl".format(job["run_id"]))
-    json_utils.lines.write(path=pools_path, obj_list=pools)
+    out_path = opj(stage_dir, "{:06d}".format(job["run_id"]))
 
-    overflow_path = opj(
-        stage_dir, "{:06d}_overflow.jsonl".format(job["run_id"])
+    with rnw.open(out_path + ".reports.rec", "wb") as f:
+        f.write(reports.tobytes(order="c"))
+
+    utils.write_array(
+        path=out_path + ".map.exposure.rec",
+        a=cermap.exposure,
     )
-    json_utils.lines.write(
-        path=overflow_path, obj_list=cer_to_par_map.overflow
+
+    utils.write_array(
+        path=out_path + ".map.cherenkov_to_primary.rec",
+        a=cermap.cherenkov_to_primary,
     )
 
-    exposure_path = opj(stage_dir, "{:06d}_exposure.u8".format(job["run_id"]))
-    with rnw.open(exposure_path, "wb") as f:
-        f.write(cer_to_par_map.exposure.tobytes(order="c"))
+    utils.write_array(
+        path=out_path + ".map.primary_to_cherenkov.rec",
+        a=cermap.primary_to_cherenkov,
+    )
 
     return True
+
+
+def _collect_stage_into_results(work_dir, skymap=None):
+    _collect_stage_into_results_reports(work_dir=work_dir)
+    _collect_stage_into_results_map(work_dir=work_dir, skymap=skymap)
+
+
+def _collect_stage_into_results_map(work_dir, skymap=None):
+    opj = os.path.join
+    stage_dir = opj(work_dir, "stage")
+
+    results_dir = opj(work_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+
+    if skymap is None:
+        skymap = SkyMap(work_dir=work_dir)
+
+    NUM_E = skymap.binning["energy"]["num"]
+    NUM_S = len(skymap.binning["sky"].faces)
+
+    names = {
+        "exposure": {"dtype": "u8", "shape": (NUM_E, NUM_S)},
+        "cherenkov_to_primary": {
+            "dtype": "u2",
+            "shape": (NUM_E, NUM_S, NUM_S),
+        },
+        "primary_to_cherenkov": {
+            "dtype": "f4",
+            "shape": (NUM_E, NUM_S, NUM_S),
+        },
+    }
+
+    for name in names:
+        paths = glob.glob(opj(stage_dir, "*.map.{:s}.rec".format(name)))
+
+        out_path = opj(results_dir, "map.{:s}.rec".format(name))
+        if os.path.exists(out_path):
+            base = utils.read_array(path=out_path)
+        else:
+            base = np.zeros(
+                shape=names[name]["shape"],
+                dtype=names[name]["dtype"],
+            )
+
+        for path in paths:
+            addon = utils.read_array(path=path)
+            base = base + addon
+
+        utils.write_array(path=out_path + ".part", a=base)
+        os.rename(out_path + ".part", out_path)
+        for path in paths:
+            os.remove(path)
+
+
+def _collect_stage_into_results_reports(work_dir):
+    opj = os.path.join
+    stage_dir = opj(work_dir, "stage")
+
+    results_dir = opj(work_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+
+    report_paths = glob.glob(opj(stage_dir, "*.reports.rec"))
+    report_paths = sorted(report_paths)
+
+    with tarfile.open(opj(results_dir, "reports.tar.part"), "w|") as otf:
+        if os.path.exists(opj(results_dir, "reports.tar")):
+            with tarfile.open(opj(results_dir, "reports.tar"), "r|") as itf:
+                for tarinfo in itf:
+                    payload = itf.extractfile(tarinfo).read()
+                    _append_tar(otf, tarinfo.name, payload)
+
+        for report_path in report_paths:
+            with open(report_path, "rb") as f:
+                payload = f.read()
+            report_basename = os.path.basename(report_path)
+            _append_tar(otf, report_basename + ".gz", gzip.compress(payload))
+    os.rename(
+        opj(results_dir, "reports.tar.part"), opj(results_dir, "reports.tar")
+    )
+    for report_path in report_paths:
+        os.remove(report_path)
+
+
+def _append_tar(tarfout, name, payload_bytes):
+    tarinfo = tarfile.TarInfo()
+    tarinfo.name = name
+    tarinfo.size = len(payload_bytes)
+    with io.BytesIO() as fileobj:
+        fileobj.write(payload_bytes)
+        fileobj.seek(0)
+        tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
