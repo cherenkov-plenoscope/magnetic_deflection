@@ -195,19 +195,35 @@ NUM_VERTICES = 511
 MAX_ZENITH_DISTANCE_RAD = np.deg2rad(89)
 
 
-def histogram_cherenkov_pool(corsika_steering_dict):
+def histogram_cherenkov_pool(
+    corsika_steering_dict,
+    binning,
+    threshold_photons_per_sr,
+):
     UX_1 = cpw.I.BUNCH.UX_1
     VY_1 = cpw.I.BUNCH.VY_1
-
     ux_to_cx = spherical_coordinates.corsika.ux_to_cx
     vy_to_cy = spherical_coordinates.corsika.vy_to_cy
 
-    cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap.from_defaults()
+    cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap(
+        sky_bin_geometry=binning.sky,
+        energy_bin_edges_GeV=binning.energy["edges"],
+        altitude_bin_edges_m=binning.altitude["edges"],
+    )
+
+    cherenkov_sky_mask_threshold_num_photons = (
+        threshold_photons_per_sr * binning.sky.faces_solid_angles
+    )
 
     pools = []
     cherenkov_altitude = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
+    cherenkov_x = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
+    cherenkov_y = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
+    cherenkov_x_y = un_bound_histogram.UnBoundHistogram2d(
+        x_bin_width=50.0, y_bin_width=50.0
+    )
     cherenkov_sky = spherical_histogram.HemisphereHistogram(
-        bin_geometry=cer_to_prm.sky_bin_geometry
+        bin_geometry=binning.sky
     )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
@@ -222,6 +238,9 @@ def histogram_cherenkov_pool(corsika_steering_dict):
 
                 cherenkov_sky.reset()
                 cherenkov_altitude.reset()
+                cherenkov_x.reset()
+                cherenkov_y.reset()
+                cherenkov_x_y.reset()
 
                 print(len(pools))
 
@@ -245,17 +264,45 @@ def histogram_cherenkov_pool(corsika_steering_dict):
                         x=cpw.CM2M
                         * bunches[:, cpw.I.BUNCH.EMISSOION_ALTITUDE_ASL_CM]
                     )
+                    cherenkov_x.assign(
+                        x=cpw.CM2M * bunches[:, cpw.I.BUNCH.X_CM]
+                    )
+                    cherenkov_y.assign(
+                        y=cpw.CM2M * bunches[:, cpw.I.BUNCH.Y_CM]
+                    )
+                    cherenkov_x_y.assign(
+                        x=cpw.CM2M * bunches[:, cpw.I.BUNCH.X_CM],
+                        y=cpw.CM2M * bunches[:, cpw.I.BUNCH.Y_CM],
+                    )
+
                     pool["cherenkov_num_photons"] += np.sum(
                         bunches[:, cpw.I.BUNCH.BUNCH_SIZE_1]
                     )
                     pool["cherenkov_num_bunches"] += bunches.shape[0]
 
+                cherenkov_sky_mask = (
+                    cherenkov_sky.bin_counts
+                    > cherenkov_sky_mask_threshold_num_photons
+                )
+
+                pool["num_sky_bins_above_threshold"] = np.sum(
+                    cherenkov_sky_mask
+                )
+
                 if len(cherenkov_altitude.bins) == 0:
+                    pool["cherenkov_altitude_p16_m"] = float("nan")
                     pool["cherenkov_altitude_p50_m"] = float("nan")
+                    pool["cherenkov_altitude_p84_m"] = float("nan")
                 else:
+                    pool[
+                        "cherenkov_altitude_p16_m"
+                    ] = cherenkov_altitude.percentile(p=16)
                     pool[
                         "cherenkov_altitude_p50_m"
                     ] = cherenkov_altitude.percentile(p=50)
+                    pool[
+                        "cherenkov_altitude_p84_m"
+                    ] = cherenkov_altitude.percentile(p=84)
 
                     cer_to_prm.assign(
                         particle_cx=pool["particle_cx"],
@@ -264,7 +311,7 @@ def histogram_cherenkov_pool(corsika_steering_dict):
                         cherenkov_altitude_p50_m=pool[
                             "cherenkov_altitude_p50_m"
                         ],
-                        cherenkov_sky_bin_counts=cherenkov_sky.bin_counts,
+                        cherenkov_sky_mask=cherenkov_sky_mask,
                     )
 
                 pools.append(pool)
@@ -343,3 +390,22 @@ def plot_histogram_cherenkov_pool(path, pool):
         background_opacity=0.0,
         export_type="png",
     )
+
+
+def estimate_smallest_num_bins_to_contain_quantile(counts, q):
+    assert 0.0 <= q <= 1.0
+    sorted_counts_descending = (-1) * np.sort((-1) * counts)
+    total = np.sum(sorted_counts_descending)
+    target = total * q
+    part = 0
+    for i in range(len(sorted_counts_descending)):
+        if part + sorted_counts_descending[i] < target:
+            part += sorted_counts_descending[i]
+        else:
+            break
+    missing = target - part
+    assert missing <= sorted_counts_descending[i]
+    bin_frac = missing / sorted_counts_descending[i]
+    bin_center = i
+    bin_quantile = bin_center + bin_frac
+    return bin_quantile

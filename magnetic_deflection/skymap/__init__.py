@@ -1,6 +1,7 @@
 from .. import utils
 from ..version import __version__
 from .. import allsky
+from .. import cherenkov_pool
 
 import os
 import numpy as np
@@ -23,7 +24,7 @@ def init(
     site_key,
     energy_bin_edges_GeV,
     altitude_bin_edges_m,
-    threshold_photons_per_sr,
+    threshold_num_photons_per_sr,
     sky_vertices,
     sky_faces,
 ):
@@ -35,7 +36,7 @@ def init(
         versions=_gather_versions_now(),
     )
 
-    config_dir = os.path.join(work_dir, "config")
+    config_dir = opj(work_dir, "config")
     os.makedirs(config_dir, exist_ok=True)
 
     # site
@@ -125,15 +126,7 @@ class SkyMap:
 
         # read
         # ----
-        config = json_utils.tree.read(path=opj(work_dir, "config"))
-        conbin = config["binning"]
-
-        self.energy = binning_utils.Binning(
-            bin_edges=conbin["energy_bin_edges_GeV"]
-        )
-        self.altitude = binning_utils.Binning(
-            bin_edges=conbin["altitude_bin_edges_m"]
-        )
+        self.config = json_utils.tree.read(path=opj(work_dir, "config"))
         self.threshold_photons_per_sr = conbin["threshold_photons_per_sr"][
             "threshold_photons_per_sr"
         ]
@@ -146,9 +139,15 @@ class SkyMap:
             _sky_faces,
         ) = spherical_histogram.mesh.obj_to_vertices_and_faces(obj=_sky_obj)
 
-        self.sky = spherical_histogram.geometry.HemisphereGeometry(
-            vertices=_sky_vertices,
-            faces=_sky_faces,
+        self.binning = Binning(
+            energy_bin_edges_GeV=self.config["binning"][
+                "energy_bin_edges_GeV"
+            ],
+            altitude_bin_edges_m=self.config["binning"][
+                "altitude_bin_edges_m"
+            ],
+            sky_vertices=_sky_vertices,
+            sky_faces=_sky_faces,
         )
 
     def __repr__(self):
@@ -156,6 +155,22 @@ class SkyMap:
             self.__class__.__name__, self.work_dir
         )
         return out
+
+
+class Binning:
+    def __init__(
+        self,
+        energy_bin_edges_GeV,
+        altitude_bin_edges_m,
+        sky_vertices,
+        sky_faces,
+    ):
+        self.energy = binning_utils.Binning(bin_edges=energy_bin_edges_GeV)
+        self.altitude = binning_utils.Binning(bin_edges=altitude_bin_edges_m)
+        self.sky = spherical_histogram.geometry.HemisphereGeometry(
+            vertices=sky_vertices,
+            faces=sky_faces,
+        )
 
 
 def _guess_cherenkov_altitude_p50_bin_edges_m():
@@ -176,14 +191,37 @@ def _guess_threshold_photons_per_sr_for_portal_cherenkov_plenoscope():
 
 
 def _default_sky_bin_geometry_vertices_and_faces(
-    num_vertices=511, max_zenith_distance_rad=np.deg2rad(89)
+    max_zenith_distance_rad=np.deg2rad(89),
 ):
+    HALF_ANGLE_PORTAL_DEG = 3.25
+    sky_solid_angle_sr = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=max_zenith_distance_rad
+    )
+    fov_solid_angle_sr = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=np.deg2rad(HALF_ANGLE_PORTAL_DEG)
+    )
+    NUM_FACES_IN_FOV = 2
+    num_faces = NUM_FACES_IN_FOV * sky_solid_angle_sr / fov_solid_angle_sr
+
+    APPROX_NUM_VERTICES_PER_FACE = 0.5
+    num_vertices = APPROX_NUM_VERTICES_PER_FACE * num_faces
+
+    num_vertices = int(np.ceil(num_vertices))
+
     vertices = spherical_histogram.mesh.make_vertices(
         num_vertices=num_vertices,
         max_zenith_distance_rad=max_zenith_distance_rad,
     )
     faces = spherical_histogram.mesh.make_faces(vertices=vertices)
     return vertices, faces
+
+
+def _default_ground_bin_area():
+    MIRROR_RADIUS_PORTAL = 71 / 2
+    mirror_area_m2 = np.pi * MIRROR_RADIUS_PORTAL**2
+    NUM_BINS_IN_MIRROR = 2
+    ground_bin_area_m2 = mirror_area_m2 / NUM_BINS_IN_MIRROR
+    return ground_bin_area_m2
 
 
 def _json_write(path, o):
@@ -215,4 +253,47 @@ def _versions_equal(a, b):
     for key in a:
         if a[key] != b[key]:
             return False
+    return True
+
+
+def _population_run_job(job):
+    opj = os.path.join
+    sm = SkyMap(work_dir=job["work_dir"])
+
+    corsika_steering_dict = cherenkov_pool.production.make_steering(
+        run_id=job["run_id"],
+        site=sm.config["site"],
+        particle_id=sm.config["particle"]["corsika_particle_id"],
+        particle_energy_start_GeV=sm.energy["start"],
+        particle_energy_stop_GeV=sm.energy["stop"],
+        particle_energy_power_slope=-2.0,
+        particle_cone_azimuth_rad=0.0,
+        particle_cone_zenith_rad=0.0,
+        particle_cone_opening_angle_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
+        num_showers=job["num_showers_per_job"],
+    )
+
+    pools, cer_to_par_map = cherenkov_pool.production.histogram_cherenkov_pool(
+        corsika_steering_dict=corsika_steering_dict,
+        binning=sm.binning,
+        threshold_photons_per_sr=sm.threshold_photons_per_sr,
+    )
+
+    assert len(pools) == len(corsika_steering_dict["primaries"])
+    stage_dir = opj(job["work_dir"], "stage")
+
+    pools_path = opj(stage_dir, "{:06d}_pools.jsonl".format(job["run_id"]))
+    json_utils.lines.write(path=pools_path, obj_list=pools)
+
+    overflow_path = opj(
+        stage_dir, "{:06d}_overflow.jsonl".format(job["run_id"])
+    )
+    json_utils.lines.write(
+        path=overflow_path, obj_list=cer_to_par_map.overflow
+    )
+
+    exposure_path = opj(stage_dir, "{:06d}_exposure.u8".format(job["run_id"]))
+    with rnw.open(exposure_path, "wb") as f:
+        f.write(cer_to_par_map.exposure.tobytes(order="c"))
+
     return True
