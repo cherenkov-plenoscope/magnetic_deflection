@@ -10,6 +10,7 @@ import svg_cartesian_plot as svgplt
 
 from . import analysis
 from . import cherenkov_to_primary_map
+from . import cherenkov_pool_histogram
 
 from .. import allsky
 
@@ -196,22 +197,21 @@ def histogram_cherenkov_pool(
     binning,
     threshold_photons_per_sr,
 ):
-    UX_1 = cpw.I.BUNCH.UX_1
-    VY_1 = cpw.I.BUNCH.VY_1
-    ux_to_cx = spherical_coordinates.corsika.ux_to_cx
-    vy_to_cy = spherical_coordinates.corsika.vy_to_cy
-
     cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap(
-        sky_bin_geometry=binning.sky,
-        energy_bin_edges_GeV=binning.energy["edges"],
-        altitude_bin_edges_m=binning.altitude["edges"],
+        sky_bin_geometry=binning["sky"],
+        energy_bin_edges_GeV=binning["energy"]["edges"],
+        altitude_bin_edges_m=binning["altitude"]["edges"],
     )
 
     cherenkov_sky_mask_threshold_num_photons = (
-        threshold_photons_per_sr * binning.sky.faces_solid_angles
+        threshold_photons_per_sr * binning["sky"].faces_solid_angles
     )
 
     pools = []
+    cerpoolhist = CherenkovPoolHistogram(
+        sky_bin_geometry=binning["sky"],
+        ground_bin_width_m=binning["ground"]["width"],
+    )
     cherenkov_altitude = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
     cherenkov_x = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
     cherenkov_y = un_bound_histogram.UnBoundHistogram(bin_width=10.0)
@@ -219,7 +219,7 @@ def histogram_cherenkov_pool(
         x_bin_width=50.0, y_bin_width=50.0
     )
     cherenkov_sky = spherical_histogram.HemisphereHistogram(
-        bin_geometry=binning.sky
+        bin_geometry=binning["sky"]
     )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
