@@ -2,6 +2,7 @@ from .. import utils
 from ..version import __version__
 from .. import allsky
 from .. import cherenkov_pool
+from . import recarray_utils
 
 import io
 import os
@@ -20,6 +21,8 @@ import spherical_coordinates
 import binning_utils
 import corsika_primary
 import triangle_mesh_io
+import dynamicsizerecarray
+import svg_cartesian_plot as svgplt
 
 
 def init(
@@ -106,7 +109,7 @@ def init(
     return SkyMap(work_dir=work_dir)
 
 
-def init_example(work_dir):
+def init_example(work_dir, particle_key="electron", site_key="lapalma"):
     PORTAL_FOV_HALF_ANGLE_RAD = np.deg2rad(3.25)
     PORTAL_MIRROR_DIAMETER_M = 71.0
     PORTAL_THRESHOLD_NUM_PHOTONS = 25
@@ -124,12 +127,18 @@ def init_example(work_dir):
 
     ENERGY_POWER_SLOPE = -1.5
 
+    particle = atmospheric_cherenkov_response.particles.init(particle_key)
+    energy_start_GeV = atmospheric_cherenkov_response.particles.compile_energy(
+        particle["population"]["energy"]["start_GeV"]
+    )
+
     return init(
         work_dir=work_dir,
-        particle_key="electron",
-        site_key="lapalma",
+        particle_key=particle_key,
+        site_key=site_key,
         energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(
-            energy_power_slope=ENERGY_POWER_SLOPE
+            energy_power_slope=ENERGY_POWER_SLOPE,
+            energy_start_GeV=energy_start_GeV,
         ),
         energy_power_slope=ENERGY_POWER_SLOPE,
         threshold_num_photons=(PORTAL_THRESHOLD_NUM_PHOTONS / overhead),
@@ -223,10 +232,350 @@ class SkyMap:
         )
         return out
 
+    def _query_ball_bins(
+        self,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
+        energy_start_GeV,
+        energy_stop_GeV,
+    ):
+        faces, faces_weights = self.binning[
+            "sky"
+        ].query_cone_weiths_azimuth_zenith(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+            half_angle_rad=half_angle_rad,
+        )
 
-def _guess_energy_bin_edges_GeV(energy_power_slope):
+        enebins = binning_utils.query_ball(
+            bin_edges=self.binning["energy"]["edges"],
+            start=energy_start_GeV,
+            stop=energy_stop_GeV,
+        )
+        return faces, enebins
+
+    def query_ball_primary_to_cherenkov(
+        self,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
+        energy_start_GeV,
+        energy_stop_GeV,
+        path=None,
+        vmax=1e6,
+    ):
+        faces, enebins = self._query_ball_bins(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+            half_angle_rad=half_angle_rad,
+            energy_start_GeV=energy_start_GeV,
+            energy_stop_GeV=energy_stop_GeV,
+        )
+
+        print(faces, enebins)
+        ex = self.map_exposure()
+        p2c = self.map_primary_to_cherenkov()
+
+        num_bins = 0
+        sky_intensity = np.zeros(len(self.binning["sky"].faces))
+        for enebin in enebins:
+            for face in faces:
+                num_bins += 1
+                sky_intensity += p2c[enebin][face] / ex[enebin][face]
+
+        sky_intensity /= num_bins
+
+        if path is not None:
+            # plot
+            # ----
+
+            vmin = 0
+            vmax = np.max(sky_intensity)
+
+            fig = svgplt.Fig(cols=1080, rows=1080)
+            ax = {}
+            ax = svgplt.hemisphere.Ax(fig=fig)
+            ax["span"] = (0.1, 0.1, 0.8, 0.8)
+
+            fov_ring_verts_uxyz = allsky.viewcone.make_ring(
+                half_angle_rad=half_angle_rad,
+                endpoint=True,
+                fn=137,
+            )
+            fov_ring_verts_uxyz = allsky.viewcone.rotate(
+                vertices_uxyz=fov_ring_verts_uxyz,
+                azimuth_rad=azimuth_rad,
+                zenith_rad=zenith_rad,
+                mount="cable_robot",
+            )
+
+            cmap = svgplt.color.Map(
+                "inferno",
+                start=vmin,
+                stop=vmax,
+            )
+
+            mesh_look = svgplt.hemisphere.init_mesh_look(
+                num_faces=len(self.binning["sky"].faces),
+                stroke=None,
+                fill=svgplt.color.css("black"),
+                fill_opacity=1.0,
+            )
+
+            for i in range(len(self.binning["sky"].faces)):
+                mesh_look["faces_fill"][i] = cmap(sky_intensity[i])
+
+            svgplt.hemisphere.ax_add_mesh(
+                ax=ax,
+                vertices=self.binning["sky"].vertices,
+                faces=self.binning["sky"].faces,
+                max_radius=1.0,
+                **mesh_look,
+            )
+
+            svgplt.ax_add_path(
+                ax=ax,
+                xy=fov_ring_verts_uxyz[:, 0:2],
+                stroke=svgplt.color.css("red"),
+                fill=None,
+            )
+            svgplt.hemisphere.ax_add_grid(ax=ax)
+
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[-0.6, 1.15],
+                text="primary to cherenkov map",
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=30,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.3, 1.0],
+                text="energy: {: 8.3f} to {: 8.3}GeV".format(
+                    energy_start_GeV,
+                    energy_stop_GeV,
+                ),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=30,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.1, -1.05],
+                text="site: {:s}".format(self.config["site"]["comment"]),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=15,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.1, -1.1],
+                text="particle: {:s}".format(self.config["particle"]["key"]),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=15,
+            )
+
+            svgplt.fig_write(fig=fig, path=path + ".svg")
+
+            from svg_cartesian_plot import inkscape
+
+            inkscape.render(
+                path + ".svg",
+                path,
+                background_opacity=0.0,
+                export_type="png",
+            )
+            os.remove(path + ".svg")
+
+        return sky_intensity
+
+    def query_ball_cherenkov_to_primary(
+        self,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
+        energy_start_GeV,
+        energy_stop_GeV,
+        quantile,
+        path=None,
+    ):
+        faces, enebins = self._query_ball_bins(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+            half_angle_rad=half_angle_rad,
+            energy_start_GeV=energy_start_GeV,
+            energy_stop_GeV=energy_stop_GeV,
+        )
+
+        print(faces, enebins)
+        ex = self.map_exposure()
+        c2p = self.map_cherenkov_to_primary()
+
+        num_bins = 0
+        sky_intensity = np.zeros(len(self.binning["sky"].faces))
+        for enebin in enebins:
+            for face in faces:
+                num_bins += 1
+                sky_intensity += c2p[enebin][face] / ex[enebin][face]
+
+        sky_intensity /= num_bins
+
+        assert 0.0 <= quantile <= 1.0
+
+        face_order = np.argsort((-1) * sky_intensity)
+        part = 0.0
+        target = quantile * np.sum(sky_intensity)
+        face_quantile_mask = np.zeros(sky_intensity.shape[0], dtype=bool)
+        for ii in range(len(face_order)):
+            print(sky_intensity[face_order[ii]])
+            if part + sky_intensity[face_order[ii]] < target:
+                part += sky_intensity[face_order[ii]]
+                face_quantile_mask[face_order[ii]] = True
+            else:
+                break
+
+        if path is not None:
+            # plot
+            # ----
+
+            vmin = 0
+            vmax = np.max(sky_intensity)
+
+            fig = svgplt.Fig(cols=1080, rows=1080)
+            ax = {}
+            ax = svgplt.hemisphere.Ax(fig=fig)
+            ax["span"] = (0.1, 0.1, 0.8, 0.8)
+
+            fov_ring_verts_uxyz = allsky.viewcone.make_ring(
+                half_angle_rad=half_angle_rad,
+                endpoint=True,
+                fn=137,
+            )
+            fov_ring_verts_uxyz = allsky.viewcone.rotate(
+                vertices_uxyz=fov_ring_verts_uxyz,
+                azimuth_rad=azimuth_rad,
+                zenith_rad=zenith_rad,
+                mount="cable_robot",
+            )
+
+            cmap = svgplt.color.Map(
+                "viridis",
+                start=vmin,
+                stop=vmax,
+            )
+
+            mesh_look = svgplt.hemisphere.init_mesh_look(
+                num_faces=len(self.binning["sky"].faces),
+                stroke=None,
+                fill=svgplt.color.css("black"),
+                fill_opacity=1.0,
+            )
+
+            for i in range(len(self.binning["sky"].faces)):
+                mesh_look["faces_fill"][i] = cmap(sky_intensity[i])
+                if face_quantile_mask[i]:
+                    mesh_look["faces_stroke"][i] = svgplt.color.css("red")
+
+            svgplt.hemisphere.ax_add_mesh(
+                ax=ax,
+                vertices=self.binning["sky"].vertices,
+                faces=self.binning["sky"].faces,
+                max_radius=1.0,
+                **mesh_look,
+            )
+
+            svgplt.ax_add_path(
+                ax=ax,
+                xy=fov_ring_verts_uxyz[:, 0:2],
+                stroke=svgplt.color.css("red"),
+                fill=None,
+            )
+            svgplt.hemisphere.ax_add_grid(ax=ax)
+
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[-0.6, 1.15],
+                text="primary to cherenkov map",
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=30,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.3, 1.0],
+                text="energy: {: 8.3f} to {: 8.3}GeV".format(
+                    energy_start_GeV,
+                    energy_stop_GeV,
+                ),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=30,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.1, -1.05],
+                text="site: {:s}".format(self.config["site"]["comment"]),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=15,
+            )
+            svgplt.ax_add_text(
+                ax=ax,
+                xy=[0.1, -1.1],
+                text="particle: {:s}".format(self.config["particle"]["key"]),
+                fill=svgplt.color.css("black"),
+                font_family="math",
+                font_size=15,
+            )
+
+            svgplt.fig_write(fig=fig, path=path + ".svg")
+
+            from svg_cartesian_plot import inkscape
+
+            inkscape.render(
+                path + ".svg",
+                path,
+                background_opacity=0.0,
+                export_type="png",
+            )
+            os.remove(path + ".svg")
+
+        return sky_intensity
+
+    def map_primary_to_cherenkov(self):
+        if not hasattr(self, "_map_primary_to_cherenkov"):
+            self._map_primary_to_cherenkov = utils.read_array(
+                path=os.path.join(
+                    self.work_dir, "results", "map.primary_to_cherenkov.rec"
+                )
+            )
+        return self._map_primary_to_cherenkov
+
+    def map_cherenkov_to_primary(self):
+        if not hasattr(self, "_map_cherenkov_to_primary"):
+            self._map_cherenkov_to_primary = utils.read_array(
+                path=os.path.join(
+                    self.work_dir, "results", "map.cherenkov_to_primary.rec"
+                )
+            )
+        return self._map_cherenkov_to_primary
+
+    def map_exposure(self):
+        if not hasattr(self, "_map_exposure"):
+            self._map_exposure = utils.read_array(
+                path=os.path.join(self.work_dir, "results", "map.exposure.rec")
+            )
+        return self._map_exposure
+
+
+def _guess_energy_bin_edges_GeV(
+    energy_power_slope, energy_start_GeV=2 ** (-2)
+):
     return binning_utils.powerspace(
-        start=2 ** (-2),
+        start=energy_start_GeV,
         stop=2 ** (6),
         power_slope=energy_power_slope,
         size=32 + 1,
@@ -438,3 +787,34 @@ def _append_tar(tarfout, name, payload_bytes):
         fileobj.write(payload_bytes)
         fileobj.seek(0)
         tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
+
+
+def reports_read(path, dtype=None):
+    if dtype is None:
+        dtype = (
+            cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
+        )
+
+    full_dtype = (
+        cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
+    )
+
+    out = dynamicsizerecarray.DynamicSizeRecarray(dtype=dtype)
+
+    with tarfile.open(path, "r|") as itf:
+        for tarinfo in itf:
+            payload_gz = itf.extractfile(tarinfo).read()
+            payload = gzip.decompress(payload_gz)
+            reports_block = np.frombuffer(buffer=payload, dtype=full_dtype)
+
+            reports_block_out = recarray_utils.init(
+                dtype=dtype,
+                size=reports_block.size,
+            )
+            for key in dtype:
+                name = key[0]
+                reports_block_out[name] = reports_block[name]
+
+            out.append_recarray(reports_block_out)
+
+    return out
