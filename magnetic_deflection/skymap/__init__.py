@@ -240,7 +240,7 @@ class SkyMap:
         energy_start_GeV,
         energy_stop_GeV,
     ):
-        faces, faces_weights = self.binning[
+        skybins, skybins_weights = self.binning[
             "sky"
         ].query_cone_weiths_azimuth_zenith(
             azimuth_rad=azimuth_rad,
@@ -248,12 +248,20 @@ class SkyMap:
             half_angle_rad=half_angle_rad,
         )
 
-        enebins = binning_utils.query_ball(
+        enebins, enebins_absolute_weights = binning_utils.power.query_ball(
             bin_edges=self.binning["energy"]["edges"],
             start=energy_start_GeV,
             stop=energy_stop_GeV,
+            power_slope=self.config["energy_power_slope"],
         )
-        return faces, enebins
+        if len(enebins) > 0:
+            enebins_weights = enebins_absolute_weights / np.sum(
+                enebins_absolute_weights
+            )
+        else:
+            enebins_weights = np.array([])
+
+        return (skybins, skybins_weights, enebins, enebins_weights)
 
     def _query_ball_map(
         self,
@@ -264,12 +272,24 @@ class SkyMap:
         energy_stop_GeV,
         map_key,
     ):
-        skybins, enebins = self._query_ball_bins(
+        (
+            skybins,
+            skybins_weights,
+            enebins,
+            enebins_weights,
+        ) = self._query_ball_bins(
             azimuth_rad=azimuth_rad,
             zenith_rad=zenith_rad,
             half_angle_rad=half_angle_rad,
             energy_start_GeV=energy_start_GeV,
             energy_stop_GeV=energy_stop_GeV,
+        )
+
+        fsky, fene, fweights = _combine_weights_of_sky_and_ene_bins(
+            skybins=skybins,
+            skybins_weights=skybins_weights,
+            enebins=enebins,
+            enebins_weights=enebins_weights,
         )
 
         ex = self.map_exposure()
@@ -278,13 +298,15 @@ class SkyMap:
         elif map_key == "cherenkov_to_primary":
             mmm = self.map_cherenkov_to_primary()
 
-        num_bins = 0
         sky_intensity = np.zeros(len(self.binning["sky"].faces))
-        for enebin in enebins:
-            for skybin in skybins:
-                num_bins += 1
-                sky_intensity += mmm[enebin][skybin] / ex[enebin][skybin]
-        sky_intensity /= num_bins
+
+        for i in range(len(fsky)):
+            skybin = fsky[i]
+            enebin = fene[i]
+            weight = fweights[i]
+            if ex[enebin][skybin] > 0:
+                cell_sky_intensity = mmm[enebin][skybin] / ex[enebin][skybin]
+                sky_intensity += weight * cell_sky_intensity
 
         return sky_intensity
 
@@ -310,9 +332,8 @@ class SkyMap:
         if path is not None:
             # plot
             # ----
-
             vmin = 0
-            vmax = np.max(sky_intensity)
+            vmax = np.max([np.max(sky_intensity), 1])
 
             fig = svgplt.Fig(cols=1080, rows=1080)
             ax = {}
@@ -375,8 +396,8 @@ class SkyMap:
                 ax=ax,
                 xy=[0.3, 1.0],
                 text="energy: {: 8.3f} to {: 8.3}GeV".format(
-                    energy_start_GeV,
-                    energy_stop_GeV,
+                    float(energy_start_GeV),
+                    float(energy_stop_GeV),
                 ),
                 fill=svgplt.color.css("black"),
                 font_family="math",
@@ -439,7 +460,6 @@ class SkyMap:
         target = quantile * np.sum(sky_intensity)
         face_quantile_mask = np.zeros(sky_intensity.shape[0], dtype=bool)
         for ii in range(len(face_order)):
-            print(sky_intensity[face_order[ii]])
             if part + sky_intensity[face_order[ii]] < target:
                 part += sky_intensity[face_order[ii]]
                 face_quantile_mask[face_order[ii]] = True
@@ -516,8 +536,8 @@ class SkyMap:
                 ax=ax,
                 xy=[0.3, 1.0],
                 text="energy: {: 8.3f} to {: 8.3}GeV".format(
-                    energy_start_GeV,
-                    energy_stop_GeV,
+                    float(energy_start_GeV),
+                    float(energy_stop_GeV),
                 ),
                 fill=svgplt.color.css("black"),
                 font_family="math",
@@ -583,7 +603,7 @@ class SkyMap:
 def _guess_energy_bin_edges_GeV(
     energy_power_slope, energy_start_GeV=2 ** (-2)
 ):
-    return binning_utils.powerspace(
+    return binning_utils.power.space(
         start=energy_start_GeV,
         stop=2 ** (6),
         power_slope=energy_power_slope,
@@ -827,3 +847,25 @@ def reports_read(path, dtype=None):
             out.append_recarray(reports_block_out)
 
     return out
+
+
+def _combine_weights_of_sky_and_ene_bins(
+    skybins, skybins_weights, enebins, enebins_weights
+):
+    num = len(skybins) * len(enebins)
+    sky = (-1) * np.ones(num, dtype=int)
+    ene = (-1) * np.ones(num, dtype=int)
+    weights = np.nan * np.ones(num, dtype=float)
+
+    i = 0
+    for e in range(len(enebins)):
+        for s in range(len(skybins)):
+            sky[i] = skybins[s]
+            ene[i] = enebins[e]
+            weights[i] = enebins_weights[e] * skybins_weights[s]
+            i += 1
+
+    if num > 0:
+        weights = weights / np.sum(weights)
+
+    return sky, ene, weights
