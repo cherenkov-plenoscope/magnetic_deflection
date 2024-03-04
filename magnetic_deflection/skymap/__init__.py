@@ -265,7 +265,7 @@ class SkyMap:
         path=None,
         vmax=1e6,
     ):
-        faces, enebins = self._query_ball_bins(
+        skybins, enebins = self._query_ball_bins(
             azimuth_rad=azimuth_rad,
             zenith_rad=zenith_rad,
             half_angle_rad=half_angle_rad,
@@ -273,16 +273,16 @@ class SkyMap:
             energy_stop_GeV=energy_stop_GeV,
         )
 
-        print(faces, enebins)
+        print(skybins, enebins)
         ex = self.map_exposure()
         p2c = self.map_primary_to_cherenkov()
 
         num_bins = 0
         sky_intensity = np.zeros(len(self.binning["sky"].faces))
         for enebin in enebins:
-            for face in faces:
+            for skybin in skybins:
                 num_bins += 1
-                sky_intensity += p2c[enebin][face] / ex[enebin][face]
+                sky_intensity += p2c[enebin][skybin] / ex[enebin][skybin]
 
         sky_intensity /= num_bins
 
@@ -402,7 +402,7 @@ class SkyMap:
         quantile,
         path=None,
     ):
-        faces, enebins = self._query_ball_bins(
+        skybins, enebins = self._query_ball_bins(
             azimuth_rad=azimuth_rad,
             zenith_rad=zenith_rad,
             half_angle_rad=half_angle_rad,
@@ -410,16 +410,16 @@ class SkyMap:
             energy_stop_GeV=energy_stop_GeV,
         )
 
-        print(faces, enebins)
+        print(skybins, enebins)
         ex = self.map_exposure()
         c2p = self.map_cherenkov_to_primary()
 
         num_bins = 0
         sky_intensity = np.zeros(len(self.binning["sky"].faces))
         for enebin in enebins:
-            for face in faces:
+            for skybin in skybins:
                 num_bins += 1
-                sky_intensity += c2p[enebin][face] / ex[enebin][face]
+                sky_intensity += c2p[enebin][skybin] / ex[enebin][skybin]
 
         sky_intensity /= num_bins
 
