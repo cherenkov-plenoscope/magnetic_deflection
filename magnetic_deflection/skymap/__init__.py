@@ -255,6 +255,39 @@ class SkyMap:
         )
         return faces, enebins
 
+    def _query_ball_map(
+        self,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
+        energy_start_GeV,
+        energy_stop_GeV,
+        map_key,
+    ):
+        skybins, enebins = self._query_ball_bins(
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+            half_angle_rad=half_angle_rad,
+            energy_start_GeV=energy_start_GeV,
+            energy_stop_GeV=energy_stop_GeV,
+        )
+
+        ex = self.map_exposure()
+        if map_key == "primary_to_cherenkov":
+            mmm = self.map_primary_to_cherenkov()
+        elif map_key == "cherenkov_to_primary":
+            mmm = self.map_cherenkov_to_primary()
+
+        num_bins = 0
+        sky_intensity = np.zeros(len(self.binning["sky"].faces))
+        for enebin in enebins:
+            for skybin in skybins:
+                num_bins += 1
+                sky_intensity += mmm[enebin][skybin] / ex[enebin][skybin]
+        sky_intensity /= num_bins
+
+        return sky_intensity
+
     def query_ball_primary_to_cherenkov(
         self,
         azimuth_rad,
@@ -265,26 +298,14 @@ class SkyMap:
         path=None,
         vmax=1e6,
     ):
-        skybins, enebins = self._query_ball_bins(
+        sky_intensity = self._query_ball_map(
             azimuth_rad=azimuth_rad,
             zenith_rad=zenith_rad,
             half_angle_rad=half_angle_rad,
             energy_start_GeV=energy_start_GeV,
             energy_stop_GeV=energy_stop_GeV,
+            map_key="primary_to_cherenkov",
         )
-
-        print(skybins, enebins)
-        ex = self.map_exposure()
-        p2c = self.map_primary_to_cherenkov()
-
-        num_bins = 0
-        sky_intensity = np.zeros(len(self.binning["sky"].faces))
-        for enebin in enebins:
-            for skybin in skybins:
-                num_bins += 1
-                sky_intensity += p2c[enebin][skybin] / ex[enebin][skybin]
-
-        sky_intensity /= num_bins
 
         if path is not None:
             # plot
@@ -402,26 +423,14 @@ class SkyMap:
         quantile,
         path=None,
     ):
-        skybins, enebins = self._query_ball_bins(
+        sky_intensity = self._query_ball_map(
             azimuth_rad=azimuth_rad,
             zenith_rad=zenith_rad,
             half_angle_rad=half_angle_rad,
             energy_start_GeV=energy_start_GeV,
             energy_stop_GeV=energy_stop_GeV,
+            map_key="cherenkov_to_primary",
         )
-
-        print(skybins, enebins)
-        ex = self.map_exposure()
-        c2p = self.map_cherenkov_to_primary()
-
-        num_bins = 0
-        sky_intensity = np.zeros(len(self.binning["sky"].faces))
-        for enebin in enebins:
-            for skybin in skybins:
-                num_bins += 1
-                sky_intensity += c2p[enebin][skybin] / ex[enebin][skybin]
-
-        sky_intensity /= num_bins
 
         assert 0.0 <= quantile <= 1.0
 
