@@ -591,6 +591,19 @@ class SkyMap:
             )
         return self._map_exposure
 
+    def map_primary_to_cherenkov_normalized_per_sr(self):
+        p2c = self.map_primary_to_cherenkov()
+        exx = self.map_exposure()
+        out = np.zeros(shape=p2c.shape, dtype=np.float32)
+        for e in range(p2c.shape[0]):
+            for p in range(p2c.shape[1]):
+                eee = exx[e][p]
+                if np.sum(eee) > 0:
+                    sss = p2c[e][p] / eee
+                    sss = sss / self.binning["sky"].faces_solid_angles
+                out[e][p] = sss
+        return out
+
 
 def _guess_energy_bin_edges_GeV(
     energy_power_slope, energy_start_GeV=2 ** (-2)
