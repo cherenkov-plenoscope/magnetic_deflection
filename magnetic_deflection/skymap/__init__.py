@@ -324,7 +324,10 @@ class SkyMap:
             )
         )
         _sky_brightest_faces = sky_intensity[_sky_p50_mask]
-        sky_intensity_p50 = np.quantile(_sky_brightest_faces, q=0.5)
+        if len(_sky_brightest_faces) > 0:
+            sky_intensity_p50 = np.quantile(_sky_brightest_faces, q=0.5)
+        else:
+            sky_intensity_p50 = 0.0
 
         if quantile is not None:
             _sky_intensity_quantile_mask = (
@@ -510,7 +513,11 @@ class SkyMap:
     ):
         os.makedirs(path, exist_ok=True)
         if queries is None:
-            queries = querying.example(num=6)
+            queries = querying.example(
+                min_energy_GeV=self.binning["energy"]["limits"][0],
+                max_energy_GeV=self.binning["energy"]["limits"][1],
+                num=6,
+            )
 
         map_keys = {
             "primary_to_cherenkov": {
@@ -541,17 +548,19 @@ class SkyMap:
                 if i < len(queries):
                     name = "{:06d}".format(i)
                     imgpath = os.path.join(path, name + "." + map_key + ".png")
-                    call = {}
-                    call["query"] = queries[i]
-                    call["map_key"] = map_key
-                    call["path"] = imgpath
-                    call["quantile"] = map_keys[map_key]["quantile"]
-                    call["vmin"] = map_keys[map_key]["vmin"]
-                    call["vmax"] = map_keys[map_key]["vmax"]
-                    call["logscale"] = map_keys[map_key]["logscale"]
-                    job["calls"].append(call)
+                    if not os.path.exists(imgpath):
+                        call = {}
+                        call["query"] = queries[i]
+                        call["map_key"] = map_key
+                        call["path"] = imgpath
+                        call["quantile"] = map_keys[map_key]["quantile"]
+                        call["vmin"] = map_keys[map_key]["vmin"]
+                        call["vmax"] = map_keys[map_key]["vmax"]
+                        call["logscale"] = map_keys[map_key]["logscale"]
+                        job["calls"].append(call)
             jobs.append(job)
 
+        print(len(jobs))
         pool.map(_run_job_plot_query_ball, jobs)
 
         try:
@@ -880,3 +889,4 @@ def _run_job_plot_query_ball(job):
     skymap = SkyMap(work_dir=job["work_dir"])
     for call in job["calls"]:
         skymap.plot_query_ball(**call)
+    return True

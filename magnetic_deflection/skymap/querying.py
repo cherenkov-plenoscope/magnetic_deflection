@@ -18,7 +18,9 @@ def Query(
     }
 
 
-def example_deg(num=1):
+def example_deg(min_energy_GeV=0.25, max_energy_GeV=64.0, num=1):
+    minE = min_energy_GeV
+    maxE = max_energy_GeV
     qs = []
     tr = []
     # zenith, go to low energies
@@ -56,6 +58,18 @@ def example_deg(num=1):
     tr.append((3 * num, "polar"))
     qs.append([0.0, 0.0, 3.25, 32, 64])
 
+    qs = np.asarray(qs)
+    Elow = qs[:, 3]
+    Ehig = qs[:, 4]
+
+    _Elow = (Elow - 0.25) / (64 - 0.25)
+    _Ehig = (Ehig - 0.25) / (64 - 0.25)
+
+    _Elow = minE + (_Elow * (maxE - minE))
+    _Ehig = minE + (_Ehig * (maxE - minE))
+    qs[:, 3] = _Elow
+    qs[:, 4] = _Ehig
+
     return qs, tr
 
 
@@ -78,8 +92,8 @@ def compile_deg(queries_deg=example_deg()):
     return queries, transissions
 
 
-def example(num=10):
-    qs, tr = compile_deg(queries_deg=example_deg(num=num))
+def example(**kwargs):
+    qs, tr = compile_deg(queries_deg=example_deg(**kwargs))
     return interpolate(queries=qs, transissions=tr)
 
 
