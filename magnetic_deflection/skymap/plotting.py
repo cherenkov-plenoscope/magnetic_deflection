@@ -9,7 +9,7 @@ from .. import allsky
 
 def ax_add_sky(
     ax,
-    sky_vertices,
+    sky_valuesertices,
     sky_faces,
     sky_intensity,
     colormap,
@@ -35,7 +35,7 @@ def ax_add_sky(
 
     svgplt.hemisphere.ax_add_mesh(
         ax=ax,
-        vertices=sky_vertices,
+        vertices=sky_valuesertices,
         faces=sky_faces,
         max_radius=1.0,
         **mesh_look,
@@ -74,6 +74,7 @@ def ax_add_energy_bar(
     start,
     stop,
     font_size,
+    query_color,
     **kwargs,
 ):
     yy = np.linspace(0, 1, len(bin_edges))
@@ -112,9 +113,261 @@ def ax_add_energy_bar(
             [0.5, ystop],
             [0, ystop],
         ],
-        fill=svgplt.color.css("red"),
+        fill=svgplt.color.css(query_color),
         fill_opacity=1.0,
         **kwargs,
     )
 
     svgplt.ax_add_line(ax, xy_start=[0, 0], xy_stop=[0, 1], **kwargs)
+
+
+def plot_query(
+    path,
+    query,
+    skymap,
+    sky_values,
+    sky_values_min,
+    sky_values_max,
+    sky_values_label,
+    sky_values_scale="log",
+    sky_mask=None,
+    sky_mask_color="orange",
+    colormap_name="viridis",
+    query_color="white",
+    num_pixel=1280,
+):
+    # estimate p50 of p50 brightest faces
+    _sky_p50_mask = spherical_histogram.mask_fewest_bins_to_contain_quantile(
+        bin_counts=sky_values,
+        quantile=0.5,
+    )
+    _sky_brightest_faces = sky_values[_sky_p50_mask]
+    if len(_sky_brightest_faces) > 0:
+        sky_values_p50 = np.quantile(_sky_brightest_faces, q=0.5)
+    else:
+        sky_values_p50 = 0.0
+
+    if sky_values_scale == "log":
+        intensity_scale = svgplt.scaling.log(base=10)
+    elif sky_values_scale == "unity":
+        intensity_scale = svgplt.scaling.unity()
+    else:
+        raise ValueError(
+            "Unknown sky_values_scale '{:s}'.".format(sky_values_scale)
+        )
+
+    colormap = svgplt.color.Map(
+        name=colormap_name,
+        start=sky_values_min,
+        stop=sky_values_max,
+        func=intensity_scale,
+    )
+
+    fig = svgplt.Fig(cols=(3 * num_pixel) // 2, rows=num_pixel)
+
+    font_size = 15 * num_pixel / 1280
+    stroke_width = num_pixel / 1280
+
+    ax = svgplt.hemisphere.Ax(fig=fig)
+    ax["span"] = (0.0, 0.0, 1 / (3 / 2), 1)
+
+    axw = svgplt.Ax(fig=fig)
+    axw["span"] = (0.7, 0.1, 0.025, 0.8)
+    axw["yscale"] = colormap.func
+
+    axe = svgplt.Ax(fig=fig)
+    axe["span"] = (0.85, 0.1, 0.05, 0.8)
+
+    ax_add_sky(
+        ax=ax,
+        sky_valuesertices=skymap.binning["sky"].vertices,
+        sky_faces=skymap.binning["sky"].faces,
+        sky_intensity=sky_values,
+        colormap=colormap,
+        fill_opacity=1.0,
+        sky_mask=sky_mask,
+        sky_mask_color=svgplt.color.css(sky_mask_color),
+    )
+
+    ax_add_fov(
+        ax=ax,
+        azimuth_rad=query["azimuth_rad"],
+        zenith_rad=query["zenith_rad"],
+        half_angle_rad=query["half_angle_rad"],
+        stroke=svgplt.color.css(query_color),
+        stroke_width=4 * stroke_width,
+        fill=None,
+    )
+
+    ax_add_energy_bar(
+        ax=axe,
+        bin_edges=skymap.binning["energy"]["edges"],
+        power_slope=skymap.config["energy_power_slope"],
+        start=query["energy_start_GeV"],
+        stop=query["energy_stop_GeV"],
+        font_size=3 * font_size,
+        stroke_width=1.5 * stroke_width,
+        query_color=query_color,
+        stroke=svgplt.color.css("black"),
+    )
+
+    svgplt.color.ax_add_colormap(
+        ax=axw,
+        colormap=colormap,
+        fn=128,
+        orientation="vertical",
+    )
+    svgplt.color.ax_add_colormap_ticks(
+        ax=axw,
+        colormap=colormap,
+        num=6,
+        orientation="vertical",
+        fill=svgplt.color.css("black"),
+        stroke=None,
+        stroke_width=1.5 * stroke_width,
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.ax_add_line(
+        ax=axw,
+        xy_start=[-0.5, sky_values_p50],
+        xy_stop=[0, sky_values_p50],
+        stroke=svgplt.color.css("black"),
+        stroke_width=5 * stroke_width,
+    )
+
+    svgplt.hemisphere.ax_add_grid(
+        ax=ax,
+        stroke=svgplt.color.css("white"),
+        stroke_opacity=1.0,
+        stroke_width=0.3 * stroke_width,
+        font_size=3.0 * font_size,
+    )
+    svgplt.ax_add_text(
+        ax=axe,
+        xy=[-5, -0.075],
+        text=sky_values_label,
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.ax_add_text(
+        ax=axe,
+        xy=[0.0, -0.075],
+        text="energy / GeV",
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[-1.0, -0.85],
+        text="{:s}".format(skymap.config["site"]["key"]),
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[-1.0, -0.95],
+        text="{:s}".format(skymap.config["particle"]["key"]),
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=3 * font_size,
+    )
+
+    svgplt.fig_write(fig=fig, path=path)
+
+
+def plot_exposure(path, skymap, enebin, num_pixel=1280):
+    sky_num_primaries = skymap.map_exposure()[enebin]
+    sky_num_primaries_per_sr = (
+        sky_num_primaries / skymap.binning["sky"].faces_solid_angles
+    )
+
+    colormap = svgplt.color.Map(
+        name="viridis",
+        start=0.0,
+        stop=np.max(sky_num_primaries_per_sr),
+        func=svgplt.scaling.unity(),
+    )
+
+    fig = svgplt.Fig(cols=(3 * num_pixel) // 2, rows=num_pixel)
+
+    font_size = 15 * num_pixel / 1280
+    stroke_width = num_pixel / 1280
+
+    ax = svgplt.hemisphere.Ax(fig=fig)
+    ax["span"] = (0.0, 0.0, 1 / (3 / 2), 1)
+
+    axw = svgplt.Ax(fig=fig)
+    axw["span"] = (0.7, 0.1, 0.025, 0.8)
+    axw["yscale"] = colormap.func
+
+    ax_add_sky(
+        ax=ax,
+        sky_valuesertices=skymap.binning["sky"].vertices,
+        sky_faces=skymap.binning["sky"].faces,
+        sky_intensity=sky_num_primaries_per_sr,
+        colormap=colormap,
+        fill_opacity=1.0,
+        sky_mask=None,
+        sky_mask_color=None,
+    )
+    svgplt.hemisphere.ax_add_grid(
+        ax=ax,
+        stroke=svgplt.color.css("white"),
+        stroke_opacity=1.0,
+        stroke_width=0.3 * stroke_width,
+        font_size=3.0 * font_size,
+    )
+    svgplt.color.ax_add_colormap(
+        ax=axw,
+        colormap=colormap,
+        fn=128,
+        orientation="vertical",
+    )
+    svgplt.color.ax_add_colormap_ticks(
+        ax=axw,
+        colormap=colormap,
+        num=6,
+        orientation="vertical",
+        fill=svgplt.color.css("black"),
+        stroke=None,
+        stroke_width=1.5 * stroke_width,
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.ax_add_text(
+        ax=ax,
+        xy=[0.9, -0.9],
+        text="primary density / (sr)\u207b\u00b9",
+        fill=svgplt.color.css("black"),
+        font_family="math",
+        font_size=3 * font_size,
+    )
+    svgplt.fig_write(fig=fig, path=path)
+
+
+import sebastians_matplotlib_addons as sebplt
+
+
+def plot_map(path, skymap, enebin):
+    p2c = skymap.map_primary_to_cherenkov_normalized_per_sr()
+
+    fig = sebplt.figure(
+        style={"rows": 1440, "cols": 1440, "fontsize": 1},
+        dpi=240,
+    )
+    ax_c = sebplt.add_axes(fig=fig, span=[0.25, 0.27, 0.55, 0.65])
+    ax_cb = sebplt.add_axes(fig=fig, span=[0.85, 0.27, 0.02, 0.65])
+    ax_c.set_aspect("equal")
+    pcm = ax_c.pcolormesh(
+        np.transpose(p2c[enebin]),
+        cmap="viridis",
+        norm=sebplt.plt_colors.LogNorm(vmin=1e3, vmax=1e8),
+    )
+    sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
+    sebplt.ax_add_grid(ax_c)
+    fig.savefig(path)
+    sebplt.close(fig)

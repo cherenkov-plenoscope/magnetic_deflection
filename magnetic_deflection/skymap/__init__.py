@@ -261,11 +261,7 @@ class SkyMap:
 
         return (skybins, skybins_weights, enebins, enebins_weights)
 
-    def query_ball(
-        self,
-        query,
-        map_key,
-    ):
+    def _query_ball(self, query, map_key):
         (
             skybins,
             skybins_weights,
@@ -279,229 +275,92 @@ class SkyMap:
             enebins=enebins,
             enebins_weights=enebins_weights,
         )
+        num_sky_bins = len(self.binning["sky"].faces)
 
-        ex = self.map_exposure()
-        if map_key == "primary_to_cherenkov":
-            mmm = self.map_primary_to_cherenkov()
-        elif map_key == "cherenkov_to_primary":
-            mmm = self.map_cherenkov_to_primary()
-        else:
-            raise ValueError("Unknown map_key '{:s}'.".format(map_key))
+        mmm = self.map_primary_to_cherenkov_normalized_per_sr()
 
-        sky_intensity = np.zeros(len(self.binning["sky"].faces))
+        sky_intensity = np.zeros(num_sky_bins)
 
         for i in range(len(fsky)):
             skybin = fsky[i]
             enebin = fene[i]
-            weight = fweights[i]
-            if ex[enebin][skybin] > 0:
-                cell_sky_intensity = mmm[enebin][skybin] / ex[enebin][skybin]
-                sky_intensity += weight * cell_sky_intensity
+            weight_bin = fweights[i]
+
+            sky_intensity_bin = np.zeros(num_sky_bins)
+            for jbin in range(num_sky_bins):
+                if map_key == "primary_to_cherenkov":
+                    sky_intensity_bin[jbin] = mmm[enebin][skybin][jbin]
+                elif map_key == "cherenkov_to_primary":
+                    sky_intensity_bin[jbin] = mmm[enebin][jbin][skybin]
+                else:
+                    raise ValueError("Unknown map_key '{:s}'.".format(map_key))
+
+            sky_intensity += weight_bin * sky_intensity_bin
 
         return sky_intensity
 
-    def plot_query_ball(
+    def query_ball_primary_to_cherenkov(self, query):
+        return self._query_ball(query=query, map_key="primary_to_cherenkov")
+
+    def query_ball_cherenkov_to_primary(self, query):
+        return self._query_ball(query=query, map_key="cherenkov_to_primary")
+
+    def plot_query_ball_primary_to_cherenkov(
         self,
         query,
-        map_key,
         path,
-        quantile=0.0,
-        vmin=None,
-        vmax=None,
-        logmin=1e-6,
-        logscale=True,
     ):
-        sky_intensity = self.query_ball(query=query, map_key=map_key)
+        sky_values = self.query_ball_primary_to_cherenkov(query=query)
 
-        if map_key == "primary_to_cherenkov":
-            sky_intensity /= self.binning["sky"].faces_solid_angles
+        plotting.plot_query(
+            path=path,
+            num_pixel=1280,
+            query=query,
+            skymap=self,
+            sky_values=sky_values,
+            sky_values_min=1e3,
+            sky_values_max=1e8,
+            sky_values_label="cherenkov density / (sr)\u207b\u00b9",
+            sky_values_scale="log",
+            sky_mask=None,
+            sky_mask_color="blue",
+            colormap_name="inferno",
+        )
 
-        # estimate p50 of p50 brightest faces
-        _sky_p50_mask = (
-            spherical_histogram.mask_fewest_bins_to_contain_quantile(
-                bin_counts=sky_intensity,
-                quantile=0.5,
+        return sky_values
+
+    def plot_query_ball_cherenkov_to_primary(
+        self,
+        query,
+        path,
+        threshold_cherenkov_density_per_sr=1e4,
+    ):
+        sky_values = self.query_ball_cherenkov_to_primary(query=query)
+        sky_mask = sky_values >= threshold_cherenkov_density_per_sr
+
+        sky_mask = (
+            spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
+                faces_mask=sky_mask,
+                faces_neighbors=self.binning["sky"].faces_neighbors,
             )
         )
-        _sky_brightest_faces = sky_intensity[_sky_p50_mask]
-        if len(_sky_brightest_faces) > 0:
-            sky_intensity_p50 = np.quantile(_sky_brightest_faces, q=0.5)
-        else:
-            sky_intensity_p50 = 0.0
 
-        if quantile is not None:
-            _sky_intensity_quantile_mask = (
-                spherical_histogram.mask_fewest_bins_to_contain_quantile(
-                    bin_counts=sky_intensity,
-                    quantile=quantile,
-                )
-            )
-            sky_intensity_quantile_mask = (
-                spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
-                    faces_mask=_sky_intensity_quantile_mask,
-                    faces_neighbors=self.binning["sky"].faces_neighbors,
-                )
-            )
-        else:
-            sky_intensity_quantile_mask = None
-
-        if logscale:
-            sky_intensity += logmin
-            intensity_scale = svgplt.scaling.log(base=10)
-        else:
-            intensity_scale = svgplt.scaling.unity()
-
-        if vmin is None:
-            vmin = min(sky_intensity)
-        if vmax is None:
-            vmax = max(sky_intensity)
-
-        if map_key == "primary_to_cherenkov":
-            colormap = svgplt.color.Map(
-                name="inferno",
-                start=vmin,
-                stop=vmax,
-                func=intensity_scale,
-            )
-            sky_intensity_unit = "cherenkov density / (sr)\u207b\u00b9"
-
-        elif map_key == "cherenkov_to_primary":
-            colormap = svgplt.color.Map(
-                name="viridis",
-                start=vmin,
-                stop=vmax,
-                func=intensity_scale,
-            )
-            sky_intensity_unit = "trigger prob. / 1"
-
-        else:
-            raise ValueError("No such map_key '{:s}'".format(map_key))
-
-        NPIX = 1280
-        fig = svgplt.Fig(cols=(3 * NPIX) // 2, rows=NPIX)
-        font_size = 15 * NPIX / 1280
-        stroke_width = NPIX / 1280
-
-        ax = svgplt.hemisphere.Ax(fig=fig)
-        ax["span"] = (0.0, 0.0, 1 / (3 / 2), 1)
-
-        axw = svgplt.Ax(fig=fig)
-        axw["span"] = (0.7, 0.1, 0.025, 0.8)
-        axw["yscale"] = colormap.func
-
-        axe = svgplt.Ax(fig=fig)
-        axe["span"] = (0.85, 0.1, 0.05, 0.8)
-
-        plotting.ax_add_sky(
-            ax=ax,
-            sky_vertices=self.binning["sky"].vertices,
-            sky_faces=self.binning["sky"].faces,
-            sky_intensity=sky_intensity,
-            colormap=colormap,
-            fill_opacity=1.0,
-            sky_mask=sky_intensity_quantile_mask,
-            sky_mask_color=svgplt.color.css("orange"),
+        plotting.plot_query(
+            path=path,
+            num_pixel=1280,
+            query=query,
+            skymap=self,
+            sky_values=sky_values,
+            sky_values_min=1e3,
+            sky_values_max=1e8,
+            sky_values_label="cherenkov density / (sr)\u207b\u00b9",
+            sky_values_scale="log",
+            sky_mask=sky_mask,
+            sky_mask_color="red",
+            colormap_name="viridis",
         )
 
-        plotting.ax_add_fov(
-            ax=ax,
-            azimuth_rad=query["azimuth_rad"],
-            zenith_rad=query["zenith_rad"],
-            half_angle_rad=query["half_angle_rad"],
-            stroke=svgplt.color.css("red"),
-            stroke_width=4 * stroke_width,
-            fill=None,
-        )
-
-        plotting.ax_add_energy_bar(
-            ax=axe,
-            bin_edges=self.binning["energy"]["edges"],
-            power_slope=self.config["energy_power_slope"],
-            start=query["energy_start_GeV"],
-            stop=query["energy_stop_GeV"],
-            font_size=3 * font_size,
-            stroke_width=1.5 * stroke_width,
-            stroke=svgplt.color.css("black"),
-        )
-
-        svgplt.color.ax_add_colormap(
-            ax=axw,
-            colormap=colormap,
-            fn=128,
-            orientation="vertical",
-        )
-        svgplt.color.ax_add_colormap_ticks(
-            ax=axw,
-            colormap=colormap,
-            num=6,
-            orientation="vertical",
-            fill=svgplt.color.css("black"),
-            stroke=None,
-            stroke_width=1.5 * stroke_width,
-            font_family="math",
-            font_size=3 * font_size,
-        )
-        svgplt.ax_add_line(
-            ax=axw,
-            xy_start=[-0.5, sky_intensity_p50],
-            xy_stop=[0, sky_intensity_p50],
-            stroke=svgplt.color.css("black"),
-            stroke_width=5 * stroke_width,
-        )
-
-        svgplt.hemisphere.ax_add_grid(
-            ax=ax,
-            stroke=svgplt.color.css("white"),
-            stroke_opacity=1.0,
-            stroke_width=0.3 * stroke_width,
-            font_size=3.0 * font_size,
-        )
-        svgplt.ax_add_text(
-            ax=axe,
-            xy=[-5, -0.075],
-            text=sky_intensity_unit,
-            fill=svgplt.color.css("black"),
-            font_family="math",
-            font_size=3 * font_size,
-        )
-        svgplt.ax_add_text(
-            ax=axe,
-            xy=[0.0, -0.075],
-            text="energy / GeV",
-            fill=svgplt.color.css("black"),
-            font_family="math",
-            font_size=3 * font_size,
-        )
-        svgplt.ax_add_text(
-            ax=ax,
-            xy=[-1.0, -0.85],
-            text="{:s}".format(self.config["site"]["key"]),
-            fill=svgplt.color.css("black"),
-            font_family="math",
-            font_size=3 * font_size,
-        )
-        svgplt.ax_add_text(
-            ax=ax,
-            xy=[-1.0, -1],
-            text="{:s}".format(self.config["particle"]["key"]),
-            fill=svgplt.color.css("black"),
-            font_family="math",
-            font_size=3 * font_size,
-        )
-
-        svgplt.fig_write(fig=fig, path=path + ".svg")
-
-        from svg_cartesian_plot import inkscape
-
-        inkscape.render(
-            path + ".svg",
-            path,
-            background_opacity=0.0,
-            export_type="png",
-        )
-        os.remove(path + ".svg")
-
-        return sky_intensity
+        return sky_values
 
     def demonstrate(
         self,
@@ -510,6 +369,7 @@ class SkyMap:
         num_jobs=6,
         queries=None,
         map_key="primary_to_cherenkov",
+        threshold_cherenkov_density_per_sr=1e4,
     ):
         os.makedirs(path, exist_ok=True)
         if queries is None:
@@ -518,21 +378,6 @@ class SkyMap:
                 max_energy_GeV=self.binning["energy"]["limits"][1],
                 num=6,
             )
-
-        map_keys = {
-            "primary_to_cherenkov": {
-                "vmin": 1e1,
-                "vmax": 1e8,
-                "quantile": 0,
-                "logscale": True,
-            },
-            "cherenkov_to_primary": {
-                "vmin": 1e-2,
-                "vmax": 1.25,
-                "quantile": 0.8,
-                "logscale": False,
-            },
-        }
 
         num_tasks = int(np.ceil(len(queries) / num_jobs) * num_jobs)
         task_ii = np.arange(num_tasks)
@@ -547,16 +392,15 @@ class SkyMap:
             for i in job_ii[j]:
                 if i < len(queries):
                     name = "{:06d}".format(i)
-                    imgpath = os.path.join(path, name + "." + map_key + ".png")
+                    imgpath = os.path.join(path, name + "." + map_key + ".jpg")
                     if not os.path.exists(imgpath):
                         call = {}
                         call["query"] = queries[i]
                         call["map_key"] = map_key
                         call["path"] = imgpath
-                        call["quantile"] = map_keys[map_key]["quantile"]
-                        call["vmin"] = map_keys[map_key]["vmin"]
-                        call["vmax"] = map_keys[map_key]["vmax"]
-                        call["logscale"] = map_keys[map_key]["logscale"]
+                        call[
+                            "threshold_cherenkov_density_per_sr"
+                        ] = threshold_cherenkov_density_per_sr
                         job["calls"].append(call)
             jobs.append(job)
 
@@ -568,7 +412,7 @@ class SkyMap:
 
             video.write_video_from_image_slices(
                 image_sequence_wildcard_path=os.path.join(
-                    path, "%06d" + "." + map_key + ".png"
+                    path, "%06d" + "." + map_key + ".jpg"
                 ),
                 output_path=os.path.join(path, map_key + ".mov"),
             )
@@ -576,22 +420,11 @@ class SkyMap:
             pass
 
     def map_primary_to_cherenkov(self):
-        if not hasattr(self, "_map_primary_to_cherenkov"):
-            self._map_primary_to_cherenkov = utils.read_array(
-                path=os.path.join(
-                    self.work_dir, "results", "map.primary_to_cherenkov.rec"
-                )
+        return utils.read_array(
+            path=os.path.join(
+                self.work_dir, "results", "map.primary_to_cherenkov.rec"
             )
-        return self._map_primary_to_cherenkov
-
-    def map_cherenkov_to_primary(self):
-        if not hasattr(self, "_map_cherenkov_to_primary"):
-            self._map_cherenkov_to_primary = utils.read_array(
-                path=os.path.join(
-                    self.work_dir, "results", "map.cherenkov_to_primary.rec"
-                )
-            )
-        return self._map_cherenkov_to_primary
+        )
 
     def map_exposure(self):
         if not hasattr(self, "_map_exposure"):
@@ -601,17 +434,41 @@ class SkyMap:
         return self._map_exposure
 
     def map_primary_to_cherenkov_normalized_per_sr(self):
-        p2c = self.map_primary_to_cherenkov()
-        exx = self.map_exposure()
-        out = np.zeros(shape=p2c.shape, dtype=np.float32)
-        for e in range(p2c.shape[0]):
-            for p in range(p2c.shape[1]):
-                eee = exx[e][p]
-                if np.sum(eee) > 0:
-                    sss = p2c[e][p] / eee
-                    sss = sss / self.binning["sky"].faces_solid_angles
-                out[e][p] = sss
-        return out
+        if not hasattr(self, "_map_primary_to_cherenkov_normalized_per_sr"):
+            prm2cer = self.map_primary_to_cherenkov()
+            num_prm = self.map_exposure()
+
+            self._map_primary_to_cherenkov_normalized_per_sr = np.zeros(
+                shape=prm2cer.shape,
+                dtype=np.float32,
+            )
+
+            for enebin in range(prm2cer.shape[0]):
+                for prmbin in range(prm2cer.shape[1]):
+                    eee = num_prm[enebin][prmbin]
+                    if eee > 0:
+                        vvv = prm2cer[enebin][prmbin].copy()
+                        vvv /= eee
+                        vvv /= self.binning["sky"].faces_solid_angles
+                        self._map_primary_to_cherenkov_normalized_per_sr[
+                            enebin
+                        ][prmbin] = vvv
+
+        # cross check
+        # -----------
+        for enebin in range(prm2cer.shape[0]):
+            for prmbin in range(prm2cer.shape[1]):
+                if num_prm[enebin][prmbin] == 0:
+                    assert (
+                        np.sum(
+                            self._map_primary_to_cherenkov_normalized_per_sr[
+                                enebin
+                            ][prmbin]
+                        )
+                        == 0.0
+                    )
+
+        return self._map_primary_to_cherenkov_normalized_per_sr
 
 
 def _guess_energy_bin_edges_GeV(
@@ -888,5 +745,17 @@ def _combine_weights_of_sky_and_ene_bins(
 def _run_job_plot_query_ball(job):
     skymap = SkyMap(work_dir=job["work_dir"])
     for call in job["calls"]:
-        skymap.plot_query_ball(**call)
+        if call["map_key"] == "primary_to_cherenkov":
+            skymap.plot_query_ball_primary_to_cherenkov(
+                query=call["query"],
+                path=call["path"],
+            )
+        elif call["map_key"] == "cherenkov_to_primary":
+            skymap.plot_query_ball_cherenkov_to_primary(
+                query=call["query"],
+                path=call["path"],
+                threshold_cherenkov_density_per_sr=call[
+                    "threshold_cherenkov_density_per_sr"
+                ],
+            )
     return True
