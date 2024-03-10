@@ -349,25 +349,28 @@ def plot_exposure(path, skymap, enebin, num_pixel=1280):
     svgplt.fig_write(fig=fig, path=path)
 
 
-import sebastians_matplotlib_addons as sebplt
+def plot_map(path, skymap, enebin, num_pixel=1280):
+    p2c = skymap.map_primary_to_cherenkov_normalized_per_sr()[enebin]
 
-
-def plot_map(path, skymap, enebin):
-    p2c = skymap.map_primary_to_cherenkov_normalized_per_sr()
-
-    fig = sebplt.figure(
-        style={"rows": 1440, "cols": 1440, "fontsize": 1},
-        dpi=240,
+    colormap = svgplt.color.Map(
+        name="viridis",
+        start=1e3,
+        stop=1e8,
+        func=svgplt.scaling.log(base=10),
     )
-    ax_c = sebplt.add_axes(fig=fig, span=[0.25, 0.27, 0.55, 0.65])
-    ax_cb = sebplt.add_axes(fig=fig, span=[0.85, 0.27, 0.02, 0.65])
-    ax_c.set_aspect("equal")
-    pcm = ax_c.pcolormesh(
-        np.transpose(p2c[enebin]),
-        cmap="viridis",
-        norm=sebplt.plt_colors.LogNorm(vmin=1e3, vmax=1e8),
+
+    fig = svgplt.Fig(cols=(3 * num_pixel) // 2, rows=num_pixel)
+
+    font_size = 15 * num_pixel / 1280
+    stroke_width = num_pixel / 1280
+
+    ax = svgplt.Ax(fig=fig)
+    ax["span"] = (0.1, 0.1, 0.8 / (3 / 2), 0.8)
+
+    svgplt.ax_add_pcolormesh(
+        ax=ax,
+        z=p2c,
+        colormap=colormap,
+        fill_opacity=1.0,
     )
-    sebplt.plt.colorbar(pcm, cax=ax_cb, extend="max")
-    sebplt.ax_add_grid(ax_c)
-    fig.savefig(path)
-    sebplt.close(fig)
+    svgplt.fig_write(fig=fig, path=path)
