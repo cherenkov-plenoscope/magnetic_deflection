@@ -320,7 +320,8 @@ class SkyMap:
             sky_values=sky_values,
             sky_values_min=1e3,
             sky_values_max=1e8,
-            sky_values_label="cherenkov density / (sr)\u207b\u00b9",
+            sky_values_label="cherenkov density / (sr)"
+            + svgplt.text.superscript("-1"),
             sky_values_scale="log",
             sky_mask=None,
             sky_mask_color="blue",
@@ -353,7 +354,8 @@ class SkyMap:
             sky_values=sky_values,
             sky_values_min=1e3,
             sky_values_max=1e8,
-            sky_values_label="cherenkov density / (sr)\u207b\u00b9",
+            sky_values_label="cherenkov density / (sr)"
+            + svgplt.text.superscript("-1"),
             sky_values_scale="log",
             sky_mask=sky_mask,
             sky_mask_color="red",
