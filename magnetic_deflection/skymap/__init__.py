@@ -691,7 +691,7 @@ def _append_tar(tarfout, name, payload_bytes):
         tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
 
 
-def reports_read(path, dtype=None):
+def reports_read(path, dtype=None, query=None):
     if dtype is None:
         dtype = (
             cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
@@ -709,6 +709,13 @@ def reports_read(path, dtype=None):
             payload = gzip.decompress(payload_gz)
             reports_block = np.frombuffer(buffer=payload, dtype=full_dtype)
 
+            if query is not None:
+                mask = reports_query_to_mask(
+                    reports=reports_block,
+                    query=query,
+                )
+                reports_block = reports_block[mask]
+
             reports_block_out = recarray_utils.init(
                 dtype=dtype,
                 size=reports_block.size,
@@ -719,7 +726,26 @@ def reports_read(path, dtype=None):
 
             out.append_recarray(reports_block_out)
 
-    return out
+    return out.to_recarray()
+
+
+def reports_query_to_mask(reports, query):
+    query_cx, query_cy = spherical_coordinates.az_zd_to_cx_cy(
+        azimuth_rad=query["azimuth_rad"],
+        zenith_rad=query["zenith_rad"],
+    )
+    delta_rad = spherical_coordinates.angle_between_cx_cy(
+        cx1=query_cx,
+        cy1=query_cy,
+        cx2=reports["particle_cx"],
+        cy2=reports["particle_cy"],
+    )
+    mask_cone = delta_rad <= query["half_angle_rad"]
+    mask_energy = np.logical_and(
+        reports["particle_energy_GeV"] >= query["energy_start_GeV"],
+        reports["particle_energy_GeV"] < query["energy_stop_GeV"],
+    )
+    return np.logical_and(mask_cone, mask_energy)
 
 
 def _combine_weights_of_sky_and_ene_bins(
