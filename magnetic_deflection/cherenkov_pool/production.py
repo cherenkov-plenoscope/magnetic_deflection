@@ -211,9 +211,8 @@ def histogram_cherenkov_pool_report_dtype():
 def histogram_cherenkov_pool(
     corsika_steering_dict,
     binning,
-    threshold_num_photons,
 ):
-    cer_to_prm = cherenkov_to_primary_map.CherenkovToPrimaryMap(
+    cerskymap = cherenkov_to_primary_map.CherenkovSkyMap(
         sky_bin_geometry=binning["sky"],
         energy_bin_edges_GeV=binning["energy"]["edges"],
     )
@@ -224,7 +223,6 @@ def histogram_cherenkov_pool(
     cerpoolhist = cherenkov_pool_histogram.CherenkovPoolHistogram(
         sky_bin_geometry=binning["sky"],
         ground_bin_width_m=binning["ground"]["width"],
-        threshold_num_photons=threshold_num_photons,
     )
 
     with tempfile.TemporaryDirectory(prefix="mdfl_") as tmp_dir:
@@ -254,17 +252,15 @@ def histogram_cherenkov_pool(
                     cerpoolhist.assign_bunches(bunches=bunches)
 
                 report.update(cerpoolhist.report())
-                cherenkov_sky_mask = cerpoolhist.sky_above_threshold()
                 cherenkov_sky_intensity = cerpoolhist.sky_intensity()
 
-                cermap_report = cer_to_prm.assign(
+                cermap_report = cerskymap.assign(
                     particle_cx=report["particle_cx"],
                     particle_cy=report["particle_cy"],
                     particle_energy_GeV=report["particle_energy_GeV"],
-                    cherenkov_sky_mask=cherenkov_sky_mask,
                     cherenkov_sky_intensity=cherenkov_sky_intensity,
                 )
                 report.update(cermap_report)
 
                 reports.append_record(report)
-        return reports.to_recarray(), cer_to_prm
+        return reports.to_recarray(), cerskymap

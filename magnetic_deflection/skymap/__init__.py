@@ -33,7 +33,6 @@ def init(
     site_key,
     energy_bin_edges_GeV,
     energy_power_slope,
-    threshold_num_photons,
     sky_vertices,
     sky_faces,
     ground_bin_area_m2,
@@ -96,14 +95,6 @@ def init(
         o=ground_bin_area_m2,
     )
 
-    # threshold
-    # ---------
-    assert threshold_num_photons > 0.0
-    _json_write(
-        path=opj(binning_dir, "threshold_num_photons.json"),
-        o=threshold_num_photons,
-    )
-
     # run_id
     # ------
     allsky.production.init(production_dir=opj(work_dir, "production"))
@@ -114,7 +105,6 @@ def init(
 def init_example(work_dir, particle_key="electron", site_key="lapalma"):
     PORTAL_FOV_HALF_ANGLE_RAD = np.deg2rad(3.25)
     PORTAL_MIRROR_DIAMETER_M = 71.0
-    PORTAL_THRESHOLD_NUM_PHOTONS = 25
     overhead = 2.0
 
     vertices, faces = _guess_sky_vertices_and_faces(
@@ -143,7 +133,6 @@ def init_example(work_dir, particle_key="electron", site_key="lapalma"):
             energy_start_GeV=energy_start_GeV,
         ),
         energy_power_slope=ENERGY_POWER_SLOPE,
-        threshold_num_photons=(PORTAL_THRESHOLD_NUM_PHOTONS / overhead),
         sky_vertices=vertices,
         sky_faces=faces,
         ground_bin_area_m2=ground_bin_area_m2,
@@ -169,7 +158,6 @@ class SkyMap:
         # ----
         self.config = json_utils.tree.read(path=opj(work_dir, "config"))
         cfg = self.config
-        self.threshold_num_photons = cfg["binning"]["threshold_num_photons"]
 
         with open(opj(work_dir, "config", "binning", "sky.obj"), "rt") as f:
             _sky_obj = triangle_mesh_io.obj.loads(f.read())
@@ -566,10 +554,9 @@ def _population_run_job(job):
         num_showers=job["num_showers"],
     )
 
-    reports, cermap = cherenkov_pool.production.histogram_cherenkov_pool(
+    reports, cerskymap = cherenkov_pool.production.histogram_cherenkov_pool(
         corsika_steering_dict=corsika_steering_dict,
         binning=sm.binning,
-        threshold_num_photons=sm.threshold_num_photons,
     )
 
     assert len(reports) == len(corsika_steering_dict["primaries"])
@@ -584,17 +571,12 @@ def _population_run_job(job):
 
     utils.write_array(
         path=out_path + ".map.exposure.rec",
-        a=cermap.exposure,
-    )
-
-    utils.write_array(
-        path=out_path + ".map.cherenkov_to_primary.rec",
-        a=cermap.cherenkov_to_primary,
+        a=cerskymap.exposure,
     )
 
     utils.write_array(
         path=out_path + ".map.primary_to_cherenkov.rec",
-        a=cermap.primary_to_cherenkov,
+        a=cerskymap.primary_to_cherenkov,
     )
 
     return True
@@ -620,10 +602,6 @@ def _collect_stage_into_results_map(work_dir, skymap=None):
 
     names = {
         "exposure": {"dtype": "u8", "shape": (NUM_E, NUM_S)},
-        "cherenkov_to_primary": {
-            "dtype": "u2",
-            "shape": (NUM_E, NUM_S, NUM_S),
-        },
         "primary_to_cherenkov": {
             "dtype": "f4",
             "shape": (NUM_E, NUM_S, NUM_S),
