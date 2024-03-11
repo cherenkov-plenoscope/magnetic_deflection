@@ -10,7 +10,7 @@ import svg_cartesian_plot as svgplt
 import dynamicsizerecarray
 
 from . import analysis
-from . import cherenkov_to_primary_map
+from . import cherenkov_sky_map
 from . import cherenkov_pool_histogram
 
 from .. import allsky
@@ -204,7 +204,7 @@ def histogram_cherenkov_pool_report_dtype():
     return (
         identification
         + cherenkov_pool_histogram.report_dtype()
-        + cherenkov_to_primary_map.report_dtype()
+        + cherenkov_sky_map.report_dtype()
     )
 
 
@@ -212,7 +212,7 @@ def histogram_cherenkov_pool(
     corsika_steering_dict,
     binning,
 ):
-    cerskymap = cherenkov_to_primary_map.CherenkovSkyMap(
+    cerskymap = cherenkov_sky_map.CherenkovSkyMap(
         sky_bin_geometry=binning["sky"],
         energy_bin_edges_GeV=binning["energy"]["edges"],
     )
