@@ -120,7 +120,7 @@ def init_example(work_dir, particle_key="electron", site_key="lapalma"):
     vertices, faces = _guess_sky_vertices_and_faces(
         fov_half_angle_rad=PORTAL_FOV_HALF_ANGLE_RAD,
         num_faces_in_fov=overhead,
-        max_zenith_distance_rad=np.deg2rad(89.0),
+        max_zenith_distance_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
     )
     ground_bin_area_m2 = _guess_ground_bin_area_m2(
         mirror_diameter_m=PORTAL_MIRROR_DIAMETER_M,
