@@ -446,12 +446,9 @@ class SkyMap:
 
         # cross check
         # -----------
-        for enebin in range(
-            self._map_primary_to_cherenkov_normalized_per_sr.shape[0]
-        ):
-            for prmbin in range(
-                self._map_primary_to_cherenkov_normalized_per_sr.shape[1]
-            ):
+        num_prm = self.map_exposure()
+        for enebin in range(num_prm.shape[0]):
+            for prmbin in range(num_prm.shape[1]):
                 if num_prm[enebin][prmbin] == 0:
                     assert (
                         np.sum(
@@ -463,6 +460,139 @@ class SkyMap:
                     )
 
         return self._map_primary_to_cherenkov_normalized_per_sr
+
+    def draw(
+        self,
+        viewcone_azimuth_rad,
+        viewcone_zenith_rad,
+        viewcone_half_angle_rad,
+        particle_energy_start_GeV,
+        particle_energy_stop_GeV,
+        threshold_cherenkov_density_per_sr,
+        containment_quantile,
+        prng,
+    ):
+        """
+        Parameters
+        ----------
+        viewcone_azimuth_rad : float
+        viewcone_zenith_rad : float
+        viewcone_half_angle_rad : float
+        particle_energy_start_GeV : float
+        particle_energy_stop_GeV : float
+        threshold_cherenkov_density_per_sr : float
+        containment_quantile : float
+        prng : numpy.random.Generator
+            The pseudo random number-generator to draw from.
+
+        Returns
+        -------
+        results, debug : (dict, dict)
+        """
+        debug = {}
+        debug["work_dir"] = copy.copy(self.work_dir)
+        debug["versions"] = copy.deepcopy(self.versions)
+        debug["parameters"] = {
+            "viewcone_azimuth_rad": viewcone_azimuth_rad,
+            "viewcone_zenith_rad": viewcone_zenith_rad,
+            "viewcone_half_angle_rad": viewcone_half_angle_rad,
+            "particle_energy_start_GeV": particle_energy_start_GeV,
+            "particle_energy_stop_GeV": particle_energy_stop_GeV,
+            "threshold_cherenkov_density_per_sr": threshold_cherenkov_density_per_sr,
+            "containment_quantile": containment_quantile,
+        }
+        debug["population_num_showers"] = np.sum(self.map_exposure())
+
+        result = {"cutoff": True}
+
+        query = querying.Query(
+            azimuth_rad=viewcone_azimuth_rad,
+            zenith_rad=viewcone_zenith_rad,
+            half_angle_rad=viewcone_half_angle_rad,
+            energy_start_GeV=particle_energy_start_GeV,
+            energy_stop_GeV=particle_energy_stop_GeV,
+        )
+
+        debug["sky_cherenkov_per_sr"] = self.query_ball_cherenkov_to_primary(
+            query=query
+        )
+        debug["sky_above_threshold_mask"] = (
+            debug["sky_cherenkov_per_sr"] >= threshold_cherenkov_density_per_sr
+        )
+
+        sky_cherenkov_per_sr_cutoff = copy.deepcopy(
+            debug["sky_cherenkov_per_sr"]
+        )
+        sky_cherenkov_per_sr_cutoff[
+            np.logical_not(debug["sky_above_threshold_mask"])
+        ] = 0.0
+
+        debug[
+            "sky_containment_mask"
+        ] = binning_utils.mask_fewest_bins_to_contain_quantile(
+            bin_counts=sky_cherenkov_per_sr_cutoff,
+            quantile=containment_quantile,
+        )
+
+        # a little bit of dilation
+        # ------------------------
+        debug[
+            "sky_draw_mask"
+        ] = spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
+            faces_mask=debug["sky_containment_mask"],
+            faces_neighbors=self.binning["sky"].faces_neighbors,
+        )
+
+        if np.sum(debug["sky_draw_mask"]) > 0:
+            result["cutoff"] = False
+
+            debug["face"] = draw_face_from_mask(
+                prng=prng,
+                faces_mask=debug["sky_draw_mask"],
+                faces_solid_angles=self.binning["sky"].faces_solid_angles,
+            )
+
+            (
+                result["particle_azimuth_rad"],
+                result["particle_zenith_rad"],
+            ) = draw_pointing_cxcycz_from_face(
+                prng=prng,
+                face=debug["face"],
+                faces=self.binning["sky"].faces,
+                vertices=self.binning["sky"].vertices,
+            )
+            result["solid_angle_thrown_sr"] = np.sum(
+                self.binning["sky"].faces_solid_angles[debug["sky_draw_mask"]]
+            )
+
+        return result, debug
+
+
+def draw_face_from_mask(prng, faces_mask, faces_solid_angles):
+    all_face_ids = np.arange(len(faces_mask))
+    masked_face_ids = all_face_ids[faces_mask]
+    masked_faces_solid_angles = faces_solid_angles[faces_mask]
+    jj = binning_utils.draw_random_bin(
+        prng=prng, bin_apertures=masked_faces_solid_angles
+    )
+    return masked_face_ids[jj]
+
+
+def draw_pointing_cxcycz_from_face(prng, face, faces, vertices):
+    vertex_a = vertices[faces[face][0]]
+    vertex_b = vertices[faces[face][1]]
+    vertex_c = vertices[faces[face][2]]
+    point = spherical_histogram.mesh.draw_point_on_triangle(
+        prng=prng,
+        a=vertex_a,
+        b=vertex_b,
+        c=vertex_c,
+    )
+    pointing = point / np.linalg.norm(point)
+
+    return spherical_coordinates.cx_cy_cz_to_az_zd(
+        cx=pointing[0], cy=pointing[1], cz=pointing[2]
+    )
 
 
 def _guess_energy_bin_edges_GeV(

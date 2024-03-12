@@ -137,7 +137,7 @@ def plot_query(
     num_pixel=1280,
 ):
     # estimate p50 of p50 brightest faces
-    _sky_p50_mask = spherical_histogram.mask_fewest_bins_to_contain_quantile(
+    _sky_p50_mask = binning_utils.mask_fewest_bins_to_contain_quantile(
         bin_counts=sky_values,
         quantile=0.5,
     )
