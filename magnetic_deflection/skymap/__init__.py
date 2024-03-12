@@ -446,8 +446,12 @@ class SkyMap:
 
         # cross check
         # -----------
-        for enebin in range(prm2cer.shape[0]):
-            for prmbin in range(prm2cer.shape[1]):
+        for enebin in range(
+            self._map_primary_to_cherenkov_normalized_per_sr.shape[0]
+        ):
+            for prmbin in range(
+                self._map_primary_to_cherenkov_normalized_per_sr.shape[1]
+            ):
                 if num_prm[enebin][prmbin] == 0:
                     assert (
                         np.sum(

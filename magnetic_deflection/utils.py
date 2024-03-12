@@ -95,6 +95,7 @@ def estimate_num_bins_to_contain_quantile(
         bin_apertures = np.ones(len(counts))
     else:
         APERTURE = True
+        bin_apertures = np.asarray(bin_apertures)
         assert len(bin_apertures) == len(counts)
 
     if mode == "min_num_bins":
@@ -111,7 +112,11 @@ def estimate_num_bins_to_contain_quantile(
 
     total = np.sum(sorted_counts)
     if total == 0:
-        return float("nan")
+        if APERTURE:
+            return float("nan"), float("nan")
+        else:
+            return float("nan")
+
     target = total * q
     part = 0
     numbins = 0
