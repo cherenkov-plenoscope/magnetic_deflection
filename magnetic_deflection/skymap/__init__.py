@@ -463,42 +463,67 @@ class SkyMap:
 
     def draw(
         self,
-        viewcone_azimuth_rad,
-        viewcone_zenith_rad,
-        viewcone_half_angle_rad,
-        particle_energy_start_GeV,
-        particle_energy_stop_GeV,
+        azimuth_rad,
+        zenith_rad,
+        half_angle_rad,
+        energy_start_GeV,
+        energy_stop_GeV,
         threshold_cherenkov_density_per_sr,
+        cutoff_cherenkov_density_per_sr,
         containment_quantile,
         prng,
     ):
         """
+        Draw the pointing a primary cosmic ray must have in order for an
+        instrument to have a relevant chance to see its Chernekov light
+        in a given viewcone.
+
         Parameters
         ----------
-        viewcone_azimuth_rad : float
-        viewcone_zenith_rad : float
-        viewcone_half_angle_rad : float
-        particle_energy_start_GeV : float
-        particle_energy_stop_GeV : float
+        azimuth_rad : float
+            Rotation axis azimuth of viewcone.
+        zenith_rad : float
+            Rotation axis zenith distance of viewcone.
+        half_angle_rad : float
+            Half angle of viewcone.
+        energy_start_GeV : float
+            Take showers into account induced by primary particles with at
+            least this energy.
+        energy_stop_GeV : float
+            Take showers into account induced by primary particles with up
+            to this energy.
         threshold_cherenkov_density_per_sr : float
+            Draw only from sky bins which have at least this density of
+            Cherenkov photons.
+        cutoff_cherenkov_density_per_sr : float
+            Ignore densities above this cutoff.
         containment_quantile : float
+            From all the possible sky bins above the Cherenkov density
+            threshold, only take the brightest quantile into account.
+            0.0 <= containment_quantile <= 1.0.
         prng : numpy.random.Generator
             The pseudo random number-generator to draw from.
 
         Returns
         -------
-        results, debug : (dict, dict)
+        result, debug : (dict, dict)
+            Result is the pointing of the primary, and the total solid angle
+            which was drawn from. In case of a cutoff (no relevant Cherenkov
+            light at all), the result's flag cutoff is set to True.
+            Debug contains inner workings and can be used to plot and visualize
+            the drawing algorithm.
         """
         debug = {}
         debug["work_dir"] = copy.copy(self.work_dir)
         debug["versions"] = copy.deepcopy(self.versions)
         debug["parameters"] = {
-            "viewcone_azimuth_rad": viewcone_azimuth_rad,
-            "viewcone_zenith_rad": viewcone_zenith_rad,
-            "viewcone_half_angle_rad": viewcone_half_angle_rad,
-            "particle_energy_start_GeV": particle_energy_start_GeV,
-            "particle_energy_stop_GeV": particle_energy_stop_GeV,
+            "azimuth_rad": azimuth_rad,
+            "zenith_rad": zenith_rad,
+            "half_angle_rad": half_angle_rad,
+            "energy_start_GeV": energy_start_GeV,
+            "energy_stop_GeV": energy_stop_GeV,
             "threshold_cherenkov_density_per_sr": threshold_cherenkov_density_per_sr,
+            "cutoff_cherenkov_density_per_sr": cutoff_cherenkov_density_per_sr,
             "containment_quantile": containment_quantile,
         }
         debug["population_num_showers"] = np.sum(self.map_exposure())
@@ -506,11 +531,11 @@ class SkyMap:
         result = {"cutoff": True}
 
         query = querying.Query(
-            azimuth_rad=viewcone_azimuth_rad,
-            zenith_rad=viewcone_zenith_rad,
-            half_angle_rad=viewcone_half_angle_rad,
-            energy_start_GeV=particle_energy_start_GeV,
-            energy_stop_GeV=particle_energy_stop_GeV,
+            azimuth_rad=azimuth_rad,
+            zenith_rad=zenith_rad,
+            half_angle_rad=half_angle_rad,
+            energy_start_GeV=energy_start_GeV,
+            energy_stop_GeV=energy_stop_GeV,
         )
 
         debug["sky_cherenkov_per_sr"] = self.query_ball_cherenkov_to_primary(
@@ -520,12 +545,19 @@ class SkyMap:
             debug["sky_cherenkov_per_sr"] >= threshold_cherenkov_density_per_sr
         )
 
+        debug["sky_cutoff_mask"] = (
+            debug["sky_cherenkov_per_sr"] >= cutoff_cherenkov_density_per_sr
+        )
+
         sky_cherenkov_per_sr_cutoff = copy.deepcopy(
             debug["sky_cherenkov_per_sr"]
         )
         sky_cherenkov_per_sr_cutoff[
             np.logical_not(debug["sky_above_threshold_mask"])
         ] = 0.0
+        sky_cherenkov_per_sr_cutoff[
+            debug["sky_cutoff_mask"]
+        ] = cutoff_cherenkov_density_per_sr
 
         debug[
             "sky_containment_mask"
@@ -679,8 +711,8 @@ def _population_run_job(job):
         run_id=job["run_id"],
         site=sm.config["site"],
         particle_id=sm.config["particle"]["corsika_particle_id"],
-        particle_energy_start_GeV=sm.binning["energy"]["start"],
-        particle_energy_stop_GeV=sm.binning["energy"]["stop"],
+        energy_start_GeV=sm.binning["energy"]["start"],
+        energy_stop_GeV=sm.binning["energy"]["stop"],
         particle_energy_power_slope=sm.config["energy_power_slope"],
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
