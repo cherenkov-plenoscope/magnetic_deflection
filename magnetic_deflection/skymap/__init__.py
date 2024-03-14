@@ -359,8 +359,19 @@ class SkyMap:
         num_jobs=6,
         queries=None,
         map_key="primary_to_cherenkov",
-        threshold_cherenkov_density_per_sr=1e4,
+        threshold_cherenkov_density_per_sr=5e3,
+        solid_angle_sr=None,
+        video=True,
     ):
+        if solid_angle_sr is None:
+            solid_angle_sr = solid_angle_utils.cone.solid_angle(
+                half_angle_rad=np.deg2rad(
+                    self.config["particle"]["population"]["direction"][
+                        "scatter_cone_half_angle_deg"
+                    ]
+                )
+            )
+
         os.makedirs(path, exist_ok=True)
         if queries is None:
             queries = querying.example(
@@ -385,29 +396,31 @@ class SkyMap:
                     imgpath = os.path.join(path, name + "." + map_key + ".jpg")
                     if not os.path.exists(imgpath):
                         call = {}
+                        call["seed"] = i
                         call["query"] = queries[i]
                         call["map_key"] = map_key
                         call["path"] = imgpath
                         call[
                             "threshold_cherenkov_density_per_sr"
                         ] = threshold_cherenkov_density_per_sr
+                        call["solid_angle_sr"] = solid_angle_sr
                         job["calls"].append(call)
             jobs.append(job)
 
-        print(len(jobs))
         pool.map(_run_job_plot_query_ball, jobs)
 
-        try:
-            from sebastians_matplotlib_addons import video
+        if video:
+            try:
+                from sebastians_matplotlib_addons import video
 
-            video.write_video_from_image_slices(
-                image_sequence_wildcard_path=os.path.join(
-                    path, "%06d" + "." + map_key + ".jpg"
-                ),
-                output_path=os.path.join(path, map_key + ".mov"),
-            )
-        except:
-            pass
+                video.write_video_from_image_slices(
+                    image_sequence_wildcard_path=os.path.join(
+                        path, "%06d" + "." + map_key + ".jpg"
+                    ),
+                    output_path=os.path.join(path, map_key + ".mov"),
+                )
+            except:
+                pass
 
     def map_primary_to_cherenkov(self):
         return utils.read_array(
@@ -469,8 +482,7 @@ class SkyMap:
         energy_start_GeV,
         energy_stop_GeV,
         threshold_cherenkov_density_per_sr,
-        cutoff_cherenkov_density_per_sr,
-        containment_quantile,
+        solid_angle_sr,
         prng,
     ):
         """
@@ -495,12 +507,8 @@ class SkyMap:
         threshold_cherenkov_density_per_sr : float
             Draw only from sky bins which have at least this density of
             Cherenkov photons.
-        cutoff_cherenkov_density_per_sr : float
-            Ignore densities above this cutoff.
-        containment_quantile : float
-            From all the possible sky bins above the Cherenkov density
-            threshold, only take the brightest quantile into account.
-            0.0 <= containment_quantile <= 1.0.
+        solid_angle_sr : float
+            The targeted amount of solid angle to be drawn from.
         prng : numpy.random.Generator
             The pseudo random number-generator to draw from.
 
@@ -523,12 +531,9 @@ class SkyMap:
             "energy_start_GeV": energy_start_GeV,
             "energy_stop_GeV": energy_stop_GeV,
             "threshold_cherenkov_density_per_sr": threshold_cherenkov_density_per_sr,
-            "cutoff_cherenkov_density_per_sr": cutoff_cherenkov_density_per_sr,
-            "containment_quantile": containment_quantile,
+            "solid_angle_sr": solid_angle_sr,
         }
         debug["population_num_showers"] = np.sum(self.map_exposure())
-
-        result = {"cutoff": True}
 
         query = querying.Query(
             azimuth_rad=azimuth_rad,
@@ -541,29 +546,22 @@ class SkyMap:
         debug["sky_cherenkov_per_sr"] = self.query_ball_cherenkov_to_primary(
             query=query
         )
+
+        debug[
+            "sky_target_mask"
+        ] = binning_utils.mask_fullest_bins_to_cover_aperture(
+            bin_counts=debug["sky_cherenkov_per_sr"],
+            bin_apertures=self.binning["sky"].faces_solid_angles,
+            aperture=solid_angle_sr,
+        )
+
         debug["sky_above_threshold_mask"] = (
             debug["sky_cherenkov_per_sr"] >= threshold_cherenkov_density_per_sr
         )
 
-        debug["sky_cutoff_mask"] = (
-            debug["sky_cherenkov_per_sr"] >= cutoff_cherenkov_density_per_sr
-        )
-
-        sky_cherenkov_per_sr_cutoff = copy.deepcopy(
-            debug["sky_cherenkov_per_sr"]
-        )
-        sky_cherenkov_per_sr_cutoff[
-            np.logical_not(debug["sky_above_threshold_mask"])
-        ] = 0.0
-        sky_cherenkov_per_sr_cutoff[
-            debug["sky_cutoff_mask"]
-        ] = cutoff_cherenkov_density_per_sr
-
-        debug[
-            "sky_containment_mask"
-        ] = binning_utils.mask_fewest_bins_to_contain_quantile(
-            bin_counts=sky_cherenkov_per_sr_cutoff,
-            quantile=containment_quantile,
+        debug["sky_target_and_above_threshold_mask"] = np.logical_and(
+            debug["sky_target_mask"],
+            debug["sky_above_threshold_mask"],
         )
 
         # a little bit of dilation
@@ -571,11 +569,14 @@ class SkyMap:
         debug[
             "sky_draw_mask"
         ] = spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
-            faces_mask=debug["sky_containment_mask"],
+            faces_mask=debug["sky_target_and_above_threshold_mask"],
             faces_neighbors=self.binning["sky"].faces_neighbors,
         )
 
+        result = {}
         if np.sum(debug["sky_draw_mask"]) > 0:
+            # Limit the solid angle to the most likely part of the sky
+            # --------------------------------------------------------
             result["cutoff"] = False
 
             debug["face"] = draw_face_from_mask(
@@ -596,6 +597,10 @@ class SkyMap:
             result["solid_angle_thrown_sr"] = np.sum(
                 self.binning["sky"].faces_solid_angles[debug["sky_draw_mask"]]
             )
+        else:
+            # Can not give any educated guess
+            # -------------------------------
+            result["cutoff"] = True
 
         return result, debug
 
@@ -923,11 +928,21 @@ def _run_job_plot_query_ball(job):
                 path=call["path"],
             )
         elif call["map_key"] == "cherenkov_to_primary":
-            skymap.plot_query_ball_cherenkov_to_primary(
-                query=call["query"],
-                path=call["path"],
+            prng = np.random.Generator(np.random.PCG64(call["seed"]))
+            result, debug = skymap.draw(
+                **call["query"],
                 threshold_cherenkov_density_per_sr=call[
                     "threshold_cherenkov_density_per_sr"
                 ],
+                solid_angle_sr=call["solid_angle_sr"],
+                prng=prng,
             )
+            _json_write(path=call["path"] + ".json", o=debug)
+            plotting.plot_draw(
+                path=call["path"],
+                skymap=skymap,
+                result=result,
+                debug=debug,
+            )
+
     return True

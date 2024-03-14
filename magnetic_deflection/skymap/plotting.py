@@ -530,25 +530,26 @@ def plot_draw(path, skymap, result, debug):
         stroke=svgplt.color.css("black"),
     )
 
-    ax_add_cross(
-        ax=ax,
-        azimuth_rad=result["particle_azimuth_rad"],
-        zenith_rad=result["particle_zenith_rad"],
-        min_half_angle_rad=np.deg2rad(1.0),
-        max_half_angle_rad=np.deg2rad(2.0),
-        stroke=svgplt.color.css("red"),
-        stroke_width=4 * stroke_width,
-        fill=None,
-    )
-    ax_add_fov(
-        ax=ax,
-        azimuth_rad=result["particle_azimuth_rad"],
-        zenith_rad=result["particle_zenith_rad"],
-        half_angle_rad=np.deg2rad(1.5),
-        stroke=svgplt.color.css("red"),
-        stroke_width=4 * stroke_width,
-        fill=None,
-    )
+    if not result["cutoff"]:
+        ax_add_cross(
+            ax=ax,
+            azimuth_rad=result["particle_azimuth_rad"],
+            zenith_rad=result["particle_zenith_rad"],
+            min_half_angle_rad=np.deg2rad(0.5),
+            max_half_angle_rad=np.deg2rad(2.5),
+            stroke=svgplt.color.css("red"),
+            stroke_width=4 * stroke_width,
+            fill=None,
+        )
+        ax_add_fov(
+            ax=ax,
+            azimuth_rad=result["particle_azimuth_rad"],
+            zenith_rad=result["particle_zenith_rad"],
+            half_angle_rad=np.deg2rad(1.5),
+            stroke=svgplt.color.css("red"),
+            stroke_width=4 * stroke_width,
+            fill=None,
+        )
 
     svgplt.color.ax_add_colormap(
         ax=axw,
