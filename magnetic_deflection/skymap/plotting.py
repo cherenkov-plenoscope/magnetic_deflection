@@ -551,6 +551,27 @@ def plot_draw(path, skymap, result, debug):
             fill=None,
         )
 
+    average_pointing_xyz = spherical_histogram.mesh.average(
+        vertices=skymap.binning["sky"].vertices,
+        faces=skymap.binning["sky"].faces,
+        faces_weights=debug["sky_cherenkov_per_sr"]
+    )
+    if not np.any(np.isnan(average_pointing_xyz)):
+        avg_az, avg_zd = spherical_coordinates.cx_cy_cz_to_az_zd(
+            cx=average_pointing_xyz[0],
+            cy=average_pointing_xyz[1],
+            cz=average_pointing_xyz[2],
+        )
+        ax_add_fov(
+            ax=ax,
+            azimuth_rad=avg_az,
+            zenith_rad=avg_zd,
+            half_angle_rad=np.deg2rad(1.5),
+            stroke=svgplt.color.css("purple"),
+            stroke_width=4 * stroke_width,
+            fill=None,
+        )
+
     svgplt.color.ax_add_colormap(
         ax=axw,
         colormap=colormap,
