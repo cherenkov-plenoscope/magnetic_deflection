@@ -364,12 +364,12 @@ class SkyMap:
         video=True,
     ):
         if solid_angle_sr is None:
+            _half_angle_rad = atmospheric_cherenkov_response.particles.get_scatter_cone_half_angle_rad(
+                particle=self.config["particle"],
+                energy_GeV=self.binning["energy"]["limits"][1],
+            )
             solid_angle_sr = solid_angle_utils.cone.solid_angle(
-                half_angle_rad=np.deg2rad(
-                    self.config["particle"]["population"]["direction"][
-                        "scatter_cone_half_angle_deg"
-                    ]
-                )
+                half_angle_rad=_half_angle_rad
             )
 
         os.makedirs(path, exist_ok=True)

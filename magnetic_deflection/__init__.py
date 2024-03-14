@@ -283,10 +283,9 @@ def demonstrate_query(
 
             allsky_deflection = allsky.AllSky(sk_pk_dir)
 
-            particle_scatter_half_angle_rad = np.deg2rad(
-                allsky_deflection.config["particle"]["population"][
-                    "direction"
-                ]["scatter_cone_half_angle_deg"]
+            particle_scatter_half_angle_rad = atmospheric_cherenkov_response.particles.get_scatter_cone_half_angle_rad(
+                particle=allsky_deflection.config["particle"],
+                energy_GeV=allsky_deflection.binning["energy"]["stop"],
             )
 
             for q in range(num):
