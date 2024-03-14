@@ -119,19 +119,30 @@ def init_example(work_dir, particle_key="electron", site_key="lapalma"):
 
     ENERGY_POWER_SLOPE = -1.5
 
+    start_energy_GeV = binning_utils.power10.lower_bin_edge(
+        decade=-1, bin=2, num_bins_per_decade=5
+    )
     particle = atmospheric_cherenkov_response.particles.init(particle_key)
-    energy_start_GeV = atmospheric_cherenkov_response.particles.compile_energy(
-        particle["population"]["energy"]["start_GeV"]
+    start_energy_GeV = max(
+        [start_energy_GeV, particle["corsika"]["min_energy_GeV"]]
+    )
+    stop_energy_GeV = binning_utils.power10.lower_bin_edge(
+        decade=1, bin=4, num_bins_per_decade=5
+    )
+    num_bin_edges = 33
+
+    energy_bin_edges_GeV = binning_utils.power.space(
+        start=energy_start_GeV,
+        stop=stop_energy_GeV,
+        power_slope=ENERGY_POWER_SLOPE,
+        size=num_bin_edges,
     )
 
     return init(
         work_dir=work_dir,
         particle_key=particle_key,
         site_key=site_key,
-        energy_bin_edges_GeV=_guess_energy_bin_edges_GeV(
-            energy_power_slope=ENERGY_POWER_SLOPE,
-            energy_start_GeV=energy_start_GeV,
-        ),
+        energy_bin_edges_GeV=energy_bin_edges_GeV,
         energy_power_slope=ENERGY_POWER_SLOPE,
         sky_vertices=vertices,
         sky_faces=faces,
@@ -364,13 +375,7 @@ class SkyMap:
         video=True,
     ):
         if solid_angle_sr is None:
-            _half_angle_rad = atmospheric_cherenkov_response.particles.get_scatter_cone_half_angle_rad(
-                particle=self.config["particle"],
-                energy_GeV=self.binning["energy"]["limits"][1],
-            )
-            solid_angle_sr = solid_angle_utils.cone.solid_angle(
-                half_angle_rad=_half_angle_rad
-            )
+            solid_angle_sr = self._guess_scatter_solid_angle_sr()
 
         os.makedirs(path, exist_ok=True)
         if queries is None:
@@ -421,6 +426,21 @@ class SkyMap:
                 )
             except:
                 pass
+
+    def _guess_scatter_solid_angle_sr(self):
+        particle_scatter = (
+            atmospheric_cherenkov_response.particles.scatter_cone(
+                key=self.config["particle"]["key"],
+            )
+        )
+        half_angle_rad = atmospheric_cherenkov_response.particles.interpolate_scatter_cone_half_angle(
+            energy_GeV=self.binning["energy"]["stop"],
+            scatter_cone_energy_GeV=particle_scatter["energy_GeV"],
+            scatter_cone_half_angle_rad=particle_scatter["half_angle_rad"],
+        )
+        return solid_angle_utils.cone.solid_angle(
+            half_angle_rad=half_angle_rad
+        )
 
     def map_primary_to_cherenkov(self):
         return utils.read_array(
@@ -629,17 +649,6 @@ def draw_pointing_cxcycz_from_face(prng, face, faces, vertices):
 
     return spherical_coordinates.cx_cy_cz_to_az_zd(
         cx=pointing[0], cy=pointing[1], cz=pointing[2]
-    )
-
-
-def _guess_energy_bin_edges_GeV(
-    energy_power_slope, energy_start_GeV=2 ** (-2)
-):
-    return binning_utils.power.space(
-        start=energy_start_GeV,
-        stop=2 ** (6),
-        power_slope=energy_power_slope,
-        size=32 + 1,
     )
 
 
