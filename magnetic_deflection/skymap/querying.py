@@ -1,4 +1,5 @@
 import spherical_coordinates
+import corsika_primary
 import numpy as np
 
 
@@ -71,6 +72,41 @@ def example_deg(min_energy_GeV=0.25, max_energy_GeV=64.0, num=1):
     qs[:, 4] = _Ehig
 
     return qs, tr
+
+
+def random(
+    prng,
+    max_zenith_distance_rad,
+    half_angle_rad,
+    energy_start_GeV,
+    energy_stop_GeV,
+    size=1,
+):
+    out = []
+    for i in range(size):
+        az, zd = spherical_coordinates.random.uniform_az_zd_in_cone(
+            prng=prng,
+            azimuth_rad=0.0,
+            zenith_rad=0.0,
+            min_half_angle_rad=0.0,
+            max_half_angle_rad=max_zenith_distance_rad,
+        )
+        energy = corsika_primary.random.distributions.draw_power_law(
+            prng=prng,
+            lower_limit=energy_start_GeV,
+            upper_limit=energy_stop_GeV,
+            power_slope=-1.5,
+            num_samples=None,
+        )
+        q = Query(
+            azimuth_rad=az,
+            zenith_rad=zd,
+            half_angle_rad=half_angle_rad,
+            energy_start_GeV=energy * 0.95,
+            energy_stop_GeV=energy * 1.05,
+        )
+        out.append(q)
+    return out
 
 
 def compile_deg(queries_deg=example_deg()):
