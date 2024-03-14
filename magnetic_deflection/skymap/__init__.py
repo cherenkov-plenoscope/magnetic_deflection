@@ -102,52 +102,47 @@ def init(
     return SkyMap(work_dir=work_dir)
 
 
-def init_example(work_dir, particle_key="electron", site_key="lapalma"):
+def make_example_args_for_init(particle_key="electron", site_key="lapalma"):
     PORTAL_FOV_HALF_ANGLE_RAD = np.deg2rad(3.25)
     PORTAL_MIRROR_DIAMETER_M = 71.0
-    overhead = 2.0
-
-    vertices, faces = _guess_sky_vertices_and_faces(
+    OVERHEAD = 2.0
+    sky_vertices, sky_faces = _guess_sky_vertices_and_faces(
         fov_half_angle_rad=PORTAL_FOV_HALF_ANGLE_RAD,
-        num_faces_in_fov=overhead,
+        num_faces_in_fov=OVERHEAD,
         max_zenith_distance_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
     )
     ground_bin_area_m2 = _guess_ground_bin_area_m2(
         mirror_diameter_m=PORTAL_MIRROR_DIAMETER_M,
-        num_bins_in_mirror=overhead,
+        num_bins_in_mirror=OVERHEAD,
     )
-
     ENERGY_POWER_SLOPE = -1.5
-
     start_energy_GeV = binning_utils.power10.lower_bin_edge(
         decade=-1, bin=2, num_bins_per_decade=5
     )
     particle = atmospheric_cherenkov_response.particles.init(particle_key)
-    start_energy_GeV = max(
-        [start_energy_GeV, particle["corsika"]["min_energy_GeV"]]
-    )
+    if particle["corsika"]["min_energy_GeV"]:
+        start_energy_GeV = max(
+            [start_energy_GeV, particle["corsika"]["min_energy_GeV"]]
+        )
     stop_energy_GeV = binning_utils.power10.lower_bin_edge(
         decade=1, bin=4, num_bins_per_decade=5
     )
     num_bin_edges = 33
-
     energy_bin_edges_GeV = binning_utils.power.space(
         start=energy_start_GeV,
         stop=stop_energy_GeV,
         power_slope=ENERGY_POWER_SLOPE,
         size=num_bin_edges,
     )
-
-    return init(
-        work_dir=work_dir,
-        particle_key=particle_key,
-        site_key=site_key,
-        energy_bin_edges_GeV=energy_bin_edges_GeV,
-        energy_power_slope=ENERGY_POWER_SLOPE,
-        sky_vertices=vertices,
-        sky_faces=faces,
-        ground_bin_area_m2=ground_bin_area_m2,
-    )
+    return {
+        "particle_key": particle_key,
+        "site_key": site_key,
+        "energy_bin_edges_GeV": energy_bin_edges_GeV,
+        "energy_power_slope": ENERGY_POWER_SLOPE,
+        "sky_vertices": sky_vertices,
+        "sky_faces": sky_faces,
+        "ground_bin_area_m2": ground_bin_area_m2,
+    }
 
 
 class SkyMap:
@@ -380,8 +375,8 @@ class SkyMap:
         os.makedirs(path, exist_ok=True)
         if queries is None:
             queries = querying.example(
-                min_energy_GeV=self.binning["energy"]["limits"][0],
-                max_energy_GeV=self.binning["energy"]["limits"][1],
+                min_energy_GeV=self.binning["energy"]["start"],
+                max_energy_GeV=self.binning["energy"]["stop"],
                 num=6,
             )
 
@@ -455,6 +450,9 @@ class SkyMap:
                 path=os.path.join(self.work_dir, "results", "map.exposure.rec")
             )
         return self._map_exposure
+
+    def num_showers(self):
+        return np.sum(self.map_exposure())
 
     def map_primary_to_cherenkov_normalized_per_sr(self):
         if not hasattr(self, "_map_primary_to_cherenkov_normalized_per_sr"):

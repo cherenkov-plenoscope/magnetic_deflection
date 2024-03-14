@@ -4,6 +4,7 @@ from . import cherenkov_pool
 from . import common_settings_for_plotting
 from . import utils
 from . import skymap
+from . import site_particle_organizer
 
 import atmospheric_cherenkov_response
 import os
