@@ -120,7 +120,7 @@ class MaskFunction:
         return theta <= self.half_angle_rad
 
 
-mask_function = MaskFunction(
+mask_function = mdfl.cherenkov_pool.reports.MaskCherenkovInCone(
     azimuth_rad=POINTING["azimuth_rad"],
     zenith_rad=POINTING["zenith_rad"],
     half_angle_rad=POINTING["half_angle_rad"],
@@ -140,7 +140,7 @@ for sk in SITES:
             with open(cache_path, "rt") as f:
                 res[sk][pk] = json_utils.loads(f.read())
         else:
-            reports = mdfl.skymap.reports_read(
+            reports = mdfl.cherenkov_pool.reports.read(
                 path=os.path.join(work_dir, sk, pk, "results", "reports.tar"),
                 dtype=KEYS_OF_INTEREST,
                 mask_function=mask_function,

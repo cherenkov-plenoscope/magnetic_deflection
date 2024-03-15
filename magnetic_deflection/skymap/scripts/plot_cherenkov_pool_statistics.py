@@ -73,6 +73,12 @@ POINTING = {
 
 site_keys, particle_keys = mdfl.find_site_and_particle_keys(work_dir=work_dir)
 
+mask_function = mdfl.cherenkov_pool.reports.MaskPrimaryInCone(
+    azimuth_rad=POINTING["azimuth_rad"],
+    zenith_rad=POINTING["zenith_rad"],
+    half_angle_rad=POINTING["half_angle_rad"],
+)
+
 res = {}
 for sk in site_keys:
     res[sk] = {}
@@ -81,16 +87,9 @@ for sk in site_keys:
 
         print("load", sk, pk)
 
-        reports = mdfl.skymap.reports_read(
+        reports = mdfl.cherenkov_pool.reports.read(
             path=os.path.join(work_dir, sk, pk, "results", "reports.tar"),
-            dtype=None,
-            query={
-                "azimuth_rad": POINTING["azimuth_rad"],
-                "zenith_rad": POINTING["zenith_rad"],
-                "half_angle_rad": POINTING["half_angle_rad"],
-                "energy_start_GeV": EE["energy_start_GeV"],
-                "energy_stop_GeV": EE["energy_stop_GeV"],
-            },
+            mask_function=mask_function,
         )
 
         for name in reports.dtype.names:
@@ -180,64 +179,6 @@ DENSITIES = {
         "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-2, 1e4, ND)),
     },
 }
-
-"""
-    "cherenkov_area_density50_per_m2": {
-        "label": "(50 percentile)\narea density",
-        "unit": r"m$^{-2}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-5, 1e2, ND)),
-    },
-    "cherenkov_area_density90_per_m2": {
-        "label": "(90 percentile) area density",
-        "unit": r"m$^{-2}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-5, 1e2, ND)),
-    },
-    "cherenkov_light_field_density50_per_m2_per_sr": {
-        "label": "(50 percentile)\nlight-field density",
-        "unit": r"m$^{-2}$ sr$^{-1}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-5, 1e5, ND)),
-    },
-    "cherenkov_light_field_density90_per_m2_per_sr": {
-        "label": "(90 percentile)\nlight-field density",
-        "unit": r"m$^{-2}$ sr$^{-1}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-5, 1e5, ND)),
-    },
-    "cherenkov_solid_angle_density50_per_sr": {
-        "label": "(50 percentile)\nsolid angle density",
-        "unit": r"sr$^{-1}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e3, 1e9, ND)),
-    },
-    "cherenkov_solid_angle_density90_per_sr": {
-        "label": "(90 percentile)\nsolid angle density",
-        "unit": r"sr$^{-1}$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e3, 1e9, ND)),
-    },
-    "cherenkov_num_photons": {
-        "label": "size",
-        "unit": r"1",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e3, 1e7, ND)),
-    },
-    "cherenkov_area50_m2": {
-        "label": "(50 percentile)\narea",
-        "unit": r"m$^2$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e4, 1e12, ND)),
-    },
-    "cherenkov_area90_m2": {
-        "label": "(90 percentile)\narea",
-        "unit": r"m$^2$",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e4, 1e12, ND)),
-    },
-    "cherenkov_solid_angle50_sr": {
-        "label": "(50 percentile)\nsolid angle",
-        "unit": r"sr",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-4, 1e1, ND)),
-    },
-    "cherenkov_solid_angle90_sr": {
-        "label": "(90 percentile)\nsolid angle",
-        "unit": r"sr",
-        "bin": binning_utils.Binning(bin_edges=np.geomspace(1e-4, 1e1, ND)),
-    },
-"""
 
 
 def estimate_median_and_percentiles(

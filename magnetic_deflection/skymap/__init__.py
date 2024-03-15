@@ -811,101 +811,16 @@ def _collect_stage_into_results_map(work_dir, skymap=None):
 def _collect_stage_into_results_reports(work_dir):
     opj = os.path.join
     stage_dir = opj(work_dir, "stage")
-
     results_dir = opj(work_dir, "results")
     os.makedirs(results_dir, exist_ok=True)
 
-    report_paths = glob.glob(opj(stage_dir, "*.reports.rec"))
-    report_paths = sorted(report_paths)
+    in_paths = glob.glob(opj(stage_dir, "*.reports.rec"))
 
-    with tarfile.open(opj(results_dir, "reports.tar.part"), "w|") as otf:
-        if os.path.exists(opj(results_dir, "reports.tar")):
-            with tarfile.open(opj(results_dir, "reports.tar"), "r|") as itf:
-                for tarinfo in itf:
-                    payload = itf.extractfile(tarinfo).read()
-                    _append_tar(otf, tarinfo.name, payload)
-
-        for report_path in report_paths:
-            with open(report_path, "rb") as f:
-                payload = f.read()
-            report_basename = os.path.basename(report_path)
-            _append_tar(otf, report_basename + ".gz", gzip.compress(payload))
-    os.rename(
-        opj(results_dir, "reports.tar.part"), opj(results_dir, "reports.tar")
+    cherenkov_pool.reports.append(
+        in_paths=in_paths,
+        out_path=opj(results_dir, "reports.tar"),
+        remove_in_paths=True,
     )
-    for report_path in report_paths:
-        os.remove(report_path)
-
-
-def _append_tar(tarfout, name, payload_bytes):
-    tarinfo = tarfile.TarInfo()
-    tarinfo.name = name
-    tarinfo.size = len(payload_bytes)
-    with io.BytesIO() as fileobj:
-        fileobj.write(payload_bytes)
-        fileobj.seek(0)
-        tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
-
-
-def reports_read(path, dtype=None, query=None, mask_function=None):
-    if dtype is None:
-        dtype = (
-            cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
-        )
-
-    full_dtype = (
-        cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
-    )
-
-    out = dynamicsizerecarray.DynamicSizeRecarray(dtype=dtype)
-
-    with tarfile.open(path, "r|") as itf:
-        for tarinfo in itf:
-            payload_gz = itf.extractfile(tarinfo).read()
-            payload = gzip.decompress(payload_gz)
-            reports_block = np.frombuffer(buffer=payload, dtype=full_dtype)
-
-            if query is not None:
-                mask = reports_query_to_mask(
-                    reports=reports_block,
-                    query=query,
-                )
-                reports_block = reports_block[mask]
-
-            if mask_function is not None:
-                mask = mask_function(reports_block)
-                reports_block = reports_block[mask]
-
-            reports_block_out = recarray_utils.init(
-                dtype=dtype,
-                size=reports_block.size,
-            )
-            for key in dtype:
-                name = key[0]
-                reports_block_out[name] = reports_block[name]
-
-            out.append_recarray(reports_block_out)
-
-    return out.to_recarray()
-
-
-def reports_query_to_mask(reports, query):
-    query_cx, query_cy = spherical_coordinates.az_zd_to_cx_cy(
-        azimuth_rad=query["azimuth_rad"],
-        zenith_rad=query["zenith_rad"],
-    )
-    delta_rad = spherical_coordinates.angle_between_cx_cy(
-        cx1=query_cx,
-        cy1=query_cy,
-        cx2=reports["particle_cx"],
-        cy2=reports["particle_cy"],
-    )
-    mask_cone = delta_rad <= query["half_angle_rad"]
-    mask_energy = np.logical_and(
-        reports["particle_energy_GeV"] >= query["energy_start_GeV"],
-        reports["particle_energy_GeV"] < query["energy_stop_GeV"],
-    )
-    return np.logical_and(mask_cone, mask_energy)
 
 
 def _combine_weights_of_sky_and_ene_bins(
