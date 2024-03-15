@@ -2,7 +2,6 @@ from .. import utils
 from ..version import __version__
 from .. import allsky
 from .. import cherenkov_pool
-from . import recarray_utils
 from . import plotting
 from . import querying
 
