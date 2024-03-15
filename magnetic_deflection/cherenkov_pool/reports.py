@@ -64,7 +64,7 @@ def read(path, dtype=None, mask_function=None):
                 mask = mask_function(reports_block)
                 reports_block = reports_block[mask]
 
-            reports_block_out = recarray_utils.init(
+            reports_block_out = recarray_init(
                 dtype=dtype,
                 size=reports_block.size,
             )
@@ -113,3 +113,10 @@ class MaskPrimaryInCone:
             cy2=reports["particle_cy"],
         )
         return theta <= self.half_angle_rad
+
+
+def recarray_init(dtype, size):
+    return np.core.records.recarray(
+        shape=size,
+        dtype=dtype,
+    )
