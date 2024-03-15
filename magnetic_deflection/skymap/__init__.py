@@ -847,7 +847,7 @@ def _append_tar(tarfout, name, payload_bytes):
         tarfout.addfile(tarinfo=tarinfo, fileobj=fileobj)
 
 
-def reports_read(path, dtype=None, query=None):
+def reports_read(path, dtype=None, query=None, mask_function=None):
     if dtype is None:
         dtype = (
             cherenkov_pool.production.histogram_cherenkov_pool_report_dtype()
@@ -870,6 +870,10 @@ def reports_read(path, dtype=None, query=None):
                     reports=reports_block,
                     query=query,
                 )
+                reports_block = reports_block[mask]
+
+            if mask_function is not None:
+                mask = mask_function(reports_block)
                 reports_block = reports_block[mask]
 
             reports_block_out = recarray_utils.init(
