@@ -24,26 +24,39 @@ def make_example_args_for_init():
     )
     site_keys = atmospheric_cherenkov_response.sites.keys()
     particle_keys = atmospheric_cherenkov_response.particles.keys()
-    OVERHEAD = 2.0
     ENERGY_POWER_SLOPE = -1.5
-    PORTAL_FOV_HALF_ANGLE_RAD = np.deg2rad(3.25)
-    PORTAL_MIRROR_DIAMETER_M = 71.0
-    sky_vertices, sky_faces = skymap._guess_sky_vertices_and_faces(
-        fov_half_angle_rad=PORTAL_FOV_HALF_ANGLE_RAD,
-        num_faces_in_fov=OVERHEAD,
-        max_zenith_distance_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
-    )
-    ground_bin_area_m2 = skymap._guess_ground_bin_area_m2(
-        mirror_diameter_m=PORTAL_MIRROR_DIAMETER_M,
-        num_bins_in_mirror=OVERHEAD,
-    )
-    return {
+
+    out = {
         "site_keys": site_keys,
         "particle_keys": particle_keys,
         "energy_start_GeV": energy_start_GeV,
         "energy_stop_GeV": energy_stop_GeV,
         "energy_num_bins": 32,
         "energy_power_slope": ENERGY_POWER_SLOPE,
+    }
+    out.update(
+        guess_sky_faces_sky_vertices_and_groun_bin_area(
+            field_of_view_half_angle_rad=np.deg2rad(3.25),
+            mirror_diameter_m=71.0,
+        )
+    )
+
+
+def guess_sky_faces_sky_vertices_and_groun_bin_area(
+    field_of_view_half_angle_rad,
+    mirror_diameter_m,
+):
+    OVERHEAD = 2.0
+    sky_vertices, sky_faces = skymap._guess_sky_vertices_and_faces(
+        fov_half_angle_rad=field_of_view_half_angle_rad,
+        num_faces_in_fov=OVERHEAD,
+        max_zenith_distance_rad=corsika_primary.MAX_ZENITH_DISTANCE_RAD,
+    )
+    ground_bin_area_m2 = skymap._guess_ground_bin_area_m2(
+        mirror_diameter_m=mirror_diameter_m,
+        num_bins_in_mirror=OVERHEAD,
+    )
+    return {
         "sky_faces": sky_faces,
         "sky_vertices": sky_vertices,
         "ground_bin_area_m2": ground_bin_area_m2,
