@@ -98,6 +98,27 @@ def init(
     # ------
     allsky.production.init(production_dir=opj(work_dir, "production"))
 
+    # results
+    # -------
+    results_dir = opj(work_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    with tarfile.open(opj(results_dir, "reports.tar"), "w") as f:
+        pass
+
+    NUM_S = len(sky_faces)
+    NUM_E = len(energy_bin_edges_GeV) - 1
+    names = {
+        "exposure": {"dtype": "u8", "shape": (NUM_E, NUM_S)},
+        "primary_to_cherenkov": {
+            "dtype": "f4",
+            "shape": (NUM_E, NUM_S, NUM_S),
+        },
+    }
+    for name in names:
+        out_path = opj(results_dir, "map.{:s}.rec".format(name))
+        base = np.zeros(shape=names[name]["shape"], dtype=names[name]["dtype"])
+        utils.write_array(path=out_path, a=base)
+
     return SkyMap(work_dir=work_dir)
 
 
@@ -723,9 +744,9 @@ def _population_run_job(job):
     corsika_steering_dict = cherenkov_pool.production.make_steering(
         run_id=job["run_id"],
         site=sm.config["site"],
-        particle_id=sm.config["particle"]["corsika_particle_id"],
-        energy_start_GeV=sm.binning["energy"]["start"],
-        energy_stop_GeV=sm.binning["energy"]["stop"],
+        particle_id=sm.config["particle"]["corsika"]["particle_id"],
+        particle_energy_start_GeV=sm.binning["energy"]["start"],
+        particle_energy_stop_GeV=sm.binning["energy"]["stop"],
         particle_energy_power_slope=sm.config["energy_power_slope"],
         particle_cone_azimuth_rad=0.0,
         particle_cone_zenith_rad=0.0,
