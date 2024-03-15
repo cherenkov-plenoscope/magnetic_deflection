@@ -474,20 +474,22 @@ class SkyMap:
                             enebin
                         ][prmbin] = vvv
 
-        # cross check
-        # -----------
-        num_prm = self.map_exposure()
-        for enebin in range(num_prm.shape[0]):
-            for prmbin in range(num_prm.shape[1]):
-                if num_prm[enebin][prmbin] == 0:
-                    assert (
-                        np.sum(
-                            self._map_primary_to_cherenkov_normalized_per_sr[
-                                enebin
-                            ][prmbin]
+            # cross check
+            # -----------
+            num_prm = self.map_exposure()
+            for enebin in range(num_prm.shape[0]):
+                for prmbin in range(num_prm.shape[1]):
+                    if num_prm[enebin][prmbin] == 0:
+                        assert (
+                            np.sum(
+                                self._map_primary_to_cherenkov_normalized_per_sr[
+                                    enebin
+                                ][
+                                    prmbin
+                                ]
+                            )
+                            == 0.0
                         )
-                        == 0.0
-                    )
 
         return self._map_primary_to_cherenkov_normalized_per_sr
 
