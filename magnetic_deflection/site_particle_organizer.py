@@ -332,6 +332,10 @@ def demonstrate(
 
 
 def run_plot(work_dir, pool):
+    az = np.deg2rad(120)
+    zd = np.deg2rad(25)
+    ha = np.deg2rad(3.25)
+
     plots_dir = os.path.join(work_dir, "plot")
     jobs = []
     jobs += _plot_deflection_vs_energy_on_sky_make_jobs(
@@ -342,9 +346,16 @@ def run_plot(work_dir, pool):
     jobs += _plot_primary_deflection_make_jobs(
         work_dir=work_dir,
         out_dir=os.path.join(plots_dir, "primary_deflection"),
-        azimuth_rad=np.deg2rad(120),
-        zenith_rad=np.deg2rad(25),
-        half_angle_rad=np.deg2rad(3.25),
+        azimuth_rad=az,
+        zenith_rad=zd,
+        half_angle_rad=ha,
+    )
+    jobs += _plot_cherenkov_pool_statistics_make_jobs(
+        work_dir=work_dir,
+        out_dir=os.path.join(plots_dir, "cherenkov_pool_statistics"),
+        azimuth_rad=az,
+        zenith_rad=zd,
+        half_angle_rad=5 * ha,
     )
     pool.map(utils.scripts.run_script_job, jobs)
 
@@ -408,5 +419,41 @@ def _plot_primary_deflection_make_jobs(
             )
             if not os.path.exists(result_path):
                 jobs.append(job)
+
+    return jobs
+
+
+def _plot_cherenkov_pool_statistics_make_jobs(
+    work_dir, out_dir, azimuth_rad, zenith_rad, half_angle_rad
+):
+    site_keys, _ = find_site_and_particle_keys(work_dir=work_dir)
+
+    jobs = []
+    for sk in site_keys:
+        job = {
+            "script": os.path.join(
+                "skymap", "scripts", "plot_cherenkov_pool_statistics"
+            ),
+            "argv": [
+                "--site_dir",
+                os.path.join(
+                    work_dir,
+                    sk,
+                ),
+                "--out_dir",
+                out_dir,
+                "--azimuth_deg",
+                str(np.rad2deg(azimuth_rad)),
+                "--zenith_deg",
+                str(np.rad2deg(zenith_rad)),
+                "--half_angle_deg",
+                str(np.rad2deg(half_angle_rad)),
+            ],
+        }
+        result_path = os.path.join(
+            out_dir, "{:s}_cherenkov_altitude_p50_m.jpg".format(sk)
+        )
+        if not os.path.exists(result_path):
+            jobs.append(job)
 
     return jobs

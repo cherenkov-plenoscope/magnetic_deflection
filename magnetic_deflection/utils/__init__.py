@@ -8,6 +8,24 @@ import tarfile
 import rename_after_writing as rnw
 
 
+def list_site_keys_in_path(path):
+    potential_keys = _list_dirnames_in_path(path=path)
+    known_keys = atmospheric_cherenkov_response.sites.keys()
+    return _filter_keys(
+        keys=potential_keys,
+        keys_to_keep=known_keys,
+    )
+
+
+def list_particle_keys_in_path(path):
+    potential_keys = _list_dirnames_in_path(path=path)
+    known_keys = atmospheric_cherenkov_response.particles.keys()
+    return _filter_keys(
+        keys=potential_keys,
+        keys_to_keep=known_keys,
+    )
+
+
 def _get_common_sites_and_particles(tree):
     site_keys = list(tree.keys())
     particle_keys = set.intersection(*[set(tree[sk]) for sk in tree])
@@ -19,26 +37,10 @@ def _get_common_sites_and_particles(tree):
 
 
 def _sniff_site_and_particle_keys(work_dir):
-    potential_site_keys = _list_dirnames_in_path(path=work_dir)
-    known_site_keys = atmospheric_cherenkov_response.sites.keys()
-    known_particle_keys = atmospheric_cherenkov_response.particles.keys()
-
-    site_keys = _filter_keys(
-        keys=potential_site_keys,
-        keys_to_keep=known_site_keys,
-    )
-
+    site_keys = list_site_keys_in_path(path=work_dir)
     tree = {}
     for sk in site_keys:
-        _potential_particle_keys = _list_dirnames_in_path(
-            path=os.path.join(work_dir, sk)
-        )
-        _particle_keys = _filter_keys(
-            keys=_potential_particle_keys,
-            keys_to_keep=known_particle_keys,
-        )
-        tree[sk] = _particle_keys
-
+        tree[sk] = list_particle_keys_in_path(path=os.path.join(work_dir, sk))
     return tree
 
 

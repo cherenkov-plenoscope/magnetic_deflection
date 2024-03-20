@@ -13,13 +13,10 @@ parser = argparse.ArgumentParser(
     description=("Make plots of Cherenkov statistics"),
 )
 parser.add_argument(
-    "--work_dir",
-    metavar="STRING",
+    "--site_dir",
+    metavar="PATH",
     type=str,
-    help=(
-        "Work_dir with sites. "
-        "The site directories contain one AllSky for each particle."
-    ),
+    help="Site directory containing particles (skymap working directories).",
 )
 parser.add_argument(
     "--out_dir",
@@ -51,7 +48,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-work_dir = args.work_dir
+site_dir = args.site_dir
 out_dir = args.out_dir
 os.makedirs(out_dir, exist_ok=True)
 
@@ -71,75 +68,56 @@ POINTING = {
     "half_angle_rad": np.deg2rad(args.half_angle_deg),
 }
 
-site_keys, particle_keys = mdfl.find_site_and_particle_keys(work_dir=work_dir)
+mask_function = mdfl.cherenkov_pool.reports.MaskPrimaryInCone(**POINTING)
 
-mask_function = mdfl.cherenkov_pool.reports.MaskPrimaryInCone(
-    azimuth_rad=POINTING["azimuth_rad"],
-    zenith_rad=POINTING["zenith_rad"],
-    half_angle_rad=POINTING["half_angle_rad"],
-)
+particle_keys = mdfl.utils.list_particle_keys_in_path(path=site_dir)
+sk = os.path.basename(site_dir)
 
 res = {}
-for sk in site_keys:
-    res[sk] = {}
-    for pk in particle_keys:
-        res[sk][pk] = {}
+for pk in particle_keys:
+    res[pk] = {}
 
-        print("load", sk, pk)
+    skymap = mdfl.skymap.SkyMap(os.path.join(site_dir, pk))
+    assert sk == skymap.config["site"]["key"]
 
-        reports = mdfl.cherenkov_pool.reports.read(
-            path=os.path.join(work_dir, sk, pk, "results", "reports.tar"),
-            mask_function=mask_function,
-        )
+    reports = skymap.read_reports(mask_function=mask_function)
 
-        for name in reports.dtype.names:
-            res[sk][pk][name] = reports[name]
+    for name in reports.dtype.names:
+        res[pk][name] = reports[name]
 
-            nkey = "cherenkov_size_per_area_p??_per_m2"
+        nkey = "cherenkov_size_per_area_p??_per_m2"
 
-            for pp in [16, 50, 84]:
-                quantile = pp / 100
-                res[sk][pk][
-                    "cherenkov_size_per_area_p{:02d}_per_m2".format(pp)
-                ] = (
-                    quantile
-                    * reports["cherenkov_num_photons"]
-                    / reports[
-                        "cherenkov_containment_area_p{:02d}_m2".format(pp)
-                    ]
-                )
-                res[sk][pk][
-                    "cherenkov_size_per_solid_angle_p{:02d}_per_sr".format(pp)
-                ] = (
-                    quantile
-                    * reports["cherenkov_num_photons"]
-                    / reports[
-                        "cherenkov_containment_solid_angle_p{:02d}_sr".format(
-                            pp
-                        )
-                    ]
-                )
+        for pp in [16, 50, 84]:
+            quantile = pp / 100
+            res[pk]["cherenkov_size_per_area_p{:02d}_per_m2".format(pp)] = (
+                quantile
+                * reports["cherenkov_num_photons"]
+                / reports["cherenkov_containment_area_p{:02d}_m2".format(pp)]
+            )
+            res[pk][
+                "cherenkov_size_per_solid_angle_p{:02d}_per_sr".format(pp)
+            ] = (
+                quantile
+                * reports["cherenkov_num_photons"]
+                / reports[
+                    "cherenkov_containment_solid_angle_p{:02d}_sr".format(pp)
+                ]
+            )
 
-                res[sk][pk]["cherenkov_etendue_p{:02d}_m2_sr".format(pp)] = (
-                    reports[
-                        "cherenkov_containment_solid_angle_p{:02d}_sr".format(
-                            pp
-                        )
-                    ]
-                    * reports[
-                        "cherenkov_containment_area_p{:02d}_m2".format(pp)
-                    ]
-                )
+            res[pk]["cherenkov_etendue_p{:02d}_m2_sr".format(pp)] = (
+                reports[
+                    "cherenkov_containment_solid_angle_p{:02d}_sr".format(pp)
+                ]
+                * reports["cherenkov_containment_area_p{:02d}_m2".format(pp)]
+            )
 
-                res[sk][pk][
-                    "cherenkov_size_per_etendue_p{:02d}_per_m2_per_sr".format(
-                        pp
-                    )
-                ] = (
-                    quantile
-                    * reports["cherenkov_num_photons"]
-                    / res[sk][pk]["cherenkov_etendue_p{:02d}_m2_sr".format(pp)]
-                )
+            res[pk][
+                "cherenkov_size_per_etendue_p{:02d}_per_m2_per_sr".format(pp)
+            ] = (
+                quantile
+                * reports["cherenkov_num_photons"]
+                / res[pk]["cherenkov_etendue_p{:02d}_m2_sr".format(pp)]
+            )
 
 DENSITIES = {
     "cherenkov_altitude_p{:02d}_m": {
@@ -208,106 +186,102 @@ def estimate_median_and_percentiles(
 # ---------------
 for _dkey in DENSITIES:
     dkey = _dkey.format(50)
-    for sk in res:
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig=fig, span=(0.175, 0.2, 0.8, 0.75))
+    fig = sebplt.figure(FIGSIZE)
+    ax = sebplt.add_axes(fig=fig, span=(0.175, 0.2, 0.8, 0.75))
 
-        for pk in particle_keys:
-            dhist = np.histogram2d(
-                x=res[sk][pk]["particle_energy_GeV"],
-                y=res[sk][pk][dkey],
-                bins=(energy_bin["edges"], DENSITIES[_dkey]["bin"]["edges"]),
-            )[0]
-            ehist = np.histogram(
-                res[sk][pk]["particle_energy_GeV"],
-                bins=energy_bin["edges"],
-            )[0]
+    for pk in particle_keys:
+        dhist = np.histogram2d(
+            x=res[pk]["particle_energy_GeV"],
+            y=res[pk][dkey],
+            bins=(energy_bin["edges"], DENSITIES[_dkey]["bin"]["edges"]),
+        )[0]
+        ehist = np.histogram(
+            res[pk]["particle_energy_GeV"],
+            bins=energy_bin["edges"],
+        )[0]
 
-            qhist = np.zeros(shape=dhist.shape)
-            for ebin in range(energy_bin["num"]):
-                if np.sum(ehist[ebin]) > 0:
-                    qhist[ebin, :] = dhist[ebin, :] / ehist[ebin]
+        qhist = np.zeros(shape=dhist.shape)
+        for ebin in range(energy_bin["num"]):
+            if np.sum(ehist[ebin]) > 0:
+                qhist[ebin, :] = dhist[ebin, :] / ehist[ebin]
 
-            ax.pcolormesh(
-                energy_bin["edges"],
-                DENSITIES[_dkey]["bin"]["edges"],
-                qhist.T,
-                cmap=PLT["particles"][pk]["cmap"],
-            )
-
-        if "log" in DENSITIES[_dkey]:
-            if DENSITIES[_dkey]["log"]:
-                ax.semilogy()
-        else:
-            ax.semilogy()
-        ax.semilogx()
-        ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
-        ax.set_ylabel(
-            DENSITIES[_dkey]["label"]
-            + PLT["label_unit_seperator"]
-            + DENSITIES[_dkey]["unit"]
+        ax.pcolormesh(
+            energy_bin["edges"],
+            DENSITIES[_dkey]["bin"]["edges"],
+            qhist.T,
+            cmap=PLT["particles"][pk]["cmap"],
         )
-        ax.set_ylim(DENSITIES[_dkey]["bin"]["limits"])
-        ax.set_xlim(energy_bin["limits"])
-        fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(sk, dkey)))
-        sebplt.close(fig)
+
+    if "log" in DENSITIES[_dkey]:
+        if DENSITIES[_dkey]["log"]:
+            ax.semilogy()
+    else:
+        ax.semilogy()
+    ax.semilogx()
+    ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
+    ax.set_ylabel(
+        DENSITIES[_dkey]["label"]
+        + PLT["label_unit_seperator"]
+        + DENSITIES[_dkey]["unit"]
+    )
+    ax.set_ylim(DENSITIES[_dkey]["bin"]["limits"])
+    ax.set_xlim(energy_bin["limits"])
+    fig.savefig(os.path.join(out_dir, "{:s}_{:s}.jpg".format(sk, dkey)))
+    sebplt.close(fig)
 
 
 # percentile style
 # ----------------
 for _dkey in DENSITIES:
     dkey = _dkey.format(50)
-    for sk in res:
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(fig=fig, span=(0.175, 0.2, 0.8, 0.75))
+    fig = sebplt.figure(FIGSIZE)
+    ax = sebplt.add_axes(fig=fig, span=(0.175, 0.2, 0.8, 0.75))
 
-        for pk in particle_keys:
-            _, yhig, _ = estimate_median_and_percentiles(
-                x=res[sk][pk]["particle_energy_GeV"],
-                y=res[sk][pk][_dkey.format(84)],
-                xbin=energy_bin,
-            )
-            _, ycen, _ = estimate_median_and_percentiles(
-                x=res[sk][pk]["particle_energy_GeV"],
-                y=res[sk][pk][_dkey.format(50)],
-                xbin=energy_bin,
-            )
-            _, ylow, _ = estimate_median_and_percentiles(
-                x=res[sk][pk]["particle_energy_GeV"],
-                y=res[sk][pk][_dkey.format(16)],
-                xbin=energy_bin,
-            )
+    for pk in particle_keys:
+        _, yhig, _ = estimate_median_and_percentiles(
+            x=res[pk]["particle_energy_GeV"],
+            y=res[pk][_dkey.format(84)],
+            xbin=energy_bin,
+        )
+        _, ycen, _ = estimate_median_and_percentiles(
+            x=res[pk]["particle_energy_GeV"],
+            y=res[pk][_dkey.format(50)],
+            xbin=energy_bin,
+        )
+        _, ylow, _ = estimate_median_and_percentiles(
+            x=res[pk]["particle_energy_GeV"],
+            y=res[pk][_dkey.format(16)],
+            xbin=energy_bin,
+        )
 
-            sebplt.ax_add_histogram(
-                ax=ax,
-                bin_edges=energy_bin["edges"],
-                bincounts=ycen,
-                linestyle="-",
-                linecolor=PLT["particles"][pk]["color"],
-                linealpha=1.0,
-                bincounts_upper=yhig,
-                bincounts_lower=ylow,
-                face_color=PLT["particles"][pk]["color"],
-                face_alpha=0.25,
-                label=None,
-                draw_bin_walls=False,
-            )
+        sebplt.ax_add_histogram(
+            ax=ax,
+            bin_edges=energy_bin["edges"],
+            bincounts=ycen,
+            linestyle="-",
+            linecolor=PLT["particles"][pk]["color"],
+            linealpha=1.0,
+            bincounts_upper=yhig,
+            bincounts_lower=ylow,
+            face_color=PLT["particles"][pk]["color"],
+            face_alpha=0.25,
+            label=None,
+            draw_bin_walls=False,
+        )
 
-        if "log" in DENSITIES[_dkey]:
-            if DENSITIES[_dkey]["log"]:
-                ax.semilogy()
-        else:
+    if "log" in DENSITIES[_dkey]:
+        if DENSITIES[_dkey]["log"]:
             ax.semilogy()
-        ax.semilogx()
-        ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
-        ax.set_ylabel(
-            DENSITIES[_dkey]["label"]
-            + PLT["label_unit_seperator"]
-            + DENSITIES[_dkey]["unit"]
-        )
-        ax.set_ylim(DENSITIES[_dkey]["bin"]["limits"])
-        ax.set_xlim(energy_bin["limits"])
-        fig.savefig(
-            os.path.join(out_dir, "{:s}_{:s}_qstyle.jpg".format(sk, dkey))
-        )
-        sebplt.close(fig)
+    else:
+        ax.semilogy()
+    ax.semilogx()
+    ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
+    ax.set_ylabel(
+        DENSITIES[_dkey]["label"]
+        + PLT["label_unit_seperator"]
+        + DENSITIES[_dkey]["unit"]
+    )
+    ax.set_ylim(DENSITIES[_dkey]["bin"]["limits"])
+    ax.set_xlim(energy_bin["limits"])
+    fig.savefig(os.path.join(out_dir, "{:s}_{:s}_qstyle.jpg".format(sk, dkey)))
+    sebplt.close(fig)
