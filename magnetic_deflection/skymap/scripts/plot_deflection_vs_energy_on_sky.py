@@ -22,17 +22,14 @@ parser = argparse.ArgumentParser(
     description=("Plot sky hemisphere"),
 )
 parser.add_argument(
-    "--work_dir",
-    metavar="STRING",
+    "--skymap_dir",
+    metavar="PATH",
     type=str,
-    help=(
-        "Work_dir with sites. "
-        "The site directories contain one AllSky for each particle."
-    ),
+    help="Skymap directory.",
 )
 parser.add_argument(
     "--out_dir",
-    metavar="STRING",
+    metavar="PATH",
     type=str,
     help="Directory to write figures to.",
 )
@@ -46,7 +43,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-work_dir = args.work_dir
+skymap = mdfl.skymap.SkyMap(work_dir=args.skymap_dir)
 out_dir = args.out_dir
 os.makedirs(out_dir, exist_ok=True)
 half_angle_rad = np.deg2rad(args.half_angle_deg)
@@ -79,10 +76,6 @@ cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 sebplt.close(cmap_fig)
 
-SITES, PARTICLES = mdfl.site_particle_organizer.find_site_and_particle_keys(
-    work_dir=work_dir
-)
-
 samples = {}
 samples["cxcycz"] = binning_utils.sphere.fibonacci_space(
     size=24,
@@ -98,77 +91,65 @@ samples["num"] = len(samples["cxcycz"])
     cz=samples["cxcycz"][:, 2],
 )
 
+sk = skymap.config["site"]["key"]
+pk = skymap.config["particle"]["key"]
 
 res = {}
-for sk in SITES:
-    res[sk] = {}
-    for pk in PARTICLES:
-        res[sk][pk] = {}
-        print("load", sk, pk)
+cache_path = os.path.join(out_dir, "{:s}_{:s}.json".format(sk, pk))
+if os.path.exists(cache_path):
+    with open(cache_path, "rt") as f:
+        res["grid"] = json_utils.loads(f.read())
+else:
+    res["grid"] = np.nan * np.ones(
+        shape=(skymap.binning["energy"]["num"], samples["num"], 2)
+    )
 
-        cache_path = os.path.join(out_dir, "{:s}_{:s}.json".format(sk, pk))
-        if os.path.exists(cache_path):
-            with open(cache_path, "rt") as f:
-                res[sk][pk]["grid"] = json_utils.loads(f.read())
-        else:
-            skymap = mdfl.skymap.SkyMap(
-                work_dir=os.path.join(work_dir, sk, pk),
+    for gbin in range(samples["num"]):
+        for ebin in range(skymap.binning["energy"]["num"]):
+            print(
+                gbin + 1,
+                "/",
+                samples["num"],
+                " ",
+                ebin + 1,
+                "/",
+                skymap.binning["energy"]["num"],
             )
 
-            res[sk][pk]["grid"] = np.nan * np.ones(
-                shape=(skymap.binning["energy"]["num"], samples["num"], 2)
+            sky_primary_density_per_sr = (
+                skymap.query_ball_cherenkov_to_primary(
+                    query={
+                        "azimuth_rad": samples["azimuth_rad"][gbin],
+                        "zenith_rad": samples["zenith_rad"][gbin],
+                        "half_angle_rad": half_angle_rad,
+                        "energy_start_GeV": skymap.binning["energy"]["edges"][
+                            ebin
+                        ],
+                        "energy_stop_GeV": skymap.binning["energy"]["edges"][
+                            ebin + 1
+                        ],
+                    }
+                )
             )
 
-            for gbin in range(samples["num"]):
-                for ebin in range(skymap.binning["energy"]["num"]):
-                    print(
-                        gbin + 1,
-                        "/",
-                        samples["num"],
-                        " ",
-                        ebin + 1,
-                        "/",
-                        skymap.binning["energy"]["num"],
-                    )
+            if np.sum(sky_primary_density_per_sr) > 0:
+                avg_cxcycz = spherical_histogram.mesh.average(
+                    faces=skymap.binning["sky"].faces,
+                    vertices=skymap.binning["sky"].vertices,
+                    faces_weights=sky_primary_density_per_sr,
+                )
 
-                    sky_primary_density_per_sr = (
-                        skymap.query_ball_cherenkov_to_primary(
-                            query={
-                                "azimuth_rad": samples["azimuth_rad"][gbin],
-                                "zenith_rad": samples["zenith_rad"][gbin],
-                                "half_angle_rad": half_angle_rad,
-                                "energy_start_GeV": skymap.binning["energy"][
-                                    "edges"
-                                ][ebin],
-                                "energy_stop_GeV": skymap.binning["energy"][
-                                    "edges"
-                                ][ebin + 1],
-                            }
-                        )
-                    )
+                (
+                    avg_az_rad,
+                    avg_zd_rad,
+                ) = spherical_coordinates.cx_cy_to_az_zd(
+                    cx=avg_cxcycz[0],
+                    cy=avg_cxcycz[1],
+                )
+                res["grid"][ebin][gbin] = np.array([avg_az_rad, avg_zd_rad])
 
-                    if np.sum(sky_primary_density_per_sr) > 0:
-                        avg_cxcycz = spherical_histogram.mesh.average(
-                            faces=skymap.binning["sky"].faces,
-                            vertices=skymap.binning["sky"].vertices,
-                            faces_weights=sky_primary_density_per_sr,
-                        )
-
-                        (
-                            avg_az_rad,
-                            avg_zd_rad,
-                        ) = spherical_coordinates.cx_cy_to_az_zd(
-                            cx=avg_cxcycz[0],
-                            cy=avg_cxcycz[1],
-                        )
-                        res[sk][pk]["grid"][ebin][gbin] = np.array(
-                            [avg_az_rad, avg_zd_rad]
-                        )
-
-            with open(cache_path, "wt") as f:
-                f.write(json_utils.dumps(res[sk][pk]["grid"]))
-
-            del skymap
+    with open(cache_path, "wt") as f:
+        f.write(json_utils.dumps(res["grid"]))
 
 
 def plane_normal(az1_rad, zd1_rad, az2_rad, zd2_rad):
@@ -181,142 +162,128 @@ def plane_normal(az1_rad, zd1_rad, az2_rad, zd2_rad):
     return n / np.linalg.norm(n)
 
 
-for sk in res:
-    sss = atmospheric_cherenkov_response.sites.init(sk)
-    mag = mdfl.common_settings_for_plotting.magnetic_flux(
-        earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
-        earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
+sss = skymap.config["site"]
+mag = mdfl.common_settings_for_plotting.magnetic_flux(
+    earth_magnetic_field_x_muT=sss["earth_magnetic_field_x_muT"],
+    earth_magnetic_field_z_muT=sss["earth_magnetic_field_z_muT"],
+)
+
+deflgrid = res
+
+rfov = 1.0
+
+fig = sebplt.figure(FIGSIZE)
+ax = sebplt.add_axes(
+    fig=fig,
+    span=(0.02, 0.02, 0.96, 0.96),
+    style=HEMISPHERE_AXSTYLE,
+)
+sebplt.hemisphere.ax_add_grid_stellarium_style(ax=ax)
+
+if mag["magnitude_uT"] > 1e-6:
+    sebplt.hemisphere.ax_add_magnet_flux_symbol(
+        ax=ax,
+        azimuth_rad=mag["azimuth_rad"],
+        zenith_rad=mag["zenith_rad"],
+        half_angle_rad=np.deg2rad(2.5),
+        color="black",
+        direction="inwards" if mag["sign"] > 0 else "outwards",
     )
 
-    for pk in res[sk]:
-        deflgrid = res[sk][pk]
-
-        rfov = 1.0
-        print(sk, pk)
-
-        fig = sebplt.figure(FIGSIZE)
-        ax = sebplt.add_axes(
-            fig=fig,
-            span=(0.02, 0.02, 0.96, 0.96),
-            style=HEMISPHERE_AXSTYLE,
-        )
-        sebplt.hemisphere.ax_add_grid_stellarium_style(ax=ax)
-
-        if mag["magnitude_uT"] > 1e-6:
-            sebplt.hemisphere.ax_add_magnet_flux_symbol(
-                ax=ax,
-                azimuth_rad=mag["azimuth_rad"],
-                zenith_rad=mag["zenith_rad"],
-                half_angle_rad=np.deg2rad(2.5),
-                color="black",
-                direction="inwards" if mag["sign"] > 0 else "outwards",
-            )
-
-        skymap = mdfl.skymap.SkyMap(os.path.join(work_dir, sk, pk))
-
-        for gbin in range(samples["num"]):
-            for ebin in range(skymap.binning["energy"]["num"]):
-                rgb = cmap_mappable.to_rgba(
-                    skymap.binning["energy"]["centers"][ebin]
-                )
-                sebplt.hemisphere.ax_add_projected_circle(
-                    ax=ax,
-                    azimuth_rad=deflgrid["grid"][ebin, gbin, 0],
-                    zenith_rad=deflgrid["grid"][ebin, gbin, 1],
-                    half_angle_rad=MARKER_HALF_ANGLE_RAD,
-                    fill=True,
-                    facecolor=rgb,
-                    linewidth=0.0,
-                    alpha=ALPHA,
-                    zorder=2,
-                )
-
-                if ebin > 0:
-                    _start_ebin = ebin - 1
-                    _stop_ebin = ebin
-
-                    _start = deflgrid["grid"][_start_ebin, gbin, :]
-                    _stop = deflgrid["grid"][_stop_ebin, gbin, :]
-                    (
-                        _line_az,
-                        _line_zd,
-                    ) = mdfl.common_settings_for_plotting.make_great_circle_line(
-                        start_azimuth_rad=_start[0],
-                        start_zenith_rad=_start[1],
-                        stop_azimuth_rad=_stop[0],
-                        stop_zenith_rad=_stop[1],
-                    )
-
-                    _start_color = cmap_mappable.to_rgba(
-                        skymap.binning["energy"]["centers"][_start_ebin]
-                    )
-                    _stop_color = cmap_mappable.to_rgba(
-                        skymap.binning["energy"]["centers"][_stop_ebin]
-                    )
-                    _linestyle = "-"
-                    _linewidth = 1.0
-                    _linecolor = np.mean(
-                        [_start_color, _stop_color],
-                        axis=0,
-                    )
-
-                    if ebin < skymap.binning["energy"]["num"] - 1:
-                        _next = deflgrid["grid"][ebin + 1, gbin, :]
-
-                        _next_valid = not np.any(np.isnan(_next))
-                        _start_valid = not np.any(np.isnan(_start))
-                        _stop_valid = not np.any(np.isnan(_stop))
-
-                        if _next_valid and _start_valid and _stop_valid:
-                            _n = plane_normal(
-                                _start[0], _start[1], _stop[0], _stop[1]
-                            )
-                            _l = plane_normal(
-                                _stop[0], _stop[1], _next[0], _next[1]
-                            )
-                            _delta_rad = (
-                                spherical_coordinates.angle_between_xyz(_n, _l)
-                            )
-
-                            if (
-                                _delta_rad
-                                > PROBABLY_BEYOND_THE_HORIZON_ANGLE_RAD
-                            ):
-                                _linestyle = ":"
-                                _linewidth = 0.5
-                                _linecolor = "gray"
-
-                    sebplt.hemisphere.ax_add_plot(
-                        ax=ax,
-                        azimuths_rad=_line_az,
-                        zeniths_rad=_line_zd,
-                        color=_linecolor,
-                        linewidth=_linewidth,
-                        linestyle=_linestyle,
-                    )
-
-        ax.set_axis_off()
-        ax.set_aspect("equal")
-        sebplt.hemisphere.ax_add_ticklabel_text(
+for gbin in range(samples["num"]):
+    for ebin in range(skymap.binning["energy"]["num"]):
+        rgb = cmap_mappable.to_rgba(skymap.binning["energy"]["centers"][ebin])
+        sebplt.hemisphere.ax_add_projected_circle(
             ax=ax,
-            radius=0.95 * rfov,
-            label_azimuths_rad=[
-                0,
-                1 / 2 * np.pi,
-                2 / 2 * np.pi,
-                3 / 2 * np.pi,
-            ],
-            label_azimuths=["N", "E", "S", "W"],
-            xshift=-0.05,
-            yshift=-0.025,
-            fontsize=8,
+            azimuth_rad=deflgrid["grid"][ebin, gbin, 0],
+            zenith_rad=deflgrid["grid"][ebin, gbin, 1],
+            half_angle_rad=MARKER_HALF_ANGLE_RAD,
+            fill=True,
+            facecolor=rgb,
+            linewidth=0.0,
+            alpha=ALPHA,
+            zorder=2,
         )
-        ax.set_xlim([-1.01 * rfov, 1.01 * rfov])
-        ax.set_ylim([-1.01 * rfov, 1.01 * rfov])
-        fig.savefig(
-            os.path.join(
-                out_dir,
-                "{:s}_{:s}.jpg".format(sk, pk),
+
+        if ebin > 0:
+            _start_ebin = ebin - 1
+            _stop_ebin = ebin
+
+            _start = deflgrid["grid"][_start_ebin, gbin, :]
+            _stop = deflgrid["grid"][_stop_ebin, gbin, :]
+            (
+                _line_az,
+                _line_zd,
+            ) = mdfl.common_settings_for_plotting.make_great_circle_line(
+                start_azimuth_rad=_start[0],
+                start_zenith_rad=_start[1],
+                stop_azimuth_rad=_stop[0],
+                stop_zenith_rad=_stop[1],
             )
-        )
-        sebplt.close(fig)
+
+            _start_color = cmap_mappable.to_rgba(
+                skymap.binning["energy"]["centers"][_start_ebin]
+            )
+            _stop_color = cmap_mappable.to_rgba(
+                skymap.binning["energy"]["centers"][_stop_ebin]
+            )
+            _linestyle = "-"
+            _linewidth = 1.0
+            _linecolor = np.mean(
+                [_start_color, _stop_color],
+                axis=0,
+            )
+
+            if ebin < skymap.binning["energy"]["num"] - 1:
+                _next = deflgrid["grid"][ebin + 1, gbin, :]
+
+                _next_valid = not np.any(np.isnan(_next))
+                _start_valid = not np.any(np.isnan(_start))
+                _stop_valid = not np.any(np.isnan(_stop))
+
+                if _next_valid and _start_valid and _stop_valid:
+                    _n = plane_normal(_start[0], _start[1], _stop[0], _stop[1])
+                    _l = plane_normal(_stop[0], _stop[1], _next[0], _next[1])
+                    _delta_rad = spherical_coordinates.angle_between_xyz(
+                        _n, _l
+                    )
+
+                    if _delta_rad > PROBABLY_BEYOND_THE_HORIZON_ANGLE_RAD:
+                        _linestyle = ":"
+                        _linewidth = 0.5
+                        _linecolor = "gray"
+
+            sebplt.hemisphere.ax_add_plot(
+                ax=ax,
+                azimuths_rad=_line_az,
+                zeniths_rad=_line_zd,
+                color=_linecolor,
+                linewidth=_linewidth,
+                linestyle=_linestyle,
+            )
+
+ax.set_axis_off()
+ax.set_aspect("equal")
+sebplt.hemisphere.ax_add_ticklabel_text(
+    ax=ax,
+    radius=0.95 * rfov,
+    label_azimuths_rad=[
+        0,
+        1 / 2 * np.pi,
+        2 / 2 * np.pi,
+        3 / 2 * np.pi,
+    ],
+    label_azimuths=["N", "E", "S", "W"],
+    xshift=-0.05,
+    yshift=-0.025,
+    fontsize=8,
+)
+ax.set_xlim([-1.01 * rfov, 1.01 * rfov])
+ax.set_ylim([-1.01 * rfov, 1.01 * rfov])
+fig.savefig(
+    os.path.join(
+        out_dir,
+        "{:s}_{:s}.jpg".format(sk, pk),
+    )
+)
+sebplt.close(fig)
