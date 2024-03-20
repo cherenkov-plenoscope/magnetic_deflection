@@ -644,6 +644,12 @@ class SkyMap:
 
         return result, debug
 
+    def read_reports(self, mask_function=None):
+        return cherenkov_pool.reports.read(
+            path=os.path.join(self.work_dir, "results", "reports.tar"),
+            mask_function=mask_function,
+        )
+
 
 def draw_face_from_mask(prng, faces_mask, faces_solid_angles):
     all_face_ids = np.arange(len(faces_mask))
