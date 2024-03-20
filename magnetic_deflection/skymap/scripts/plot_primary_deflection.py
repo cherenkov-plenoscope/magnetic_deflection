@@ -100,26 +100,6 @@ cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 sebplt.close(cmap_fig)
 
-
-class MaskFunction:
-    def __init__(self, azimuth_rad, zenith_rad, half_angle_rad):
-        self.azimuth_rad = azimuth_rad
-        self.zenith_rad = zenith_rad
-        self.half_angle_rad = half_angle_rad
-        self.cx, self.cy, self.cz = spherical_coordinates.az_zd_to_cx_cy_cz(
-            azimuth_rad=self.azimuth_rad, zenith_rad=self.zenith_rad
-        )
-
-    def __call__(self, reports):
-        theta = spherical_coordinates.angle_between_cx_cy(
-            cx1=self.cx,
-            cy1=self.cy,
-            cx2=reports["cherenkov_cx_modus"],
-            cy2=reports["cherenkov_cy_modus"],
-        )
-        return theta <= self.half_angle_rad
-
-
 mask_function = mdfl.cherenkov_pool.reports.MaskCherenkovInCone(
     azimuth_rad=POINTING["azimuth_rad"],
     zenith_rad=POINTING["zenith_rad"],
