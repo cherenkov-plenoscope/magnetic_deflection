@@ -329,3 +329,43 @@ def demonstrate(
                 solid_angle_sr=solid_angle_sr,
                 video=True,
             )
+
+
+def run_plot(work_dir, pool):
+    plots_dir = os.path.join(work_dir, "plot")
+    jobs = []
+    jobs += _plot_deflection_vs_energy_on_sky_make_jobs(
+        work_dir=work_dir,
+        out_dir=os.path.join(plots_dir, "deflection_vs_energy_on_sky"),
+        half_angle_rad=np.deg2rad(15),
+    )
+    pool.map(utils.scripts.run_script_job, jobs)
+
+
+def _plot_deflection_vs_energy_on_sky_make_jobs(
+    work_dir, out_dir, half_angle_rad
+):
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+
+    jobs = []
+    for sk in site_keys:
+        for pk in particle_keys:
+            job = {
+                "script": os.path.join(
+                    "skymap", "scripts", "plot_deflection_vs_energy_on_sky"
+                ),
+                "argv": [
+                    "--skymap_dir",
+                    os.path.join(work_dir, sk, pk),
+                    "--out_dir",
+                    out_dir,
+                    "--half_angle_deg",
+                    str(np.rad2deg(half_angle_rad)),
+                ],
+            }
+
+            result_path = os.path.join(out_dir, "{:s}_{:s}.jpg".format(sk, pk))
+            if not os.path.exists(result_path):
+                jobs.append(job)
+
+    return jobs

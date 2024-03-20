@@ -4,7 +4,7 @@ import subprocess
 
 
 def run_script_job(job):
-    return _run_script(script=job["script"], argv=job["argv"])
+    return run_script(script=job["script"], argv=job["argv"])
 
 
 def run_script(script, argv):
@@ -12,7 +12,7 @@ def run_script(script, argv):
         script += ".py"
 
     script_path = os.path.join(
-        importlib_resources.files("magnetic_deflection"), "scripts", script
+        importlib_resources.files("magnetic_deflection"), script
     )
 
     args = []
