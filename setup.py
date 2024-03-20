@@ -29,7 +29,10 @@ setuptools.setup(
         "magnetic_deflection.skymap",
     ],
     package_data={
-        "magnetic_deflection": [os.path.join("scripts", "*.py")],
+        "magnetic_deflection": [
+            os.path.join("allsky", "scripts", "*.py"),
+            os.path.join("skymap", "scripts", "*.py"),
+        ],
     },
     install_requires=[
         "spherical_coordinates>=0.1.2",
