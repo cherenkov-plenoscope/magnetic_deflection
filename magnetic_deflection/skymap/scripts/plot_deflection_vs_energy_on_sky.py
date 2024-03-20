@@ -79,16 +79,6 @@ cmap_ax.set_xlabel("energy" + PLT["label_unit_seperator"] + "GeV")
 cmap_fig.savefig(os.path.join(out_dir, "energy_colorbar.jpg"))
 sebplt.close(cmap_fig)
 
-"""
-energy_bin = binning_utils.Binning(
-    bin_edges=binning_utils.power.space(
-        start=EE["energy_start_GeV"],
-        stop=EE["energy_stop_GeV"],
-        power_slope=-1.5,
-        size=NUM_ENERGY_BINS + 1,
-    )
-)
-"""
 SITES, PARTICLES = mdfl.site_particle_organizer.find_site_and_particle_keys(
     work_dir=work_dir
 )
