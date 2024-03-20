@@ -27,6 +27,7 @@ setuptools.setup(
         "magnetic_deflection.allsky.store",
         "magnetic_deflection.cherenkov_pool",
         "magnetic_deflection.skymap",
+        "magnetic_deflection.utils",
     ],
     package_data={
         "magnetic_deflection": [
