@@ -339,6 +339,13 @@ def run_plot(work_dir, pool):
         out_dir=os.path.join(plots_dir, "deflection_vs_energy_on_sky"),
         half_angle_rad=np.deg2rad(15),
     )
+    jobs += _plot_primary_deflection_make_jobs(
+        work_dir=work_dir,
+        out_dir=os.path.join(plots_dir, "primary_deflection"),
+        azimuth_rad=np.deg2rad(120),
+        zenith_rad=np.deg2rad(25),
+        half_angle_rad=np.deg2rad(3.25),
+    )
     pool.map(utils.scripts.run_script_job, jobs)
 
 
@@ -365,6 +372,40 @@ def _plot_deflection_vs_energy_on_sky_make_jobs(
             }
 
             result_path = os.path.join(out_dir, "{:s}_{:s}.jpg".format(sk, pk))
+            if not os.path.exists(result_path):
+                jobs.append(job)
+
+    return jobs
+
+
+def _plot_primary_deflection_make_jobs(
+    work_dir, out_dir, azimuth_rad, zenith_rad, half_angle_rad
+):
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+
+    jobs = []
+    for sk in site_keys:
+        for pk in particle_keys:
+            job = {
+                "script": os.path.join(
+                    "skymap", "scripts", "plot_primary_deflection"
+                ),
+                "argv": [
+                    "--skymap_dir",
+                    os.path.join(work_dir, sk, pk),
+                    "--out_dir",
+                    out_dir,
+                    "--azimuth_deg",
+                    str(np.rad2deg(azimuth_rad)),
+                    "--zenith_deg",
+                    str(np.rad2deg(zenith_rad)),
+                    "--half_angle_deg",
+                    str(np.rad2deg(half_angle_rad)),
+                ],
+            }
+            result_path = os.path.join(
+                out_dir, "{:s}_{:s}_wide.jpg".format(sk, pk)
+            )
             if not os.path.exists(result_path):
                 jobs.append(job)
 

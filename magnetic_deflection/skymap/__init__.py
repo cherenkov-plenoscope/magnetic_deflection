@@ -644,9 +644,10 @@ class SkyMap:
 
         return result, debug
 
-    def read_reports(self, mask_function=None):
+    def read_reports(self, dtype=None, mask_function=None):
         return cherenkov_pool.reports.read(
             path=os.path.join(self.work_dir, "results", "reports.tar"),
+            dtype=dtype,
             mask_function=mask_function,
         )
 
