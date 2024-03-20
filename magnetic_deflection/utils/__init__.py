@@ -1,3 +1,5 @@
+from . import scripts
+
 import atmospheric_cherenkov_response
 import os
 import glob
