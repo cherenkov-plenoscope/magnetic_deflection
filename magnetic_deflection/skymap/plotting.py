@@ -236,6 +236,13 @@ def plot_query(
     axe = svgplt.Ax(fig=fig)
     axe["span"] = (0.85, 0.1, 0.05, 0.8)
 
+    ax_add_background_sky(
+        ax=ax,
+        fill=svgplt.color.css("black"),
+        fill_opacity=1.0,
+        stroke=None,
+    )
+
     ax_add_sky(
         ax=ax,
         sky_vertices=skymap.binning["sky"].vertices,
