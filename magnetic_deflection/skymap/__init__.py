@@ -4,6 +4,7 @@ from .. import allsky
 from .. import cherenkov_pool
 from . import plotting
 from . import querying
+from . import testing
 
 import io
 import os
