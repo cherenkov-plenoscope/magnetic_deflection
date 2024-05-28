@@ -559,6 +559,7 @@ class SkyMap:
             the drawing algorithm.
         """
         debug = {}
+        debug["method"] = "magnetic_deflection_skymap"
         debug["work_dir"] = copy.copy(self.work_dir)
         debug["versions"] = copy.deepcopy(self.versions)
         debug["parameters"] = {
@@ -635,9 +636,10 @@ class SkyMap:
                 self.binning["sky"].faces_solid_angles[debug["sky_draw_mask"]]
             )
         else:
-            # Can not give any educated guess
-            # -------------------------------
+            # Can not give any educated guess, draw from full sky
+            # ---------------------------------------------------
             result["cutoff"] = True
+            result.update(draw_particle_from_full_sky(prng=prng))
 
         return result, debug
 
@@ -647,6 +649,28 @@ class SkyMap:
             dtype=dtype,
             mask_function=mask_function,
         )
+
+
+def draw_particle_from_full_sky(prng):
+    MAX_ZD_RAD = corsika_primary.MAX_ZENITH_DISTANCE_RAD
+
+    result = {}
+    (
+        result["particle_azimuth_rad"],
+        result["particle_zenith_rad"],
+    ) = corsika_primary.random.distributions.draw_azimuth_zenith_in_viewcone(
+        prng=prng,
+        azimuth_rad=0.0,
+        zenith_rad=0.0,
+        min_scatter_opening_angle_rad=0.0,
+        max_scatter_opening_angle_rad=MAX_ZD_RAD,
+        max_zenith_rad=MAX_ZD_RAD,
+        max_iterations=1000 * 1000,
+    )
+    result["solid_angle_thrown_sr"] = solid_angle_utils.cone.solid_angle(
+        half_angle_rad=MAX_ZD_RAD
+    )
+    return result
 
 
 def draw_face_from_mask(prng, faces_mask, faces_solid_angles):
