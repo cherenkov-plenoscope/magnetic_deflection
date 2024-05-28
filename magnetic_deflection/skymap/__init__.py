@@ -176,10 +176,6 @@ class SkyMap:
             "work_dir": _read_versions(path=opj(work_dir, "versions.json")),
             "instance": _gather_versions_now(),
         }
-        if not _versions_equal(
-            self.versions["instance"], self.versions["work_dir"]
-        ):
-            print("SkyMap {:s} has a different version.".format(self.work_dir))
 
         # read
         # ----
