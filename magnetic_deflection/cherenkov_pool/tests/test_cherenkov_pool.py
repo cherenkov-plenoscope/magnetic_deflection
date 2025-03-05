@@ -57,9 +57,9 @@ def test_radius_wrt_center():
 
     num_showers = 50
     for cc in range(num_showers):
-        core_x = prng.uniform(low=-10, high=10, size=1)
-        core_y = prng.uniform(low=-10, high=10, size=1)
-        num_photons = int(prng.uniform(low=5e3, high=5e4, size=1))
+        core_x = prng.uniform(low=-10, high=10, size=1)[0]
+        core_y = prng.uniform(low=-10, high=10, size=1)[0]
+        num_photons = int(prng.uniform(low=5e3, high=5e4, size=1)[0])
 
         lf, truth = mdfl.cherenkov_pool.testing.draw_xy_in_disc(
             prng=prng,
@@ -95,7 +95,7 @@ def test_make_cos_theta_wrt_center_direction():
         prm_pointing = mdfl.cherenkov_pool.testing.draw_direction(
             prng=prng, max_zenith_distance=np.deg2rad(70)
         )
-        num_photons = int(prng.uniform(low=5e3, high=5e4, size=1))
+        num_photons = int(prng.uniform(low=5e3, high=5e4, size=1)[0])
 
         lf, truth = mdfl.cherenkov_pool.testing.draw_cxcy_in_cone(
             prng=prng,
