@@ -417,9 +417,9 @@ class SkyMap:
                         call["query"] = queries[i]
                         call["map_key"] = map_key
                         call["path"] = imgpath
-                        call[
-                            "threshold_cherenkov_density_per_sr"
-                        ] = threshold_cherenkov_density_per_sr
+                        call["threshold_cherenkov_density_per_sr"] = (
+                            threshold_cherenkov_density_per_sr
+                        )
                         call["solid_angle_sr"] = solid_angle_sr
                         job["calls"].append(call)
             jobs.append(job)
@@ -585,12 +585,12 @@ class SkyMap:
             query=query
         )
 
-        debug[
-            "sky_target_mask"
-        ] = binning_utils.mask_fullest_bins_to_cover_aperture(
-            bin_counts=debug["sky_cherenkov_per_sr"],
-            bin_apertures=self.binning["sky"].faces_solid_angles,
-            aperture=solid_angle_sr,
+        debug["sky_target_mask"] = (
+            binning_utils.mask_fullest_bins_to_cover_aperture(
+                bin_counts=debug["sky_cherenkov_per_sr"],
+                bin_apertures=self.binning["sky"].faces_solid_angles,
+                aperture=solid_angle_sr,
+            )
         )
 
         debug["sky_above_threshold_mask"] = (
@@ -604,11 +604,11 @@ class SkyMap:
 
         # a little bit of dilation
         # ------------------------
-        debug[
-            "sky_draw_mask"
-        ] = spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
-            faces_mask=debug["sky_target_and_above_threshold_mask"],
-            faces_neighbors=self.binning["sky"].faces_neighbors,
+        debug["sky_draw_mask"] = (
+            spherical_histogram.mesh.fill_faces_mask_if_two_neighbors_true(
+                faces_mask=debug["sky_target_and_above_threshold_mask"],
+                faces_neighbors=self.binning["sky"].faces_neighbors,
+            )
         )
 
         result = {}

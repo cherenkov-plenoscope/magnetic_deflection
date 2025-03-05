@@ -298,9 +298,9 @@ def demonstrate_query(
                     prng=prng,
                     allsky_deflection=allsky_deflection,
                 )
-                request[
-                    "cherenkov_field_of_view_half_angle_rad"
-                ] = cherenkov_field_of_view_half_angle_rad
+                request["cherenkov_field_of_view_half_angle_rad"] = (
+                    cherenkov_field_of_view_half_angle_rad
+                )
 
                 request_path = os.path.join(
                     out_sk_pk_dir, qkey + "_request.json"

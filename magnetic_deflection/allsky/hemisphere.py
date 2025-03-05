@@ -335,9 +335,9 @@ def make_merlict_scenery_py(vertices, faces):
     scenery_py["geometry"]["objects"]["hemisphere"] = make_hemisphere_obj(
         vertices=vertices, faces=faces, mtlkey="sky"
     )
-    scenery_py["materials"]["surfaces"][
-        "perfect_absorber"
-    ] = merlict.materials.surfaces.init(key="perfect_absorber")
+    scenery_py["materials"]["surfaces"]["perfect_absorber"] = (
+        merlict.materials.surfaces.init(key="perfect_absorber")
+    )
 
     scenery_py["geometry"]["relations"]["children"].append(
         {
