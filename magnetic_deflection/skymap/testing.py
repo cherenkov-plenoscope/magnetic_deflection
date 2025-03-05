@@ -25,6 +25,10 @@ class SkyMapDummy:
             "num_bins": 10,
         }
 
+        self.binning = {
+            "energy": {"stop": self.config["binning"]["energy"]["stop"]}
+        }
+
     def draw(
         self,
         azimuth_rad,
