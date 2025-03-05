@@ -116,7 +116,7 @@ class MaskPrimaryInCone:
 
 
 def recarray_init(dtype, size):
-    return np.core.records.recarray(
+    return np.recarray(
         shape=size,
         dtype=dtype,
     )

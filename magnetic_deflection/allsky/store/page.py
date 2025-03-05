@@ -52,14 +52,14 @@ def num_records_in_file(path):
 
 
 def init(size=0):
-    return np.core.records.recarray(
+    return np.recarray(
         shape=size,
         dtype=dtype(),
     )
 
 
 def size_of_record_in_bytes():
-    rr = np.core.records.recarray(
+    rr = np.recarray(
         shape=1,
         dtype=dtype(),
     )

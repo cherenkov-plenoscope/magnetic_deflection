@@ -277,7 +277,7 @@ class Store:
 
 
 def recarray_keep_only(rec, dtype):
-    out = np.core.records.recarray(
+    out = np.recarray(
         shape=len(rec),
         dtype=dtype,
     )
