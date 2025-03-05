@@ -91,7 +91,7 @@ def estimate_num_bins_to_contain_quantile(
         of the bins (related to num_bins) is returned, too.
     """
     assert 0.0 <= q <= 1.0
-    counts = np.asarray(counts)
+    counts = np.asarray(counts, dtype=int)
     assert np.all(counts >= 0)
 
     if bin_apertures is None:
