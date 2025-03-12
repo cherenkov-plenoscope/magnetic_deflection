@@ -611,6 +611,13 @@ class SkyMap:
             )
         )
 
+        # estimate the cherenkov percentile vs. the solid angle
+        # -----------------------------------------------------
+        debug["sky_draw_quantile"] = estimate_sky_draw_quantile(
+            sky_cherenkov_per_sr=debug["sky_cherenkov_per_sr"],
+            sky_draw_mask=debug["sky_draw_mask"],
+        )
+
         result = {}
         if np.sum(debug["sky_draw_mask"]) > 0:
             # Limit the solid angle to the most likely part of the sky
@@ -922,3 +929,35 @@ def _run_job_plot_query_ball(job):
             )
 
     return True
+
+
+def estimate_sky_cherenkov_quantile_vs_solid_angle(
+    sky_cherenkov_per_sr,
+    sky_faces_solid_angles_sr,
+):
+    args_descending = np.argsort((-1) * sky_cherenkov_per_sr)
+
+    total_cherenkov_per_sr = np.sum(sky_cherenkov_per_sr)
+
+    quantile = (
+        np.cumsum(sky_cherenkov_per_sr[args_descending])
+        / total_cherenkov_per_sr
+    )
+    quantile_solid_angle_sr = np.cumsum(
+        sky_faces_solid_angles_sr[args_descending]
+    )
+
+    return quantile, quantile_solid_angle_sr
+
+
+def estimate_sky_draw_quantile(
+    sky_cherenkov_per_sr,
+    sky_draw_mask,
+):
+    total_cherenkov_per_sr = np.sum(sky_cherenkov_per_sr)
+    draw_cherenkov_per_sr = np.sum(sky_cherenkov_per_sr[sky_draw_mask])
+
+    if total_cherenkov_per_sr == 0.0:
+        return float("nan")
+    else:
+        return draw_cherenkov_per_sr / total_cherenkov_per_sr
