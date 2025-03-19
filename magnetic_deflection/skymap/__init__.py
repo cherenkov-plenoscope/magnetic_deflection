@@ -939,15 +939,19 @@ def estimate_sky_cherenkov_quantile_vs_solid_angle(
 
     total_cherenkov_per_sr = np.sum(sky_cherenkov_per_sr)
 
-    quantile = (
-        np.cumsum(sky_cherenkov_per_sr[args_descending])
-        / total_cherenkov_per_sr
-    )
-    quantile_solid_angle_sr = np.cumsum(
-        sky_faces_solid_angles_sr[args_descending]
-    )
+    if total_cherenkov_per_sr == 0.0:
+        nans = float("nan") * np.ones(shape=len(sky_cherenkov_per_sr))
+        return nans, np.cumsum(sky_faces_solid_angles_sr)
+    else:
+        quantile = (
+            np.cumsum(sky_cherenkov_per_sr[args_descending])
+            / total_cherenkov_per_sr
+        )
+        quantile_solid_angle_sr = np.cumsum(
+            sky_faces_solid_angles_sr[args_descending]
+        )
 
-    return quantile, quantile_solid_angle_sr
+        return quantile, quantile_solid_angle_sr
 
 
 def estimate_sky_draw_quantile(
