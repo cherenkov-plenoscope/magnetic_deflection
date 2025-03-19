@@ -335,6 +335,7 @@ def run_plot(work_dir, pool):
     az = np.deg2rad(120)
     zd = np.deg2rad(25)
     ha = np.deg2rad(3.25)
+    max_zenith_rad = np.deg2rad(45)
 
     plots_dir = os.path.join(work_dir, "plot")
     jobs = []
@@ -356,6 +357,12 @@ def run_plot(work_dir, pool):
         azimuth_rad=az,
         zenith_rad=zd,
         half_angle_rad=5 * ha,
+    )
+    jobs += _plot_particle_containment_quantile(
+        work_dir=work_dir,
+        out_dir=os.path.join(plots_dir, "particle_containment_quantile"),
+        max_zenith_rad=max_zenith_rad,
+        half_angle_rad=ha,
     )
     pool.map(utils.scripts.run_script_job, jobs)
 
@@ -455,5 +462,44 @@ def _plot_cherenkov_pool_statistics_make_jobs(
         )
         if not os.path.exists(result_path):
             jobs.append(job)
+
+    return jobs
+
+
+def _plot_particle_containment_quantile(
+    work_dir,
+    out_dir,
+    max_zenith_rad,
+    half_angle_rad,
+):
+    site_keys, particle_keys = find_site_and_particle_keys(work_dir=work_dir)
+
+    jobs = []
+    for sk in site_keys:
+        for pk in particle_keys:
+            job_result_path = os.path.join(
+                out_dir, f"{sk:s}_{pk:s}_containment_vs_solid_angle.jpg"
+            )
+            job = {
+                "script": os.path.join(
+                    "skymap", "scripts", "plot_particle_containment_quantile"
+                ),
+                "argv": [
+                    "--skymap_dir",
+                    os.path.join(
+                        work_dir,
+                        sk,
+                        pk,
+                    ),
+                    "--out_dir",
+                    out_dir,
+                    "--max_zenith_deg",
+                    str(np.rad2deg(max_zenith_rad)),
+                    "--half_angle_deg",
+                    str(np.rad2deg(half_angle_rad)),
+                ],
+            }
+            if not os.path.exists(job_result_path):
+                jobs.append(job)
 
     return jobs
