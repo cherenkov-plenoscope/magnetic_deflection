@@ -478,7 +478,8 @@ def _plot_particle_containment_quantile(
     for sk in site_keys:
         for pk in particle_keys:
             job_result_path = os.path.join(
-                out_dir, f"{sk:s}_{pk:s}_containment_vs_solid_angle.jpg"
+                out_dir,
+                f"{sk:s}_{pk:s}_containment_vs_solid_angle_contour.jpg",
             )
             job = {
                 "script": os.path.join(

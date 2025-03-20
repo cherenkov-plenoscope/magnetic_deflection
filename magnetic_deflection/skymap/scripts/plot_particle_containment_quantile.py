@@ -72,8 +72,8 @@ sky_faces_solid_angles_sr = skymap.binning["sky"].faces_solid_angles
 
 common_solid_angle_bin = binning_utils.Binning(
     bin_edges=np.geomspace(
-        start=solid_angle_utils.cone.solid_angle(half_angle_rad=np.deg2rad(1)),
-        stop=solid_angle_utils.cone.solid_angle(half_angle_rad=np.deg2rad(90)),
+        start=np.median(skymap.binning["sky"].faces_solid_angles),
+        stop=np.sum(skymap.binning["sky"].faces_solid_angles),
         num=NUM_SOLID_ANGLE_BINS + 1,
     ),
     weight_lower_edge=0.5,
@@ -149,23 +149,47 @@ cmap = plenoirf.summary.figure.make_particle_colormaps(
     particle_colors=plenoirf.summary.figure.PARTICLE_COLORS
 )
 
-fig = sebplt.figure({"rows": 720, "cols": 1280, "fontsize": 1})
-ax_c = sebplt.add_axes(fig=fig, span=[0.15, 0.15, 0.8, 0.8])
-_pcm_confusion = ax_c.contour(
-    energy_bin["centers"],
-    common_solid_angle_bin["centers"],
-    np.transpose(rrr["p50"]),
-    cmap=cmap[pk],
-    norm=sebplt.plt_colors.PowerNorm(gamma=0.5),
-)
-ax_c.set_xlim([0.1, 100])
-ax_c.set_ylim([1e-2, 2 * np.pi])
-ax_c.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
-ax_c.clabel(_pcm_confusion, fontsize=10)
-ax_c.set_xlabel("energy / GeV")
-ax_c.set_ylabel("solid angle / sr")
-ax_c.loglog()
-fig.savefig(
-    os.path.join(out_dir, f"{sk:s}_{pk:s}_containment_vs_solid_angle.jpg")
-)
-sebplt.close(fig)
+PLOT_METHOD = {"pcolormesh": 1, "contour": 2}
+
+for plot_method in PLOT_METHOD:
+    fig = sebplt.figure({"rows": 720, "cols": 1280, "fontsize": 1})
+    ax_c = sebplt.add_axes(fig=fig, span=[0.15, 0.15, 0.8, 0.8])
+    sebplt.ax_add_box(
+        ax=ax_c,
+        xlim=energy_bin["limits"],
+        ylim=common_solid_angle_bin["limits"],
+        color="grey",
+        linewidth=0.5,
+        linestyle="--",
+    )
+    if plot_method == "contour":
+        _pcm_confusion = ax_c.contour(
+            energy_bin["centers"],
+            common_solid_angle_bin["centers"],
+            np.transpose(rrr["p50"]),
+            cmap=cmap[pk],
+            norm=sebplt.plt_colors.PowerNorm(gamma=0.5),
+        )
+        ax_c.clabel(_pcm_confusion, fontsize=5)
+    elif plot_method == "pcolormesh":
+        _pcm_confusion = ax_c.pcolormesh(
+            energy_bin["centers"],
+            common_solid_angle_bin["centers"],
+            np.transpose(rrr["p50"]),
+            cmap=cmap[pk],
+            norm=sebplt.plt_colors.PowerNorm(gamma=0.5),
+        )
+    ax_c.set_xlim([0.1, 100])
+    ax_c.set_ylim([1e-3, 2 * np.pi])
+    ax_c.grid(color="k", linestyle="-", linewidth=0.66, alpha=0.1)
+    ax_c.set_xlabel("energy / GeV")
+    ax_c.set_ylabel("solid angle / sr")
+    ax_c.loglog()
+
+    fig.savefig(
+        os.path.join(
+            out_dir,
+            f"{sk:s}_{pk:s}_containment_vs_solid_angle_{plot_method:s}.jpg",
+        )
+    )
+    sebplt.close(fig)
