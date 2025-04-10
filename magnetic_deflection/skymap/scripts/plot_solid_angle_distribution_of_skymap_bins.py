@@ -55,14 +55,16 @@ sa_bin = binning_utils.Binning(
 
 bin_counts = np.histogram(skymap_faces_solid_angles, bins=sa_bin["edges"])[0]
 
-FIGSIZE = {"rows": 720, "cols": 1280, "fontsize": 1.25}
+FIGSIZE = {"rows": 640, "cols": 1280, "fontsize": 1.25}
 fig = sebplt.figure(FIGSIZE)
-ax = sebplt.add_axes(fig=fig, span=(0.175, 0.45, 0.8, 0.5))
+ax = sebplt.add_axes(fig=fig, span=(0.15, 0.25, 0.8, 0.5))
 axSqDeg = sebplt.add_axes(
     fig=fig,
-    span=(0.175, 0.2, 0.8, 0.05),
+    span=(0.15, 0.75, 0.8, 0.0),
     style={"spines": ["bottom"], "axes": ["x"], "grid": False},
 )
+axSqDeg.xaxis.set_label_position("top")
+axSqDeg.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
 axSqDeg.set_xlim(sau.sr2squaredeg(sa_bin["limits"]))
 axSqDeg.set_xlabel("solid angle / ($1^{\circ{}})^2$")
 
@@ -85,6 +87,15 @@ ax.set_xlim(1e3 * sa_bin["limits"])
 fig.savefig(os.path.join(out_dir, "skymap_faces_solid_angles.jpg"))
 sebplt.close(fig)
 
+
+msr = skymap_faces_solid_angles * 1e3
+sdq = sau.sr2squaredeg(skymap_faces_solid_angles)
+pss = f"faces solid angles: {np.mean(msr):.1f} +- {np.std(msr):.1f} msr"
+pss += f", {np.mean(sdq):.1f} +- {np.std(sdq):.1f} (1deg)^2"
+pss += f", portal fov {3.25 ** 2 * np.pi:.1f} (1deg)^2"
+
+
+print(pss)
 
 # 3D
 import mpl_toolkits.mplot3d
