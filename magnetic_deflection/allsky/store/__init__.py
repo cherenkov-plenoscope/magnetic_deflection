@@ -168,7 +168,7 @@ class Store:
                 _dyn = dynamicsizerecarray.DynamicSizeRecarray(
                     dtype=page.dtype()
                 )
-                _dyn.append_records(staged_records)
+                _dyn.append(staged_records)
                 staged_showers = _dyn.to_recarray()
 
                 stage_path = os.path.join(
@@ -306,14 +306,14 @@ def _run_commit_bin_stage(store_dir, dir_ene_bin, key):
 
     for staged_showers_path in staged_showers_paths:
         additional_showers = page.read(path=staged_showers_path)
-        all_showers_dyn.append_recarray(additional_showers)
+        all_showers_dyn.append(additional_showers)
         os.remove(staged_showers_path)
 
     num_showers_in_stage = int(len(all_showers_dyn))
 
     if os.path.exists(existing_showers_path):
         existing_showers = page.read(path=existing_showers_path)
-        all_showers_dyn.append_recarray(existing_showers)
+        all_showers_dyn.append(existing_showers)
 
     all_showers = all_showers_dyn.to_recarray()
     page.write(path=existing_showers_path, page=all_showers)

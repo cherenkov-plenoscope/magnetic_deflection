@@ -72,7 +72,7 @@ def read(path, dtype=None, mask_function=None):
                 name = key[0]
                 reports_block_out[name] = reports_block[name]
 
-            out.append_recarray(reports_block_out)
+            out.append(reports_block_out)
 
     return out.to_recarray()
 

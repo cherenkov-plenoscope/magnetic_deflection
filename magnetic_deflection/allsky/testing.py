@@ -167,7 +167,7 @@ class AllSkyDummy:
             )
 
             if prm_zd < corsika_primary.MAX_ZENITH_DISTANCE_RAD:
-                matches.append_record(rec)
+                matches.append(rec)
 
                 ene_weight = utils.gauss1d(
                     x=rec["particle_energy_GeV"],

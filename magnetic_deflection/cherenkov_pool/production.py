@@ -262,5 +262,5 @@ def histogram_cherenkov_pool(
                 )
                 report.update(cermap_report)
 
-                reports.append_record(report)
+                reports.append(report)
         return reports.to_recarray(), cerskymap
