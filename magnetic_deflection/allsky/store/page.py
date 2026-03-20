@@ -41,7 +41,7 @@ def write(path, page):
 
 def read(path):
     with open(path, "rb") as f:
-        page = np.fromstring(f.read(), dtype=dtype())
+        page = np.frombuffer(f.read(), dtype=dtype())
     return page
 
 
